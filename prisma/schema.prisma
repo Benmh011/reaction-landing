@@ -1,0 +1,114 @@
+// Prisma schema for Reaction
+// Run `npx prisma db push` to sync the schema to your Postgres database.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─────────────── DEMO REQUESTS ───────────────
+// Captures everyone who fills the "Register interest" form on /demo.
+// Status moves: PENDING (just submitted) → APPROVED (admin granted access,
+// user account created and magic-link sent) or REJECTED.
+model DemoRequest {
+  id           String          @id @default(cuid())
+  createdAt    DateTime        @default(now())
+  email        String
+  name         String
+  organisation String
+  role         String?
+  message      String?
+  status       DemoRequestStatus @default(PENDING)
+  reviewedAt   DateTime?
+  reviewedBy   String?
+  notes        String?
+
+  // Once approved, link to the User that was created so we can
+  // jump from request → portal user in the admin panel.
+  approvedUser   User?   @relation(fields: [approvedUserId], references: [id])
+  approvedUserId String? @unique
+
+  @@index([status, createdAt])
+}
+
+enum DemoRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ─────────────── AUTH.JS MODELS ───────────────
+// Standard Auth.js Prisma adapter schema, with extra fields for our portal.
+// See https://authjs.dev/getting-started/adapters/prisma for the canonical version.
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  emailVerified DateTime?
+  image         String?
+
+  // Optional bcrypt password hash for fallback login
+  passwordHash  String?
+
+  // Role determines access — CLIENT users see /portal, ADMIN sees everything.
+  role          UserRole  @default(CLIENT)
+
+  // Bespoke-version pointer: which build of the React app this client should
+  // see when they hit /portal. Refers to a folder name under /public/demos/
+  // that the admin sets when approving the user. Null until configured.
+  demoVersion   String?
+  organisation  String?
+
+  accounts      Account[]
+  sessions      Session[]
+  demoRequest   DemoRequest?
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+enum UserRole {
+  CLIENT
+  ADMIN
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Magic-link tokens stored here by Auth.js when sending email-verification login
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
