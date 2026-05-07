@@ -98,7 +98,7 @@ export async function GET(
     ? "no-store, no-cache, must-revalidate"
     : "public, max-age=31536000, immutable";
 
-  return new NextResponse(buffer, {
+  return new NextResponse(new Uint8Array(buffer), {
     status: 200,
     headers: {
       "Content-Type": contentType,
