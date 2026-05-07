@@ -4,11 +4,12 @@ import SignInForm from "./SignInForm";
 
 export const metadata = { title: "Sign in · Reaction" };
 
-export default function SignInPage({
+export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: { callbackUrl?: string; error?: string };
+  searchParams: Promise<{ callbackUrl?: string; error?: string }>;
 }) {
+  const params = await searchParams;
   return (
     <>
       <SiteNav rightAction={{ label: "Home", href: "/" }} />
@@ -23,7 +24,7 @@ export default function SignInPage({
           </p>
 
           <div className="panel">
-            <SignInForm callbackUrl={searchParams.callbackUrl} initialError={searchParams.error} />
+            <SignInForm callbackUrl={params.callbackUrl} initialError={params.error} />
           </div>
 
           <p style={{ textAlign: "center", marginTop: 32, fontSize: "0.9rem", color: "var(--text-muted)" }}>
