@@ -71,10 +71,13 @@ export default async function PortalPage() {
                 Your tailored Reaction preview is loaded and ready to explore. This build is configured for{" "}
                 {organisation || "your organisation"}.
               </p>
-              <a href={`/demos/${demoVersion}/`} className="btn btn-primary btn-large">
+              <a href={`/demo-app/${demoVersion}/`} className="btn btn-primary btn-large">
                 Launch demo
                 <span className="arrow" aria-hidden="true">→</span>
               </a>
+              <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", margin: "24px 0 0" }}>
+                Private to {organisation || "your organisation"} · only you and Reaction admins can access this preview.
+              </p>
             </div>
           ) : (
             <div className="panel" style={{ textAlign: "center", padding: 48 }}>

@@ -5,11 +5,12 @@ import path from "path";
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  // The site is served at /demos/exeter/ on reaction.org.uk
-  base: "/demos/exeter/",
+  // Production URL prefix — must match the gated route in the Next.js app: /demo-app/exeter/
+  base: "/demo-app/exeter/",
   build: {
-    // Output goes into the Next.js project's public folder so Vercel serves it
-    outDir: path.resolve(__dirname, "../../public/demos/exeter"),
+    // Output goes into private-demos/ (NOT public/) so Vercel doesn't auto-serve it.
+    // Files are read by the gated route handler at /demo-app/[slug]/[[...path]]/route.ts
+    outDir: path.resolve(__dirname, "../../private-demos/exeter"),
     emptyOutDir: true,
     sourcemap: false,
   },
