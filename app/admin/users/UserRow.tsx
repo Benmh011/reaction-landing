@@ -22,12 +22,13 @@ const TYPE_DISPLAY: Record<User["requestType"], { label: string; colour: string 
   OTHER:         { label: "Other",          colour: "#6b7280" },
 };
 
-export default function UserRow({ user }: { user: User }) {
+export default function UserRow({ user, isSelf = false }: { user: User; isSelf?: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [demoVersion, setDemoVersion] = useState(user.demoVersion ?? "");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
   const typeConfig = TYPE_DISPLAY[user.requestType] ?? TYPE_DISPLAY.OTHER;
@@ -56,6 +57,37 @@ export default function UserRow({ user }: { user: User }) {
       setMsg({ type: "err", text: "Network error" });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    // Two-step confirm: first explains, second is final
+    const userLabel = user.name ? `${user.name} (${user.email})` : user.email;
+    const confirmed = confirm(
+      `Delete ${userLabel}?\n\n` +
+        `This will:\n` +
+        `  • Permanently remove their account\n` +
+        `  • End any active sessions\n` +
+        `  • Unlink them from their original demo request\n\n` +
+        `This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        setMsg({ type: "err", text: j.error || "Delete failed" });
+        setDeleting(false);
+        return;
+      }
+      // Success — refresh the user list. The current row will vanish.
+      router.refresh();
+    } catch {
+      setMsg({ type: "err", text: "Network error" });
+      setDeleting(false);
     }
   };
 
@@ -89,6 +121,23 @@ export default function UserRow({ user }: { user: User }) {
                 }}
               >
                 {typeConfig.label}
+              </span>
+            )}
+            {isSelf && (
+              <span
+                className="mono"
+                style={{
+                  fontSize: "0.65rem",
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  color: "var(--text-muted)",
+                  padding: "3px 9px",
+                  borderRadius: 999,
+                  background: "var(--bg-surface)",
+                  border: "1px solid var(--rule)",
+                }}
+              >
+                You
               </span>
             )}
           </div>
@@ -150,9 +199,60 @@ export default function UserRow({ user }: { user: User }) {
             </div>
           )}
 
-          <button onClick={save} className="btn btn-primary" disabled={submitting}>
+          <button onClick={save} className="btn btn-primary" disabled={submitting || deleting}>
             {submitting ? "Saving…" : "Save changes"}
           </button>
+
+          {/* ───── DANGER ZONE ───── */}
+          {/* Only shown for non-self users. Self-protection guarded server-side too. */}
+          {!isSelf && (
+            <div
+              style={{
+                marginTop: 28,
+                paddingTop: 20,
+                borderTop: "1px solid color-mix(in srgb, var(--danger) 24%, transparent)",
+              }}
+            >
+              <div
+                className="mono"
+                style={{
+                  fontSize: "0.7rem",
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                  color: "var(--danger)",
+                  marginBottom: 8,
+                }}
+              >
+                Danger zone
+              </div>
+              <p style={{ fontSize: "0.85rem", color: "var(--text-soft)", margin: "0 0 12px", lineHeight: 1.5 }}>
+                Permanently remove this user. They lose access immediately. Their original demo
+                request stays in the system as a record but no longer links to a user.
+              </p>
+              <button
+                onClick={handleDelete}
+                disabled={submitting || deleting}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "8px 16px",
+                  borderRadius: 8,
+                  fontSize: "0.85rem",
+                  fontWeight: 500,
+                  cursor: deleting ? "not-allowed" : "pointer",
+                  background: deleting
+                    ? "color-mix(in srgb, var(--danger) 40%, transparent)"
+                    : "var(--danger)",
+                  color: "#fff",
+                  border: "none",
+                  transition: "background 0.15s ease",
+                }}
+              >
+                {deleting ? "Deleting…" : "Delete user"}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -1,104 +1,66 @@
-# Auth fix — deployment notes
+# Delete user feature
 
-Two changes in this bundle:
+Adds the ability to permanently delete users from the admin panel.
 
-## 1. One-click magic link on approval
-**File**: `app/api/admin/requests/[id]/approve/route.ts`
-
-Replaces the previous "click here to sign in" email (which dumped users on the
-sign-in form) with a real Auth.js magic-link flow. After admin approval, one
-email is sent containing a real one-time token that signs the user in directly
-when clicked.
-
-Implementation: uses `signIn("resend", { email, redirect: false, redirectTo: "/portal" })`
-which delegates email-sending to Auth.js's existing Resend provider config in
-`auth.ts`. The email template is whatever your `auth.ts`'s `sendVerificationRequest`
-produces.
-
-## 2. Admin → Dashboard navigation
-**File**: `components/AdminNav.tsx` (NEW)
-
-Small nav strip you mount at the top of each admin page. Provides:
-- Quick links between admin sections (Overview / Requests / Users)
-- A "View as user (Dashboard)" button that links to `/portal`
-
-**You need to add this to each admin page yourself.** I don't have visibility
-into your existing admin page files, so I can't edit them automatically. Do this:
-
-### app/admin/page.tsx (admin home)
-Add at the top of the JSX, just inside `<>`:
-```tsx
-import AdminNav from "@/components/AdminNav";
-
-// ... in the component
-return (
-  <>
-    <SiteNav signOutHref="/auth/signout" />
-    <AdminNav active="home" />
-    {/* ... rest of page */}
-  </>
-);
-```
-
-### app/admin/requests/page.tsx
-```tsx
-import AdminNav from "@/components/AdminNav";
-
-return (
-  <>
-    <SiteNav signOutHref="/auth/signout" />
-    <AdminNav active="requests" />
-    {/* ... rest of page */}
-  </>
-);
-```
-
-### app/admin/users/page.tsx
-```tsx
-import AdminNav from "@/components/AdminNav";
-
-return (
-  <>
-    <SiteNav signOutHref="/auth/signout" />
-    <AdminNav active="users" />
-    {/* ... rest of page */}
-  </>
-);
-```
-
-Save each file, push, deploy.
-
-## Deploy steps
+## What's in this bundle
 
 ```
+app/api/admin/users/[id]/route.ts    ← UPDATED (adds DELETE handler)
+app/admin/users/UserRow.tsx           ← UPDATED (adds Danger Zone)
+app/admin/users/page.tsx              ← UPDATED (passes isSelf flag)
+```
+
+## Safety rails (built in)
+
+- Cannot delete yourself (returns 400, prevents lockout)
+- Cannot delete the last admin (counts ADMIN role, refuses if 1)
+- Unlinks DemoRequest.approvedUserId before deletion (preserves audit trail)
+- Cascade deletes Account + Session via existing schema relations
+- Two-line confirm dialog showing user email + irreversibility warning
+- Server-side validation runs even if client-side is bypassed
+
+## Audit logging
+
+Each deletion writes a structured line to Vercel runtime logs:
+
+```
+[AUDIT] user_deleted id=cuid123 email=jane@example.com role=CLIENT 
+        deletedBy=info@reaction.org.uk at=2026-05-09T19:15:00Z
+```
+
+Searchable in the Vercel dashboard for ~30 days. No new database table.
+
+## Deploy
+
+```
+xcopy /E /Y "%USERPROFILE%\Downloads\delete-feature\*" "C:\Users\Rhys\Reaction\"
 cd C:\Users\Rhys\Reaction
 git add -A
-git commit -m "One-click magic link + admin Dashboard nav"
+git commit -m "Add user delete with safety rails"
 git push
 ```
 
-Vercel auto-deploys (~90 sec).
+Vercel auto-deploys ~90 sec.
 
-## Test the magic link flow
+## Test sequence
 
-1. In incognito, visit /demo and submit a fake request as Employer
-2. Sign in as admin in another tab — see request, approve
-3. Check the email inbox of the test address — ONE email should arrive
-4. Click the link in the email — should land directly at /portal, signed in
-5. No intermediate sign-in form
+1. /admin/users → find a non-admin test user (or create one via fake demo
+   request → approve)
+2. Click Edit on their row
+3. Scroll to "Danger zone" at the bottom of the edit panel
+4. Click "Delete user"
+5. Confirm the dialog
+6. Row vanishes from the list
 
-## Test the Dashboard button
+Edge cases to verify:
+- Find your own admin row → Edit → no Danger zone shown (isSelf prevents it)
+- Try the API directly: DELETE /api/admin/users/<your-own-id> while signed in →
+  400 error "You can't delete your own admin account"
+- If you only have one admin, attempting to delete it via the API should also
+  return 400
 
-1. As admin, visit /admin/requests
-2. Top of page should show: Overview · Requests · Users links plus "View as user" button
-3. Click "View as user" — lands at /portal showing the user-facing view
+## Roll back if needed
 
-## If something breaks
-
-The approve route is the most architecturally significant change. If the
-magic-link send silently fails (Auth.js v5 doesn't always throw), the admin's
-"approve" call still succeeds and the user record is created — you just need
-to nudge the user to /auth/signin to request a fresh link manually.
-
-Watch Vercel runtime logs after the first real approval to confirm the
-email is being sent. If not, the diagnostic info will be in the Auth.js logs.
+If anything goes wrong, the previous deployment in Vercel can be promoted to
+production. The DELETE endpoint can also be temporarily disabled by removing
+the export from the route file.
