@@ -2,11 +2,7 @@ import { useState } from "react";
 import { User, Calendar, MapPin, Trophy, ChevronDown, ArrowLeft, BarChart3, Users } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, AreaChart, Area } from "recharts";
 
-const CREST_SRC = "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
-  <rect width="100" height="100" rx="12" fill="#1e3a5f"/>
-  <text x="50" y="56" text-anchor="middle" fill="#c5a13b" font-size="28" font-weight="700" font-family="system-ui, sans-serif">UoE</text>
-  <text x="50" y="78" text-anchor="middle" fill="rgba(197,161,59,0.5)" font-size="9" font-weight="600" font-family="system-ui, sans-serif">click to upload</text>
-</svg>`);
+const CREST_SRC = import.meta.env.BASE_URL + 'crest.png';
 
 // ──── ACTIVITY CONFIG ────
 const CATEGORIES = {
@@ -1205,7 +1201,6 @@ const BulletinBoardApp = () => {
   const [viewingListing, setViewingListing] = useState(null);
   const [applyingTo, setApplyingTo] = useState(null);
   const [applications, setApplications] = useState({});
-  const [logoSrc, setLogoSrc] = useState(CREST_SRC);
   const [openFilter, setOpenFilter] = useState(null);
 
   // Attendance state: { [postId]: [name, name, ...] }
@@ -1641,10 +1636,9 @@ const BulletinBoardApp = () => {
           <div className="p-6">
             <div className="flex justify-between items-center flex-wrap gap-4">
               <div className="flex items-center gap-4">
-                <label className="w-14 h-14 flex-shrink-0 cursor-pointer">
-                  <img src={logoSrc} alt="Logo" className="w-14 h-14 object-contain rounded-lg" style={{ border: '2px solid rgba(197,161,59,0.6)' }} />
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) { const reader = new FileReader(); reader.onload = (ev) => setLogoSrc(ev.target.result); reader.readAsDataURL(file); }}} />
-                </label>
+                <a href={import.meta.env.BASE_URL} className="w-14 h-14 flex-shrink-0 block" aria-label="Back to home">
+                  <img src={CREST_SRC} alt="University crest" className="w-14 h-14 object-contain rounded-lg" />
+                </a>
                 <div>
                   <h1 className="text-2xl font-bold text-white tracking-tight" style={{ letterSpacing: '-0.02em' }}>Reaction</h1>
                   <p className="text-xs font-medium" style={{ color: '#c5a13b' }}>University of Plymouth Connect</p>
@@ -1809,17 +1803,9 @@ const BulletinBoardApp = () => {
           <div className="p-6">
             <div className="flex justify-between items-center flex-wrap gap-4">
               <div className="flex items-center gap-4">
-                <label className="w-14 h-14 flex-shrink-0 cursor-pointer">
-                  <img src={logoSrc} alt="Logo" className="w-14 h-14 object-contain rounded-lg" style={{ border: '2px solid rgba(197,161,59,0.6)' }} />
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      const reader = new FileReader();
-                      reader.onload = (ev) => setLogoSrc(ev.target.result);
-                      reader.readAsDataURL(file);
-                    }
-                  }} />
-                </label>
+                <a href={import.meta.env.BASE_URL} className="w-14 h-14 flex-shrink-0 block" aria-label="Back to home">
+                  <img src={CREST_SRC} alt="University crest" className="w-14 h-14 object-contain rounded-lg" />
+                </a>
                 <div>
                   <h1 className="text-2xl font-bold text-white tracking-tight cursor-pointer hover:opacity-80 transition-opacity" style={{ letterSpacing: '-0.02em' }} onClick={() => { setPage('home'); setActiveLandingSection(null); setSelectedCategory('all'); setSelectedCause('all'); setSelectedSector('all'); setSelectedPostedBy('all'); setSelectedSociety('all'); setSelectedActivity('all'); setSelectedLocation('all'); setSelectedDate('all'); setSelectedActivityType('all'); }}>Reaction</h1>
                   <p className="text-xs font-medium" style={{ color: '#c5a13b' }}>University of Plymouth Connect</p>
