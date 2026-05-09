@@ -23,6 +23,9 @@ model DemoRequest {
   organisation String
   role         String?
   message      String?
+  // What kind of organisation this person represents.
+  // Drives admin UX and which demo version gets defaulted on approval.
+  requestType  RequestType     @default(UNIVERSITY)
   status       DemoRequestStatus @default(PENDING)
   reviewedAt   DateTime?
   reviewedBy   String?
@@ -34,6 +37,7 @@ model DemoRequest {
   approvedUserId String? @unique
 
   @@index([status, createdAt])
+  @@index([requestType])
 }
 
 enum DemoRequestStatus {
@@ -42,9 +46,16 @@ enum DemoRequestStatus {
   REJECTED
 }
 
+enum RequestType {
+  UNIVERSITY
+  STUDENTS_UNION
+  EMPLOYER
+  CHARITY
+  OTHER
+}
+
 // ─────────────── AUTH.JS MODELS ───────────────
 // Standard Auth.js Prisma adapter schema, with extra fields for our portal.
-// See https://authjs.dev/getting-started/adapters/prisma for the canonical version.
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -55,11 +66,15 @@ model User {
   // Optional bcrypt password hash for fallback login
   passwordHash  String?
 
-  // Role determines access — CLIENT users see /portal, ADMIN sees everything.
+  // Role determines top-level access — CLIENT users see /portal, ADMIN sees everything.
   role          UserRole  @default(CLIENT)
 
+  // What kind of organisation this user represents (mirrored from DemoRequest)
+  // Useful for filtering /admin/users by audience type.
+  requestType   RequestType @default(UNIVERSITY)
+
   // Bespoke-version pointer: which build of the React app this client should
-  // see when they hit /portal. Refers to a folder name under /public/demos/
+  // see when they hit /portal. Refers to a folder name under /private-demos/
   // that the admin sets when approving the user. Null until configured.
   demoVersion   String?
   organisation  String?

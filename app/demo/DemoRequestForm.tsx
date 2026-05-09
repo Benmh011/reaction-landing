@@ -2,10 +2,61 @@
 
 import { useState } from "react";
 
+// Type → adaptive copy map. Drives form labels and placeholder text so the
+// person filling it in feels addressed appropriately. The values are sent
+// to the API as-is and stored on DemoRequest.requestType.
+const TYPE_OPTIONS = [
+  {
+    value: "UNIVERSITY",
+    label: "University",
+    orgPlaceholder: "e.g. University of Plymouth",
+    rolePlaceholder: "e.g. Head of Student Engagement · VP Education · Pro-Vice-Chancellor (Education)",
+    messageLabel: "What would you like to see in your preview?",
+    messagePlaceholder: "Anything specific to focus on — particular faculties, NSS or A&P alignment, integration questions.",
+  },
+  {
+    value: "STUDENTS_UNION",
+    label: "Students' Union",
+    orgPlaceholder: "e.g. UPSU · Exeter Students' Guild",
+    rolePlaceholder: "e.g. Sabbatical Officer · CEO · Head of Membership",
+    messageLabel: "What would you like to see in your preview?",
+    messagePlaceholder: "Anything specific — society engagement, volunteering coordination, employer connections.",
+  },
+  {
+    value: "EMPLOYER",
+    label: "Local employer / business",
+    orgPlaceholder: "e.g. Babcock International · Princess Yachts",
+    rolePlaceholder: "e.g. Talent Manager · Early Careers Lead · Head of HR",
+    messageLabel: "What kind of opportunities would you post?",
+    messagePlaceholder: "Internships, part-time roles, graduate schemes — and which universities you'd like to reach.",
+  },
+  {
+    value: "CHARITY",
+    label: "Charity / community group",
+    orgPlaceholder: "e.g. Argyle Community Trust · Shekinah Mission",
+    rolePlaceholder: "e.g. Volunteer Coordinator · Programme Manager",
+    messageLabel: "What kind of opportunities would you post?",
+    messagePlaceholder: "Volunteering needs, fundraising events, campaigns — and student capacity you're looking for.",
+  },
+  {
+    value: "OTHER",
+    label: "Other",
+    orgPlaceholder: "Your organisation name",
+    rolePlaceholder: "Your role",
+    messageLabel: "Tell us more about what you're hoping to see",
+    messagePlaceholder: "Anything you'd like us to know.",
+  },
+] as const;
+
+type TypeValue = (typeof TYPE_OPTIONS)[number]["value"];
+
 export default function DemoRequestForm() {
+  const [type, setType] = useState<TypeValue>("UNIVERSITY");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const config = TYPE_OPTIONS.find((t) => t.value === type)!;
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -19,6 +70,7 @@ export default function DemoRequestForm() {
       organisation: fd.get("organisation") as string,
       role: (fd.get("role") as string) || undefined,
       message: (fd.get("message") as string) || undefined,
+      requestType: type,
     };
 
     try {
@@ -85,6 +137,27 @@ export default function DemoRequestForm() {
 
   return (
     <form onSubmit={onSubmit} noValidate>
+      {/* Type selector — drives the rest of the form's adaptive copy */}
+      <div className="form-group">
+        <label className="form-label" htmlFor="requestType">
+          I represent a<span className="req">·</span>
+        </label>
+        <select
+          className="form-select"
+          id="requestType"
+          name="requestType"
+          value={type}
+          onChange={(e) => setType(e.target.value as TypeValue)}
+          required
+        >
+          {TYPE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div className="form-group">
         <label className="form-label" htmlFor="name">
           Your name<span className="req">·</span>
@@ -110,7 +183,7 @@ export default function DemoRequestForm() {
           type="text"
           required
           autoComplete="organization"
-          placeholder="University, students' union, or college name"
+          placeholder={config.orgPlaceholder}
         />
       </div>
 
@@ -124,19 +197,19 @@ export default function DemoRequestForm() {
           name="role"
           type="text"
           autoComplete="organization-title"
-          placeholder="e.g. VP Education · Head of Careers · Student Engagement Lead"
+          placeholder={config.rolePlaceholder}
         />
       </div>
 
       <div className="form-group">
         <label className="form-label" htmlFor="message">
-          What would you like to see?
+          {config.messageLabel}
         </label>
         <textarea
           className="form-textarea"
           id="message"
           name="message"
-          placeholder="Anything specific you'd like to focus on — particular use cases, integration questions, timeline."
+          placeholder={config.messagePlaceholder}
         />
       </div>
 

@@ -12,13 +12,26 @@ type Request = {
   role: string | null;
   message: string | null;
   status: "PENDING" | "APPROVED" | "REJECTED";
+  requestType: "UNIVERSITY" | "STUDENTS_UNION" | "EMPLOYER" | "CHARITY" | "OTHER";
   notes: string | null;
 };
 
+// Map of request type → display config (label, colour, default demoVersion).
+// The demoVersion default drives what the admin pre-fills in the approve flow,
+// so each type lands in the correct demo slug without manual entry.
+const TYPE_DISPLAY: Record<Request["requestType"], { label: string; colour: string; defaultSlug: string }> = {
+  UNIVERSITY:    { label: "University",    colour: "#0d9488", defaultSlug: "default" },  // teal
+  STUDENTS_UNION:{ label: "Students' Union",colour: "#7c3aed", defaultSlug: "default" }, // purple
+  EMPLOYER:      { label: "Employer",      colour: "#1e3a5f", defaultSlug: "employer" }, // navy
+  CHARITY:       { label: "Charity",       colour: "#be185d", defaultSlug: "employer" }, // rose
+  OTHER:         { label: "Other",         colour: "#6b7280", defaultSlug: "default" },  // grey
+};
+
 export default function RequestRow({ request }: { request: Request }) {
+  const typeConfig = TYPE_DISPLAY[request.requestType] ?? TYPE_DISPLAY.OTHER;
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [demoVersion, setDemoVersion] = useState("default");
+  const [demoVersion, setDemoVersion] = useState(typeConfig.defaultSlug);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
@@ -52,7 +65,7 @@ export default function RequestRow({ request }: { request: Request }) {
     }
   };
 
-  const badge =
+  const statusBadge =
     request.status === "PENDING" ? "badge-pending" : request.status === "APPROVED" ? "badge-approved" : "badge-rejected";
 
   return (
@@ -63,7 +76,26 @@ export default function RequestRow({ request }: { request: Request }) {
             <span style={{ fontFamily: "'Fraunces', Georgia, serif", fontWeight: 600, fontVariationSettings: '"opsz" 96', fontSize: "1.1rem", color: "var(--text)", letterSpacing: "-0.012em" }}>
               {request.organisation}
             </span>
-            <span className={`badge ${badge}`}>{request.status.toLowerCase()}</span>
+            {/* Type badge — colour-coded by org type so admins can scan a long list quickly */}
+            <span
+              className="mono"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                fontSize: "0.65rem",
+                fontWeight: 500,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                padding: "3px 9px",
+                borderRadius: 999,
+                color: typeConfig.colour,
+                border: `1px solid ${typeConfig.colour}40`,
+                background: `${typeConfig.colour}10`,
+              }}
+            >
+              {typeConfig.label}
+            </span>
+            <span className={`badge ${statusBadge}`}>{request.status.toLowerCase()}</span>
           </div>
           <div style={{ fontSize: "0.9rem", color: "var(--text-soft)", marginBottom: 4 }}>
             {request.name}
@@ -79,11 +111,9 @@ export default function RequestRow({ request }: { request: Request }) {
 
         <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
           {request.status === "PENDING" ? (
-            <>
-              <button onClick={() => setOpen(!open)} className="btn btn-ghost" disabled={submitting}>
-                {open ? "Cancel" : "Review"}
-              </button>
-            </>
+            <button onClick={() => setOpen(!open)} className="btn btn-ghost" disabled={submitting}>
+              {open ? "Cancel" : "Review"}
+            </button>
           ) : (
             <button onClick={() => setOpen(!open)} className="btn btn-ghost">
               {open ? "Close" : "Details"}
@@ -117,7 +147,7 @@ export default function RequestRow({ request }: { request: Request }) {
             <div style={{ marginTop: 16 }}>
               <div className="form-group">
                 <label className="form-label" htmlFor={`dv-${request.id}`}>
-                  Demo version (folder under /public/demos/)
+                  Demo version (folder under /private-demos/)
                 </label>
                 <input
                   id={`dv-${request.id}`}
@@ -125,9 +155,11 @@ export default function RequestRow({ request }: { request: Request }) {
                   type="text"
                   value={demoVersion}
                   onChange={(e) => setDemoVersion(e.target.value)}
-                  placeholder="default"
+                  placeholder={typeConfig.defaultSlug}
                 />
-                <p className="form-help">Leave as 'default' if no bespoke build yet — they'll see the placeholder portal.</p>
+                <p className="form-help">
+                  Defaulted to <span className="mono" style={{ color: "var(--reaction)" }}>{typeConfig.defaultSlug}</span> based on type. Change if needed (e.g. <span className="mono">exeter</span>, <span className="mono">plymouth</span>, <span className="mono">employer</span>).
+                </p>
               </div>
 
               {error && (
@@ -138,7 +170,7 @@ export default function RequestRow({ request }: { request: Request }) {
 
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <button
-                  onClick={() => act("approve", { demoVersion: demoVersion || "default" })}
+                  onClick={() => act("approve", { demoVersion: demoVersion || typeConfig.defaultSlug })}
                   className="btn btn-primary"
                   disabled={submitting}
                 >

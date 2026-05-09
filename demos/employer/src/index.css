@@ -1,0 +1,34 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: "Geist", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+#root {
+  isolation: isolate;
+}
+
+input,
+textarea,
+select,
+button {
+  font-family: inherit;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: #b91c1c !important;
+  box-shadow: 0 0 0 3px rgba(185, 28, 28, 0.15);
+}
+
+button {
+  font-family: inherit;
+}

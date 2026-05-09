@@ -9,7 +9,16 @@ const schema = z.object({
   organisation: z.string().min(2).max(200),
   role: z.string().max(120).optional(),
   message: z.string().max(2000).optional(),
+  requestType: z.enum(["UNIVERSITY", "STUDENTS_UNION", "EMPLOYER", "CHARITY", "OTHER"]).default("UNIVERSITY"),
 });
+
+const REQUEST_TYPE_LABELS: Record<string, string> = {
+  UNIVERSITY: "University",
+  STUDENTS_UNION: "Students' Union",
+  EMPLOYER: "Local employer / business",
+  CHARITY: "Charity / community group",
+  OTHER: "Other",
+};
 
 export async function POST(req: Request) {
   let body: unknown;
@@ -24,7 +33,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Please fill in all required fields correctly." }, { status: 400 });
   }
 
-  const { name, email, organisation, role, message } = parsed.data;
+  const { name, email, organisation, role, message, requestType } = parsed.data;
   const lowerEmail = email.toLowerCase();
 
   // Persist the request
@@ -35,8 +44,11 @@ export async function POST(req: Request) {
       organisation,
       role,
       message,
+      requestType,
     },
   });
+
+  const typeLabel = REQUEST_TYPE_LABELS[requestType] ?? requestType;
 
   // Notify admin via Resend (non-blocking — if it fails we still saved the request)
   try {
@@ -46,13 +58,14 @@ export async function POST(req: Request) {
         from: process.env.EMAIL_FROM,
         to: process.env.ADMIN_EMAIL,
         replyTo: lowerEmail,
-        subject: `New demo request — ${organisation}`,
+        subject: `New demo request — ${organisation} (${typeLabel})`,
         html: `
           <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;padding:32px;">
             <h2 style="font-style:italic;color:#b91c1c;margin:0 0 8px;">New demo request</h2>
             <p style="color:#756a5d;font-size:13px;margin:0 0 24px;">A new submission has been logged in the admin panel.</p>
             <table style="width:100%;border-collapse:collapse;font-family:'Helvetica Neue',Arial,sans-serif;font-size:14px;">
-              <tr><td style="padding:8px 0;color:#756a5d;width:140px;">Name</td><td style="padding:8px 0;color:#0a0908;font-weight:500;">${escapeHtml(name)}</td></tr>
+              <tr><td style="padding:8px 0;color:#756a5d;width:140px;">Type</td><td style="padding:8px 0;color:#0a0908;font-weight:500;">${escapeHtml(typeLabel)}</td></tr>
+              <tr><td style="padding:8px 0;color:#756a5d;">Name</td><td style="padding:8px 0;color:#0a0908;font-weight:500;">${escapeHtml(name)}</td></tr>
               <tr><td style="padding:8px 0;color:#756a5d;">Email</td><td style="padding:8px 0;color:#0a0908;font-weight:500;">${escapeHtml(lowerEmail)}</td></tr>
               <tr><td style="padding:8px 0;color:#756a5d;">Organisation</td><td style="padding:8px 0;color:#0a0908;font-weight:500;">${escapeHtml(organisation)}</td></tr>
               ${role ? `<tr><td style="padding:8px 0;color:#756a5d;">Role</td><td style="padding:8px 0;color:#0a0908;font-weight:500;">${escapeHtml(role)}</td></tr>` : ""}
@@ -65,7 +78,6 @@ export async function POST(req: Request) {
     }
   } catch (err) {
     console.error("Failed to send admin notification email:", err);
-    // Don't surface this to the user — the request itself is saved.
   }
 
   return NextResponse.json({ ok: true, requestId: request.id });

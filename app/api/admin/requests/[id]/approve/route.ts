@@ -32,13 +32,15 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
     return NextResponse.json({ error: "Request already processed" }, { status: 409 });
   }
 
-  // Create or upgrade the user account
+  // Create or upgrade the user account.
+  // requestType is mirrored from the request so admin/users can filter by audience type.
   const user = await prisma.user.upsert({
     where: { email: request.email },
     update: {
       name: request.name,
       organisation: request.organisation,
       demoVersion: parsed.data.demoVersion,
+      requestType: request.requestType,
       role: "CLIENT",
     },
     create: {
@@ -46,6 +48,7 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
       name: request.name,
       organisation: request.organisation,
       demoVersion: parsed.data.demoVersion,
+      requestType: request.requestType,
       role: "CLIENT",
     },
   });
@@ -61,20 +64,23 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
     },
   });
 
-  // Send the welcome email with sign-in link
+  // Send the welcome email with sign-in link.
+  // Slightly different copy for employers vs universities — we're addressing different audiences.
   let emailSent = false;
   try {
     if (process.env.RESEND_API_KEY && process.env.EMAIL_FROM) {
       const resend = new Resend(process.env.RESEND_API_KEY);
       const signinUrl = new URL("/auth/signin", process.env.AUTH_URL || "http://localhost:3000");
+      const isEmployer = request.requestType === "EMPLOYER" || request.requestType === "CHARITY";
       await resend.emails.send({
         from: process.env.EMAIL_FROM,
         to: request.email,
-        subject: `Your Reaction preview is ready`,
+        subject: isEmployer ? `Your Reaction employer preview is ready` : `Your Reaction preview is ready`,
         html: welcomeEmail({
           name: request.name,
           organisation: request.organisation,
           signinUrl: signinUrl.toString(),
+          isEmployer,
         }),
       });
       emailSent = true;
@@ -90,11 +96,21 @@ function welcomeEmail({
   name,
   organisation,
   signinUrl,
+  isEmployer,
 }: {
   name: string;
   organisation: string;
   signinUrl: string;
+  isEmployer: boolean;
 }) {
+  const intro = isEmployer
+    ? `Thanks for registering ${escapeHtml(organisation)} with <em style="color:#b91c1c;">Reaction</em>. We've set up an employer preview so you can see how local businesses post opportunities to students.`
+    : `Thanks for registering your interest in <em style="color:#b91c1c;">Reaction</em>. We've set up a preview for ${escapeHtml(organisation)}.`;
+
+  const detail = isEmployer
+    ? `Sign in below to take a look — you'll see what posting an internship, part-time role, or graduate scheme looks like, and how students discover what you put up.`
+    : `Sign in below to take a look — your account manager will be in touch shortly to schedule a guided walkthrough.`;
+
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8" /></head>
 <body style="margin:0;padding:48px 24px;background:#f4ede0;font-family:Georgia,serif;color:#0a0908;">
@@ -106,10 +122,10 @@ function welcomeEmail({
       Hi ${escapeHtml(name)},
     </p>
     <p style="font-size:16px;line-height:1.6;margin:0 0 20px;color:#3a342d;">
-      Thanks for registering your interest in <em style="color:#b91c1c;">Reaction</em>. We've set up a preview for ${escapeHtml(organisation)}.
+      ${intro}
     </p>
     <p style="font-size:16px;line-height:1.6;margin:0 0 32px;color:#3a342d;">
-      Sign in below to take a look — your account manager will be in touch shortly to schedule a guided walkthrough.
+      ${detail}
     </p>
 
     <div style="text-align:center;margin:36px 0;">

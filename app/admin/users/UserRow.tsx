@@ -9,8 +9,17 @@ type User = {
   name: string | null;
   organisation: string | null;
   role: "ADMIN" | "CLIENT";
+  requestType: "UNIVERSITY" | "STUDENTS_UNION" | "EMPLOYER" | "CHARITY" | "OTHER";
   demoVersion: string | null;
   createdAt: string;
+};
+
+const TYPE_DISPLAY: Record<User["requestType"], { label: string; colour: string }> = {
+  UNIVERSITY:    { label: "University",     colour: "#0d9488" },
+  STUDENTS_UNION:{ label: "Students' Union",colour: "#7c3aed" },
+  EMPLOYER:      { label: "Employer",       colour: "#1e3a5f" },
+  CHARITY:       { label: "Charity",        colour: "#be185d" },
+  OTHER:         { label: "Other",          colour: "#6b7280" },
 };
 
 export default function UserRow({ user }: { user: User }) {
@@ -20,6 +29,8 @@ export default function UserRow({ user }: { user: User }) {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  const typeConfig = TYPE_DISPLAY[user.requestType] ?? TYPE_DISPLAY.OTHER;
 
   const save = async () => {
     setSubmitting(true);
@@ -58,7 +69,28 @@ export default function UserRow({ user }: { user: User }) {
             <span style={{ fontFamily: "'Fraunces', Georgia, serif", fontWeight: 600, fontVariationSettings: '"opsz" 96', fontSize: "1.05rem", letterSpacing: "-0.012em" }}>
               {user.name || user.email}
             </span>
-            <span className={`badge ${user.role === "ADMIN" ? "badge-rejected" : "badge-approved"}`}>{user.role.toLowerCase()}</span>
+            {user.role === "ADMIN" ? (
+              <span className="badge badge-rejected">admin</span>
+            ) : (
+              <span
+                className="mono"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  fontSize: "0.65rem",
+                  fontWeight: 500,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  padding: "3px 9px",
+                  borderRadius: 999,
+                  color: typeConfig.colour,
+                  border: `1px solid ${typeConfig.colour}40`,
+                  background: `${typeConfig.colour}10`,
+                }}
+              >
+                {typeConfig.label}
+              </span>
+            )}
           </div>
           <div style={{ fontSize: "0.85rem", color: "var(--text-soft)", marginBottom: 4 }}>
             {user.organisation || "—"}
@@ -86,7 +118,7 @@ export default function UserRow({ user }: { user: User }) {
               onChange={(e) => setDemoVersion(e.target.value)}
               placeholder="default"
             />
-            <p className="form-help">Folder name under /public/demos/. Leave blank to show the placeholder.</p>
+            <p className="form-help">Folder name under /private-demos/. Leave blank to show the placeholder.</p>
           </div>
 
           <div className="form-group">

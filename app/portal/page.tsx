@@ -12,6 +12,15 @@ export default async function PortalPage() {
   const { name, email, organisation, demoVersion, role } = session.user;
   const displayName = name || email?.split("@")[0] || "there";
 
+  // For employer demos, pass the organisation name through the URL hash so
+  // the React app can display it. (Hash isn't sent to the server, just used client-side.)
+  const isEmployerDemo = demoVersion === "employer";
+  const launchUrl = demoVersion
+    ? `/demo-app/${demoVersion}/${
+        isEmployerDemo && organisation ? `#name=${encodeURIComponent(organisation)}` : ""
+      }`
+    : "#";
+
   return (
     <>
       <SiteNav signOutHref="/auth/signout" />
@@ -65,14 +74,15 @@ export default async function PortalPage() {
                   letterSpacing: "-0.02em",
                 }}
               >
-                Your bespoke build is ready.
+                {isEmployerDemo ? "Your employer dashboard is ready." : "Your bespoke build is ready."}
               </h2>
               <p style={{ fontSize: "1rem", color: "var(--text-soft)", maxWidth: "52ch", margin: "0 auto 32px", lineHeight: 1.6 }}>
-                Your tailored Reaction preview is loaded and ready to explore. This build is configured for{" "}
-                {organisation || "your organisation"}.
+                {isEmployerDemo
+                  ? `See what posting opportunities looks like for ${organisation || "your business"}, and how students discover what you put up.`
+                  : `Your tailored Reaction preview is loaded and ready to explore. This build is configured for ${organisation || "your organisation"}.`}
               </p>
-              <a href={`/demo-app/${demoVersion}/`} className="btn btn-primary btn-large">
-                Launch demo
+              <a href={launchUrl} className="btn btn-primary btn-large">
+                {isEmployerDemo ? "Open dashboard" : "Launch demo"}
                 <span className="arrow" aria-hidden="true">→</span>
               </a>
               <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", margin: "24px 0 0" }}>
@@ -123,45 +133,47 @@ export default async function PortalPage() {
             </div>
           )}
 
-          {/* Quick context tiles */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: 1,
-              background: "var(--rule)",
-              border: "1px solid var(--rule)",
-              borderRadius: 16,
-              overflow: "hidden",
-              marginTop: 32,
-            }}
-            className="pillars-grid"
-          >
-            {[
-              { num: "01 · ON CAMPUS", h: "Sport · Study · Games", p: "Peer-to-peer activity matching across faculties and accommodation." },
-              { num: "02 · OFF CAMPUS", h: "Community", p: "Charities, fundraising, social events, and campaigns." },
-              { num: "03 · WHAT'S NEXT", h: "Opportunities", p: "Part-time roles, internships, graduate schemes." },
-            ].map((p) => (
-              <div key={p.num} style={{ background: "var(--bg-elevated)", padding: 28 }}>
-                <div className="mono" style={{ fontSize: "0.7rem", letterSpacing: "0.1em", color: "var(--reaction)", marginBottom: 14 }}>
-                  {p.num}
+          {/* Quick context tiles - only show for university clients, not employers */}
+          {!isEmployerDemo && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, 1fr)",
+                gap: 1,
+                background: "var(--rule)",
+                border: "1px solid var(--rule)",
+                borderRadius: 16,
+                overflow: "hidden",
+                marginTop: 32,
+              }}
+              className="pillars-grid"
+            >
+              {[
+                { num: "01 · ON CAMPUS", h: "Sport · Study · Games", p: "Peer-to-peer activity matching across faculties and accommodation." },
+                { num: "02 · OFF CAMPUS", h: "Community", p: "Charities, fundraising, social events, and campaigns." },
+                { num: "03 · WHAT'S NEXT", h: "Opportunities", p: "Part-time roles, internships, graduate schemes." },
+              ].map((p) => (
+                <div key={p.num} style={{ background: "var(--bg-elevated)", padding: 28 }}>
+                  <div className="mono" style={{ fontSize: "0.7rem", letterSpacing: "0.1em", color: "var(--reaction)", marginBottom: 14 }}>
+                    {p.num}
+                  </div>
+                  <h3
+                    style={{
+                      fontFamily: "'Fraunces', Georgia, serif",
+                      fontWeight: 600,
+                      fontVariationSettings: '"opsz" 96',
+                      fontSize: "1.15rem",
+                      letterSpacing: "-0.012em",
+                      margin: "0 0 10px",
+                    }}
+                  >
+                    {p.h}
+                  </h3>
+                  <p style={{ fontSize: "0.88rem", lineHeight: 1.55, color: "var(--text-soft)", margin: 0 }}>{p.p}</p>
                 </div>
-                <h3
-                  style={{
-                    fontFamily: "'Fraunces', Georgia, serif",
-                    fontWeight: 600,
-                    fontVariationSettings: '"opsz" 96',
-                    fontSize: "1.15rem",
-                    letterSpacing: "-0.012em",
-                    margin: "0 0 10px",
-                  }}
-                >
-                  {p.h}
-                </h3>
-                <p style={{ fontSize: "0.88rem", lineHeight: 1.55, color: "var(--text-soft)", margin: 0 }}>{p.p}</p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
