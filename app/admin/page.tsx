@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import SiteNav from "@/components/SiteNav";
+import AdminNav from "@/components/AdminNav";
 import SiteFooter from "@/components/SiteFooter";
 import { prisma } from "@/lib/prisma";
 

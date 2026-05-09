@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
+import { auth, signIn } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { Resend } from "resend";
 
 const schema = z.object({
   demoVersion: z.string().min(1).max(64).default("default"),
@@ -33,7 +32,8 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
   }
 
   // Create or upgrade the user account.
-  // requestType is mirrored from the request so admin/users can filter by audience type.
+  // emailVerified is set so Auth.js doesn't treat their first sign-in as a
+  // separate verification step — they're trusted because admin approved them.
   const user = await prisma.user.upsert({
     where: { email: request.email },
     update: {
@@ -42,6 +42,7 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
       demoVersion: parsed.data.demoVersion,
       requestType: request.requestType,
       role: "CLIENT",
+      emailVerified: new Date(),
     },
     create: {
       email: request.email,
@@ -50,6 +51,7 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
       demoVersion: parsed.data.demoVersion,
       requestType: request.requestType,
       role: "CLIENT",
+      emailVerified: new Date(),
     },
   });
 
@@ -64,90 +66,30 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
     },
   });
 
-  // Send the welcome email with sign-in link.
-  // Slightly different copy for employers vs universities — we're addressing different audiences.
+  // ── ONE-CLICK MAGIC LINK ──
+  // Trigger Auth.js to generate a real verification token, store it in the DB,
+  // and send the magic-link email via the existing Resend provider config in auth.ts.
+  // The user clicks the link in the email and lands signed in at /portal — no
+  // intermediate sign-in form.
   let emailSent = false;
   try {
-    if (process.env.RESEND_API_KEY && process.env.EMAIL_FROM) {
-      const resend = new Resend(process.env.RESEND_API_KEY);
-      const signinUrl = new URL("/auth/signin", process.env.AUTH_URL || "http://localhost:3000");
-      const isEmployer = request.requestType === "EMPLOYER" || request.requestType === "CHARITY";
-      await resend.emails.send({
-        from: process.env.EMAIL_FROM,
-        to: request.email,
-        subject: isEmployer ? `Your Reaction employer preview is ready` : `Your Reaction preview is ready`,
-        html: welcomeEmail({
-          name: request.name,
-          organisation: request.organisation,
-          signinUrl: signinUrl.toString(),
-          isEmployer,
-        }),
-      });
-      emailSent = true;
-    }
+    await signIn("resend", {
+      email: request.email,
+      redirect: false,
+      redirectTo: "/portal",
+    });
+    emailSent = true;
   } catch (err) {
-    console.error("Failed to send approval email:", err);
+    // signIn() with redirect: false logs errors instead of throwing in some Auth.js
+    // versions, but if it does throw we catch here so the admin's approval still
+    // succeeds. The user can request a fresh magic link from /auth/signin if needed.
+    console.error("Failed to send magic-link email via signIn():", err);
   }
 
-  return NextResponse.json({ ok: true, userId: user.id, emailSent });
-}
-
-function welcomeEmail({
-  name,
-  organisation,
-  signinUrl,
-  isEmployer,
-}: {
-  name: string;
-  organisation: string;
-  signinUrl: string;
-  isEmployer: boolean;
-}) {
-  const intro = isEmployer
-    ? `Thanks for registering ${escapeHtml(organisation)} with <em style="color:#b91c1c;">Reaction</em>. We've set up an employer preview so you can see how local businesses post opportunities to students.`
-    : `Thanks for registering your interest in <em style="color:#b91c1c;">Reaction</em>. We've set up a preview for ${escapeHtml(organisation)}.`;
-
-  const detail = isEmployer
-    ? `Sign in below to take a look — you'll see what posting an internship, part-time role, or graduate scheme looks like, and how students discover what you put up.`
-    : `Sign in below to take a look — your account manager will be in touch shortly to schedule a guided walkthrough.`;
-
-  return `<!DOCTYPE html>
-<html><head><meta charset="UTF-8" /></head>
-<body style="margin:0;padding:48px 24px;background:#f4ede0;font-family:Georgia,serif;color:#0a0908;">
-  <div style="max-width:560px;margin:0 auto;background:#fbf7ed;padding:48px 40px;border-radius:12px;border:1px solid rgba(10,9,8,0.12);">
-    <div style="font-family:Georgia,serif;font-style:italic;font-size:32px;color:#b91c1c;margin-bottom:8px;letter-spacing:-0.02em;">Reaction</div>
-    <div style="font-family:'Helvetica Neue',Arial,sans-serif;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#756a5d;margin-bottom:32px;">Your preview is ready</div>
-
-    <p style="font-size:18px;line-height:1.5;margin:0 0 20px;color:#0a0908;">
-      Hi ${escapeHtml(name)},
-    </p>
-    <p style="font-size:16px;line-height:1.6;margin:0 0 20px;color:#3a342d;">
-      ${intro}
-    </p>
-    <p style="font-size:16px;line-height:1.6;margin:0 0 32px;color:#3a342d;">
-      ${detail}
-    </p>
-
-    <div style="text-align:center;margin:36px 0;">
-      <a href="${signinUrl}" style="display:inline-block;background:#0a0908;color:#fbf7ed;padding:14px 28px;border-radius:999px;text-decoration:none;font-family:'Helvetica Neue',Arial,sans-serif;font-size:15px;font-weight:500;">Sign in to your preview →</a>
-    </div>
-
-    <p style="font-size:14px;line-height:1.6;color:#3a342d;margin:24px 0;">
-      Just enter this email address and we'll send you a magic link — no password needed.
-    </p>
-
-    <hr style="border:none;border-top:1px solid rgba(10,9,8,0.12);margin:36px 0;" />
-
-    <p style="font-size:13px;line-height:1.6;color:#756a5d;margin:0;">
-      Questions? Reply to this email or write to <a href="mailto:info@reaction.org.uk" style="color:#b91c1c;">info@reaction.org.uk</a>.
-    </p>
-  </div>
-  <div style="max-width:560px;margin:24px auto 0;text-align:center;font-family:'Helvetica Neue',Arial,sans-serif;font-size:11px;color:#756a5d;letter-spacing:0.06em;">
-    Reaction is a university platform that connects students on and off campus.
-  </div>
-</body></html>`;
-}
-
-function escapeHtml(s: string) {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+  return NextResponse.json({
+    ok: true,
+    userId: user.id,
+    emailSent,
+    fallbackUrl: emailSent ? null : `${process.env.AUTH_URL || "https://reaction.org.uk"}/auth/signin`,
+  });
 }
