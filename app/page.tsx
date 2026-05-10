@@ -176,20 +176,25 @@ export default function HomePage() {
                     >
                       {row.h}
                     </h4>
-                    <p style={{ fontSize: "0.95rem", lineHeight: 1.55, color: "rgba(225,228,232,0.82)", margin: 0, maxWidth: "54ch" }}>
-                      {row.p}{" "}
-                      <a
-                        href={row.href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label={row.label}
-                        style={{ display: "inline-flex", verticalAlign: "middle", marginLeft: 6, color: "var(--bg)", textDecoration: "none" }}
-                      >
-                        <svg width="0.7em" height="0.7em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                          <path d="M7 17L17 7" />
-                          <path d="M7 7h10v10" />
-                        </svg>
-                      </a>
+                    <p style={{ fontSize: "0.95rem", lineHeight: 1.55, color: "rgba(225,228,232,0.82)", margin: 0 }}>
+                      {/* Split the last word off so we can bind it to the SVG with a no-wrap wrapper.
+                          This guarantees the icon never wraps alone — at minimum one word precedes it. */}
+                      {row.p.replace(/\s+\S+$/, "")}{" "}
+                      <span style={{ whiteSpace: "nowrap" }}>
+                        {row.p.match(/\S+$/)?.[0]}
+                        <a
+                          href={row.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={row.label}
+                          style={{ display: "inline-block", verticalAlign: "baseline", marginLeft: 8, color: "var(--bg)", textDecoration: "none", lineHeight: 1 }}
+                        >
+                          <svg width="0.85em" height="0.85em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ display: "inline", verticalAlign: "baseline" }}>
+                            <path d="M7 17L17 7" />
+                            <path d="M7 7h10v10" />
+                          </svg>
+                        </a>
+                      </span>
                     </p>
                   </div>
                 </div>
