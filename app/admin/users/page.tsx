@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import SiteNav from "@/components/SiteNav";
 import SiteFooter from "@/components/SiteFooter";
 import AdminNav from "@/components/AdminNav";
@@ -41,9 +42,24 @@ export default async function UsersAdminPage() {
       <section style={{ padding: "20px 0 80px" }}>
         <div className="container">
           <div className="page-eyebrow">Admin</div>
-          <h1 className="page-title">
-            Users <span style={{ color: "var(--text-muted)", fontSize: "0.5em", fontStyle: "normal" }}>({users.length})</span>
-          </h1>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-end",
+              flexWrap: "wrap",
+              gap: 16,
+              marginBottom: 12,
+            }}
+          >
+            <h1 className="page-title" style={{ margin: 0 }}>
+              Users <span style={{ color: "var(--text-muted)", fontSize: "0.5em", fontStyle: "normal" }}>({users.length})</span>
+            </h1>
+            <Link href="/admin/users/new" className="btn btn-primary">
+              Create user
+              <span className="arrow" aria-hidden="true">→</span>
+            </Link>
+          </div>
           <p style={{ fontSize: "0.92rem", color: "var(--text-soft)", margin: "0 0 32px" }}>
             {adminCount} admin{adminCount === 1 ? "" : "s"} · {clientCount} client{clientCount === 1 ? "" : "s"}.
           </p>

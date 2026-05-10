@@ -1,99 +1,81 @@
-# Site-wide redesign — Phase 1 + 3
+# Pre-provisioned user accounts
 
-Replaces the warm cream/red brand with the new pearl-grey/slate-blue brand,
-swaps the type system, removes dark mode, updates the employer demo to match.
-Plymouth and Exeter university demos are intentionally untouched (their
-brand colours are tied to the universities, not Reaction).
+Adds a "Create user" button to /admin/users that opens a form for creating
+accounts directly — skipping the public demo-form approval flow.
 
 ## What's in this bundle
 
 ```
-app/
-  page.tsx          ← NEW landing page (with new MANTRA + FOR UNIVERSITIES sections)
-  layout.tsx        ← UPDATED (Newsreader + Inter + JetBrains Mono fonts; light mode forced)
-  globals.css       ← REWRITTEN (new tokens, dark mode stripped to a hidden stub)
-demos/employer/
-  index.html        ← UPDATED (new fonts, blue favicon)
-  src/
-    index.css       ← UPDATED (Inter body, blue focus state)
-    WannaGameBoard.tsx  ← REBRANDED (red → blue throughout)
+app/api/admin/users/new/route.ts        ← NEW (POST endpoint)
+app/admin/users/new/page.tsx            ← NEW (form page wrapper)
+app/admin/users/new/NewUserForm.tsx     ← NEW (form + success card)
+app/admin/users/page.tsx                ← UPDATED (adds "Create user" button)
 ```
 
-## Brand changes summary
+## How it works
 
-| Element | Old | New |
-|---|---|---|
-| Primary brand colour | Red `#b91c1c` | Slate blue `#4d6f99` |
-| Brand deep accent | (none) | Deep navy `#1a2238` |
-| Background | Cream `#f4ede0` | Pearl grey `#e1e4e8` |
-| Body font | Geist | Inter |
-| Display font | Fraunces | Newsreader |
-| Mono font | Geist Mono | JetBrains Mono |
-| Theme modes | Light + Dark | Light only |
+1. Admin clicks "Create user" on /admin/users
+2. Fills in: Login email, Name, Organisation, Account type, Demo version, Password
+3. On submit, account is created and a success card shows the credentials ONCE
+4. Admin copies the email + password (there's a "Copy both" button) and sends
+   to the user through their own channel (email, LinkedIn, in-person, etc.)
+5. User signs in at /auth/signin with that email + password
+
+The password is hashed in the DB (bcrypt) — once the success card is dismissed,
+the plain-text password cannot be retrieved. If the user loses it, admin can
+reset via the existing edit-user flow on /admin/users.
+
+## Email convention
+
+The login email is admin-controlled and doesn't need to receive mail. The
+suggested format is:
+
+  <role>@<institution>.reaction.org.uk
+
+Examples:
+  supres@plymouth.reaction.org.uk
+  vp-engagement@exeter.reaction.org.uk
+  hr-manager@tamar-defence.reaction.org.uk
+
+Free-text — admin can type whatever pattern they like.
+
+## Safety
+
+- Admin-only endpoint (checks session role)
+- Validates input (email format, password ≥10 chars)
+- Rejects duplicate emails
+- Logs every creation to Vercel runtime logs as [AUDIT] user_preprovisioned
+- emailVerified set automatically (admin trusted the email)
 
 ## Deploy
 
 ```
-xcopy /E /Y "%USERPROFILE%\Downloads\redesign-bundle\*" "C:\Users\Rhys\Reaction\"
-cd C:\Users\Rhys\Reaction\demos\employer
-npm run build
+xcopy /E /Y "%USERPROFILE%\Downloads\preprovision\*" "C:\Users\Rhys\Reaction\"
 cd C:\Users\Rhys\Reaction
 git add -A
-git commit -m "Site-wide redesign: blue/grey palette, Inter+Newsreader fonts, light-only"
+git commit -m "Add pre-provisioned user creation"
 git push
 ```
 
-Vercel auto-deploys ~90 sec.
+Vercel deploys ~90 sec.
 
 ## Test sequence
 
-### Landing page
-1. Visit `/` — should be pearl grey background, slate blue accents, Newsreader headings
-2. Scroll to MANTRA section — deep navy band with three cited problems (loneliness, drinking culture, careers)
-3. Each citation has a small arrow icon linking to the source
-4. Scroll to WHAT WE DO — three pillars on light grey
-5. Scroll to FOR UNIVERSITIES — new section with TEF / A&P language
-6. Scroll to CTA — "Bring Reaction to your students"
-
-### Employer demo
-1. Sign in as employer user, click into demo
-2. Hero panel should be deep navy gradient (was red gradient)
-3. "Post a new opportunity" button: white background, blue text (was red text)
-4. Stats cards: blue accents
-5. "Just posted" badge: blue (was red)
-6. Applicant avatar circles: blue gradient (was red gradient)
-7. "Review applications" button: blue (was red)
-8. "External portal" badge: teal (was a different blue, now distinct from main brand)
-
-### Things to watch for (not breaking, but worth eyeballing)
-
-- **Auth pages** (`/auth/signin`, `/auth/signout`, `/auth/verify-request`): inherit
-  new fonts/colours via globals.css. The buttons and forms will look correct
-  because they use the standard `.btn`, `.form-input` classes. But layout might
-  feel different. Check at least once.
-- **Portal page** (`/portal`): same — uses standard classes, should adapt cleanly.
-- **Admin pages**: same.
-- **SiteNav theme toggle**: NOT removed by this bundle. The toggle button will
-  still render but is now styled to `display: none` in CSS, so it's invisible.
-  If you want it removed from the JSX too, share the SiteNav.tsx file and we'll
-  do a second pass.
-- **University demos** (Plymouth, Exeter): completely untouched. They have their
-  own bundled CSS so their brand colours are unaffected.
-
-## Known design considerations
-
-1. **The deep navy mantra section is intentionally dramatic** — meant to give weight
-   to the cited problem statistics. If it feels too heavy, we can soften the navy.
-
-2. **The new "Reaction" wordmark uses Newsreader with `WONK 1`** — that's the
-   slightly stylised italic. If at any point it looks too quirky, drop WONK to 0
-   for a cleaner italic.
-
-3. **Citations point to real sources with real dates**. Worth setting a reminder
-   to refresh those statistics annually so the page doesn't feel stale.
-
-## Roll back
-
-If something goes seriously wrong, the previous deployment ("Employer demo v2")
-in Vercel can be promoted to production via three-dots → Promote.
-EOF
+1. Sign in as admin, go to /admin/users
+2. New "Create user" button appears next to the page title
+3. Click it → form loads at /admin/users/new
+4. Fill in: e.g.
+   - Email: supres@plymouth.reaction.org.uk
+   - Name: Plymouth SU Demo
+   - Organisation: University of Plymouth
+   - Account type: Students' Union
+   - Demo version: plymouth
+   - Password: SomeStrongPassword123
+5. Click "Create account"
+6. Success card shows the credentials. Click "Copy both" — clipboard now has:
+     Email: supres@plymouth.reaction.org.uk
+     Password: SomeStrongPassword123
+     Sign in: https://reaction.org.uk/auth/signin
+7. Click "Done · back to users" — return to /admin/users, see the new user in the list
+8. In incognito, visit /auth/signin, switch to Password tab, enter those creds — should sign in and land at /portal
+9. The /portal page should let them launch the Plymouth demo
