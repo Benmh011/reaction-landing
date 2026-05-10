@@ -201,7 +201,7 @@ export default function HomePage() {
       </section>
 
       {/* WHAT WE DO */}
-      <section style={{ padding: "100px 0" }} id="what">
+      <section style={{ padding: "100px 0", background: "#e1e4e8" }} id="what">
         <div className="container">
           <header
             style={{
@@ -213,20 +213,23 @@ export default function HomePage() {
             }}
             className="mantra-grid"
           >
-            <div className="mono" style={{ fontSize: "0.7rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--text-muted)", paddingTop: 12, position: "relative" }}>
-              <span style={{ position: "absolute", top: 0, left: 0, width: 32, height: 1, background: "var(--reaction)" }} />
+            <div className="mono" style={{ fontSize: "0.7rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "#4a443c", paddingTop: 12, position: "relative" }}>
+              <span style={{ position: "absolute", top: 0, left: 0, width: 32, height: 1, background: "#4d6f99" }} />
               What it does
             </div>
             <h2
               style={{
-                ...display,
+                fontFamily: "'Newsreader', Georgia, serif",
+                fontStyle: "italic",
+                fontWeight: 600,
                 fontSize: "clamp(2rem, 4vw, 3rem)",
                 lineHeight: 1.05,
+                letterSpacing: "-0.025em",
                 margin: 0,
-                color: "var(--bg)",
+                color: "#000000",
               }}
             >
-              One platform for everything <em style={{ color: "var(--reaction)" }}>around</em> a university degree.
+              One platform for everything <em style={{ color: "#4d6f99", fontStyle: "italic" }}>around</em> a university degree.
             </h2>
           </header>
 
@@ -235,8 +238,8 @@ export default function HomePage() {
               display: "grid",
               gridTemplateColumns: "repeat(3, 1fr)",
               gap: 1,
-              background: "var(--rule)",
-              border: "1px solid var(--rule)",
+              background: "#aab0b6",
+              border: "1px solid #aab0b6",
               borderRadius: 16,
               overflow: "hidden",
             }}
@@ -247,25 +250,24 @@ export default function HomePage() {
               { num: "02 · OFF CAMPUS", h: "Get involved", p: "A place for your students to give their energy to a cause that matters to them, with listings from local charities and community groups looking for a helping hand" },
               { num: "03 · WHAT'S NEXT", h: "Set yourself up", p: "Part-time work, summer internships, graduate schemes — and the people, employers and partners that turn three years of study into a head start." },
             ].map((p) => (
-              <div key={p.num} style={{ background: "var(--bg)", padding: "36px 32px 40px" }}>
-                <div className="mono" style={{ fontSize: "0.7rem", letterSpacing: "0.1em", color: "var(--reaction)", marginBottom: 28 }}>
+              <div key={p.num} style={{ background: "#ffffff", padding: "36px 32px 40px" }}>
+                <div className="mono" style={{ fontSize: "0.7rem", letterSpacing: "0.1em", color: "#4d6f99", marginBottom: 28 }}>
                   {p.num}
                 </div>
                 <h3
                   style={{
                     fontFamily: "'Newsreader', Georgia, serif",
                     fontWeight: 600,
-                    fontVariationSettings: '"opsz" 96, "SOFT" 0, "WONK" 0',
                     fontSize: "1.5rem",
                     letterSpacing: "-0.015em",
                     lineHeight: 1.15,
                     margin: "0 0 14px",
-                    color: "var(--bg)",
+                    color: "#000000",
                   }}
                 >
                   {p.h}
                 </h3>
-                <p style={{ fontSize: "0.95rem", lineHeight: 1.55, color: "rgba(225,228,232,0.82)", margin: 0 }}>{p.p}</p>
+                <p style={{ fontSize: "0.95rem", lineHeight: 1.55, color: "#333333", margin: 0 }}>{p.p}</p>
               </div>
             ))}
           </div>
