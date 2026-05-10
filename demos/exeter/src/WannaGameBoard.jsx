@@ -216,12 +216,12 @@ const COMMUNITY_CAUSE_BREAKDOWN = [
 
 // 11. TOP PARTNER ORGANISATIONS — anchor case studies for civic-engagement reporting
 const COMMUNITY_TOP_PARTNERS = [
-  { name: 'Exeter City Community Trust', sector: 'Sport for All',  volunteers: 28, hours: 124 },
-  { name: "St Petrock's",                sector: 'Homelessness',   volunteers: 22, hours:  96 },
-  { name: 'Devon Wildlife Trust',        sector: 'Environment',    volunteers: 19, hours:  78 },
-  { name: 'Exeter Community Energy',     sector: 'Sustainability', volunteers: 16, hours:  64 },
-  { name: 'Mind Devon',                  sector: 'Mental Health',  volunteers: 15, hours:  62 },
-  { name: 'Age UK Exeter',               sector: 'Older People',   volunteers: 14, hours:  58 },
+  { name: 'Devon Community Trust', sector: 'Sport for All',  volunteers: 28, hours: 124 },
+  { name: "Plymouth Outreach Network",                sector: 'Homelessness',   volunteers: 22, hours:  96 },
+  { name: 'Devon Nature Trust',        sector: 'Environment',    volunteers: 19, hours:  78 },
+  { name: 'Exeter Energy Cooperative',     sector: 'Sustainability', volunteers: 16, hours:  64 },
+  { name: 'Devon Wellbeing Network',                  sector: 'Mental Health',  volunteers: 15, hours:  62 },
+  { name: 'Exeter Elder Connect',               sector: 'Older People',   volunteers: 14, hours:  58 },
 ];
 
 // 12. SOCIAL VALUE — using ONS estimate ~£17.50/hr for skilled volunteer time
@@ -276,12 +276,12 @@ const OPPS_BY_SECTOR = [
 
 // 17. TOP EMPLOYERS — most active recruiters
 const OPPS_TOP_EMPLOYERS = [
-  { name: 'Met Office',           sector: 'Climate Science', posts: 8, applications: 96 },
-  { name: 'Lloyds Banking Group', sector: 'Finance',         posts: 5, applications: 84 },
-  { name: 'EDF Energy',           sector: 'Energy',          posts: 6, applications: 72 },
-  { name: 'Exeter Science Park',  sector: 'Sciences',        posts: 6, applications: 62 },
+  { name: 'South West Climate Centre',           sector: 'Climate Science', posts: 8, applications: 96 },
+  { name: 'Westbridge Banking Group', sector: 'Finance',         posts: 5, applications: 84 },
+  { name: 'Devon Power Partners',           sector: 'Energy',          posts: 6, applications: 72 },
+  { name: 'Exeter Innovation Park',  sector: 'Sciences',        posts: 6, applications: 62 },
   { name: 'Devon County Council', sector: 'Public Sector',   posts: 7, applications: 48 },
-  { name: 'Pennon Group',         sector: 'Utilities',       posts: 4, applications: 38 },
+  { name: 'Westcountry Holdings',         sector: 'Utilities',       posts: 4, applications: 38 },
 ];
 
 // 18. OPPS ENGAGEMENT BY YEAR — careers-engagement curve
@@ -1621,7 +1621,12 @@ const BulletinBoardApp = () => {
             </div>
           </div>
         </div>
-        {showLoginModal && <LoginModal onClose={()=>setShowLoginModal(false)} onLogin={handleLogin} onSwitchToRegister={()=>{setShowLoginModal(false);setShowRegisterModal(true);}}/>}
+        {/* Demo data disclaimer - all listings and organisations shown are illustrative */}
+      <div style={{ padding: '16px 20px 24px', textAlign: 'center', fontSize: '11px', color: '#9ca3af', letterSpacing: '0.04em', fontFamily: 'system-ui, sans-serif' }}>
+        Sample data shown. Listings and partner organisations are illustrative.
+      </div>
+
+      {showLoginModal && <LoginModal onClose={()=>setShowLoginModal(false)} onLogin={handleLogin} onSwitchToRegister={()=>{setShowLoginModal(false);setShowRegisterModal(true);}}/>}
         {showRegisterModal && <RegisterModal onClose={()=>setShowRegisterModal(false)} onRegister={handleRegister} onSwitchToLogin={()=>{setShowRegisterModal(false);setShowLoginModal(true);}}/>}
       </div>
     );

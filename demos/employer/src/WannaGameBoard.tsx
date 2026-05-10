@@ -28,7 +28,7 @@ const REACTION_RED = "#b91c1c";
 const REACTION_RED_DARK = "#991b1b";
 const CREST_SRC = import.meta.env.BASE_URL + "crest.png";
 
-// Read employer name from URL hash (e.g. #name=Babcock%20International).
+// Read employer name from URL hash (e.g. #name=Tamar Defence%20International).
 // Falls back to a generic placeholder if not provided.
 function getEmployerName() {
   if (typeof window === "undefined") return "Your Business";
@@ -104,7 +104,7 @@ const MY_POSTS_SEED = [
 const OTHER_POSTS = [
   {
     id: "other-1",
-    employer: "Princess Yachts",
+    employer: "Tamar Marine Yachts",
     title: "Naval Architecture Placement Year",
     type: "Placement Year",
     location: "Plymouth",
@@ -114,7 +114,7 @@ const OTHER_POSTS = [
   },
   {
     id: "other-2",
-    employer: "Plymouth Marine Laboratory",
+    employer: "Sound Marine Research Institute",
     title: "Research Assistant — Marine Biology",
     type: "Summer Internship",
     location: "Plymouth · Hoe",
@@ -124,7 +124,7 @@ const OTHER_POSTS = [
   },
   {
     id: "other-3",
-    employer: "South West Water",
+    employer: "West Devon Water Co",
     title: "Environmental Science Graduate",
     type: "Graduate Scheme",
     location: "Exeter",
@@ -134,7 +134,7 @@ const OTHER_POSTS = [
   },
   {
     id: "other-4",
-    employer: "Plymouth Argyle FC",
+    employer: "Devonport Athletic FC",
     title: "Community Programmes Coordinator (PT)",
     type: "Part-time",
     location: "Plymouth · Home Park",
@@ -144,7 +144,7 @@ const OTHER_POSTS = [
   },
   {
     id: "other-5",
-    employer: "Plymouth Science Park",
+    employer: "Saltash Innovation Centre",
     title: "Innovation Fellowship",
     type: "Graduate Scheme",
     location: "Plymouth · Derriford",
@@ -318,6 +318,12 @@ export default function EmployerDashboard() {
             ))}
           </div>
         </section>
+        {/* Demo data disclaimer */}
+        <div style={{ marginTop: 48, paddingTop: 24, borderTop: "1px solid rgba(10,9,8,0.06)", textAlign: "center" }}>
+          <p style={{ fontSize: "0.78rem", color: "#9ca3af", margin: 0, letterSpacing: "0.04em" }}>
+            Sample marketplace data. Posts and employers shown are illustrative.
+          </p>
+        </div>
       </main>
 
       {showPostModal && (
