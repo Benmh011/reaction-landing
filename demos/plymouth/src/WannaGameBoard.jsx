@@ -1301,7 +1301,20 @@ const BulletinBoardApp = () => {
 
   const currentUser = userProfile ? `${userProfile.firstName} ${userProfile.lastName}`.trim() : null;
 
-  const handleLogin = (email) => { setUserProfile({firstName:'Rhys',lastName:'',email,university:'University of Plymouth'}); setIsLoggedIn(true); setShowLoginModal(false); };
+  const handleLogin = (email) => {
+    // Read firstName from URL hash if present (passed by /portal page on Reaction site).
+    // Falls back to 'there' if the demo is opened directly without going through portal.
+    let firstName = 'there';
+    try {
+      const hash = (typeof window !== 'undefined') ? window.location.hash.slice(1) : '';
+      const params = new URLSearchParams(hash);
+      const fn = params.get('firstName');
+      if (fn) firstName = decodeURIComponent(fn);
+    } catch (e) { /* ignore — fallback to 'there' */ }
+    setUserProfile({firstName, lastName:'', email, university:'University of Plymouth'});
+    setIsLoggedIn(true);
+    setShowLoginModal(false);
+  };
   const handleRegister = (d) => { setUserProfile(d); setIsLoggedIn(true); setShowRegisterModal(false); };
   const handleLogout = () => { setIsLoggedIn(false); setUserProfile(null); };
   const handleCreatePost = (d) => {

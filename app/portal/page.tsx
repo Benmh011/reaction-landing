@@ -12,13 +12,19 @@ export default async function PortalPage() {
   const { name, email, organisation, demoVersion, role } = session.user;
   const displayName = name || email?.split("@")[0] || "there";
 
-  // For employer demos, pass the organisation name through the URL hash so
-  // the React app can display it. (Hash isn't sent to the server, just used client-side.)
+  // Build a hash payload for the demo. Each demo reads what it needs:
+  //   - employer demo reads "name" (org name) for the "Signed in as" header
+  //   - plymouth/exeter demos read "firstName" for the "Welcome, X" badge
+  // We send both so each demo picks the one it cares about.
+  const firstName = (name || "").split(" ")[0] || "";
+  const hashParams = new URLSearchParams();
   const isEmployerDemo = demoVersion === "employer";
+  if (isEmployerDemo && organisation) hashParams.set("name", organisation);
+  if (firstName) hashParams.set("firstName", firstName);
+  const hashString = hashParams.toString();
+
   const launchUrl = demoVersion
-    ? `/demo-app/${demoVersion}/${
-        isEmployerDemo && organisation ? `#name=${encodeURIComponent(organisation)}` : ""
-      }`
+    ? `/demo-app/${demoVersion}/${hashString ? `#${hashString}` : ""}`
     : "#";
 
   return (
@@ -65,9 +71,8 @@ export default async function PortalPage() {
               </div>
               <h2
                 style={{
-                  fontFamily: "'Fraunces', Georgia, serif",
+                  fontFamily: "'Newsreader', Georgia, serif",
                   fontWeight: 600,
-                  fontVariationSettings: '"opsz" 144',
                   fontStyle: "italic",
                   fontSize: "2rem",
                   margin: "0 0 16px",
@@ -108,9 +113,8 @@ export default async function PortalPage() {
               </div>
               <h2
                 style={{
-                  fontFamily: "'Fraunces', Georgia, serif",
+                  fontFamily: "'Newsreader', Georgia, serif",
                   fontWeight: 600,
-                  fontVariationSettings: '"opsz" 144',
                   fontStyle: "italic",
                   fontSize: "1.8rem",
                   margin: "0 0 16px",
@@ -159,9 +163,8 @@ export default async function PortalPage() {
                   </div>
                   <h3
                     style={{
-                      fontFamily: "'Fraunces', Georgia, serif",
+                      fontFamily: "'Newsreader', Georgia, serif",
                       fontWeight: 600,
-                      fontVariationSettings: '"opsz" 96',
                       fontSize: "1.15rem",
                       letterSpacing: "-0.012em",
                       margin: "0 0 10px",
