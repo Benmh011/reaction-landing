@@ -28,8 +28,8 @@ import {
 } from "lucide-react";
 
 // ──────── BRAND CONSTANTS ────────
-const REACTION_RED = "#b91c1c";
-const REACTION_RED_DARK = "#991b1b";
+const REACTION_BLUE = "#4d6f99";
+const REACTION_BLUE_DARK = "#1a2238";
 
 // Read employer name from URL hash (e.g. #name=Tamar%20Defence%20Engineering).
 // Falls back to a generic placeholder if not provided.
@@ -321,14 +321,14 @@ export default function EmployerDashboard() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#fbf7ed", fontFamily: "'Geist', system-ui, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#e1e4e8", fontFamily: "'Geist', system-ui, sans-serif" }}>
       <Header employerName={employerName} />
 
       <main style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 24px 80px" }}>
         {/* Hero CTA panel */}
         <section
           style={{
-            background: `linear-gradient(135deg, ${REACTION_RED_DARK} 0%, ${REACTION_RED} 100%)`,
+            background: `linear-gradient(135deg, ${REACTION_BLUE_DARK} 0%, ${REACTION_BLUE} 100%)`,
             borderRadius: 20,
             padding: "40px 36px",
             color: "#fff",
@@ -387,7 +387,7 @@ export default function EmployerDashboard() {
               alignItems: "center",
               gap: 10,
               background: "#fff",
-              color: REACTION_RED,
+              color: REACTION_BLUE,
               padding: "14px 26px",
               borderRadius: 999,
               border: "none",
@@ -513,7 +513,7 @@ function Header({ employerName }: { employerName: string }) {
               fontWeight: 600,
               fontVariationSettings: '"opsz" 144',
               fontSize: "1.7rem",
-              color: REACTION_RED,
+              color: REACTION_BLUE,
               letterSpacing: "-0.02em",
               lineHeight: 1,
             }}
@@ -529,8 +529,8 @@ function Header({ employerName }: { employerName: string }) {
               color: "#6b6b6b",
               padding: "3px 9px",
               borderRadius: 999,
-              background: "rgba(185,28,28,0.08)",
-              border: "1px solid rgba(185,28,28,0.18)",
+              background: "rgba(77,111,153,0.08)",
+              border: "1px solid rgba(77,111,153,0.18)",
             }}
           >
             Employer
@@ -548,7 +548,7 @@ function Header({ employerName }: { employerName: string }) {
               width: 38,
               height: 38,
               borderRadius: "50%",
-              background: REACTION_RED,
+              background: REACTION_BLUE,
               color: "#fff",
               display: "flex",
               alignItems: "center",
@@ -644,10 +644,10 @@ function MyPostCard({ post, highlighted, onReviewApplications }: { post: Post; h
     <div
       style={{
         background: "#fff",
-        border: highlighted ? `2px solid ${REACTION_RED}` : "1px solid rgba(10,9,8,0.1)",
+        border: highlighted ? `2px solid ${REACTION_BLUE}` : "1px solid rgba(10,9,8,0.1)",
         borderRadius: 14,
         padding: "20px 22px",
-        boxShadow: highlighted ? `0 0 0 4px rgba(185,28,28,0.12)` : "none",
+        boxShadow: highlighted ? `0 0 0 4px rgba(77,111,153,0.12)` : "none",
         transition: "border 0.3s ease, box-shadow 0.3s ease",
         position: "relative",
       }}
@@ -658,7 +658,7 @@ function MyPostCard({ post, highlighted, onReviewApplications }: { post: Post; h
             position: "absolute",
             top: -10,
             left: 18,
-            background: REACTION_RED,
+            background: REACTION_BLUE,
             color: "#fff",
             fontSize: "0.68rem",
             fontWeight: 600,
@@ -684,10 +684,10 @@ function MyPostCard({ post, highlighted, onReviewApplications }: { post: Post; h
                 fontSize: "0.65rem",
                 letterSpacing: "0.1em",
                 textTransform: "uppercase",
-                color: REACTION_RED,
+                color: REACTION_BLUE,
                 padding: "3px 8px",
                 borderRadius: 999,
-                background: "rgba(185,28,28,0.08)",
+                background: "rgba(77,111,153,0.08)",
               }}
             >
               {post.type}
@@ -714,11 +714,11 @@ function MyPostCard({ post, highlighted, onReviewApplications }: { post: Post; h
                   fontSize: "0.65rem",
                   letterSpacing: "0.08em",
                   textTransform: "uppercase",
-                  color: "#0369a1",
+                  color: "#0f766e",
                   padding: "3px 8px",
                   borderRadius: 999,
-                  background: "rgba(3,105,161,0.08)",
-                  border: "1px solid rgba(3,105,161,0.2)",
+                  background: "rgba(15,118,110,0.08)",
+                  border: "1px solid rgba(15,118,110,0.2)",
                   display: "inline-flex",
                   alignItems: "center",
                   gap: 4,
@@ -771,7 +771,7 @@ function MyPostCard({ post, highlighted, onReviewApplications }: { post: Post; h
             <div style={{ fontSize: "0.7rem", color: "#6b6b6b", textTransform: "uppercase", letterSpacing: "0.08em" }}>Views</div>
           </div>
           <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: "1.1rem", fontWeight: 600, color: post.applicants > 0 ? REACTION_RED : "#6b6b6b" }}>{post.applicants ?? 0}</div>
+            <div style={{ fontSize: "1.1rem", fontWeight: 600, color: post.applicants > 0 ? REACTION_BLUE : "#6b6b6b" }}>{post.applicants ?? 0}</div>
             <div style={{ fontSize: "0.7rem", color: "#6b6b6b", textTransform: "uppercase", letterSpacing: "0.08em" }}>Applicants</div>
           </div>
         </div>
@@ -797,13 +797,13 @@ function MyPostCard({ post, highlighted, onReviewApplications }: { post: Post; h
                 alignItems: "center",
                 gap: 6,
                 fontSize: "0.85rem",
-                color: "#0369a1",
+                color: "#0f766e",
                 textDecoration: "none",
                 fontWeight: 500,
                 padding: "6px 12px",
                 borderRadius: 8,
-                background: "rgba(3,105,161,0.06)",
-                border: "1px solid rgba(3,105,161,0.18)",
+                background: "rgba(15,118,110,0.06)",
+                border: "1px solid rgba(15,118,110,0.18)",
               }}
             >
               <ExternalLink size={13} strokeWidth={2.5} />
@@ -819,9 +819,9 @@ function MyPostCard({ post, highlighted, onReviewApplications }: { post: Post; h
                 alignItems: "center",
                 gap: 6,
                 fontSize: "0.85rem",
-                color: REACTION_RED,
-                background: "rgba(185,28,28,0.06)",
-                border: "1px solid rgba(185,28,28,0.18)",
+                color: REACTION_BLUE,
+                background: "rgba(77,111,153,0.06)",
+                border: "1px solid rgba(77,111,153,0.18)",
                 padding: "6px 12px",
                 borderRadius: 8,
                 fontWeight: 500,
@@ -854,7 +854,7 @@ function OtherPostRow({ post }: { post: any }) {
       }}
     >
       <div style={{ flex: "1 1 280px", minWidth: 0 }}>
-        <div style={{ fontSize: "0.78rem", color: REACTION_RED, fontFamily: "'Geist Mono', monospace", letterSpacing: "0.06em", marginBottom: 4 }}>
+        <div style={{ fontSize: "0.78rem", color: REACTION_BLUE, fontFamily: "'Geist Mono', monospace", letterSpacing: "0.06em", marginBottom: 4 }}>
           {post.employer}
         </div>
         <div style={{ fontFamily: "'Fraunces', Georgia, serif", fontWeight: 600, fontVariationSettings: '"opsz" 96', fontSize: "1rem", color: "#0a0908", marginBottom: 4, letterSpacing: "-0.01em" }}>
@@ -881,7 +881,7 @@ function ApplicationsView({ post, employerName, onBack }: { post: Post; employer
   const applicants = post.applicantList ?? [];
 
   return (
-    <div style={{ minHeight: "100vh", background: "#fbf7ed", fontFamily: "'Geist', system-ui, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#e1e4e8", fontFamily: "'Geist', system-ui, sans-serif" }}>
       <Header employerName={employerName} />
 
       <main style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 24px 80px" }}>
@@ -921,7 +921,7 @@ function ApplicationsView({ post, employerName, onBack }: { post: Post; employer
               fontSize: "0.7rem",
               letterSpacing: "0.12em",
               textTransform: "uppercase",
-              color: REACTION_RED,
+              color: REACTION_BLUE,
               marginBottom: 8,
             }}
           >
@@ -1035,7 +1035,7 @@ function ApplicantCard({ applicant }: { applicant: Applicant }) {
               width: 42,
               height: 42,
               borderRadius: "50%",
-              background: `linear-gradient(135deg, ${REACTION_RED} 0%, ${REACTION_RED_DARK} 100%)`,
+              background: `linear-gradient(135deg, ${REACTION_BLUE} 0%, ${REACTION_BLUE_DARK} 100%)`,
               color: "#fff",
               display: "flex",
               alignItems: "center",
@@ -1090,7 +1090,7 @@ function ApplicantCard({ applicant }: { applicant: Applicant }) {
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 5,
-                color: REACTION_RED,
+                color: REACTION_BLUE,
                 textDecoration: "none",
                 fontFamily: "'Geist Mono', monospace",
                 fontSize: "0.78rem",
@@ -1184,7 +1184,7 @@ function ApplicantCard({ applicant }: { applicant: Applicant }) {
                 gap: 6,
                 padding: "8px 14px",
                 borderRadius: 999,
-                background: REACTION_RED,
+                background: REACTION_BLUE,
                 color: "#fff",
                 textDecoration: "none",
                 fontSize: "0.85rem",
@@ -1262,7 +1262,7 @@ function PostModal({ onClose, onPost, employerName }: { onClose: () => void; onP
     >
       <div
         style={{
-          background: "#fbf7ed",
+          background: "#e1e4e8",
           borderRadius: 18,
           padding: 0,
           width: "100%",
@@ -1283,12 +1283,12 @@ function PostModal({ onClose, onPost, employerName }: { onClose: () => void; onP
             gap: 16,
             position: "sticky",
             top: 0,
-            background: "#fbf7ed",
+            background: "#e1e4e8",
             zIndex: 1,
           }}
         >
           <div>
-            <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: "0.7rem", letterSpacing: "0.12em", textTransform: "uppercase", color: REACTION_RED, marginBottom: 8 }}>
+            <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: "0.7rem", letterSpacing: "0.12em", textTransform: "uppercase", color: REACTION_BLUE, marginBottom: 8 }}>
               New opportunity
             </div>
             <h2 style={{ fontFamily: "'Fraunces', Georgia, serif", fontWeight: 600, fontVariationSettings: '"opsz" 144', fontStyle: "italic", fontSize: "1.7rem", letterSpacing: "-0.018em", margin: 0, color: "#0a0908" }}>
@@ -1393,8 +1393,8 @@ function PostModal({ onClose, onPost, employerName }: { onClose: () => void; onP
             style={{
               padding: 14,
               borderRadius: 12,
-              background: "rgba(3,105,161,0.04)",
-              border: "1px solid rgba(3,105,161,0.14)",
+              background: "rgba(15,118,110,0.04)",
+              border: "1px solid rgba(15,118,110,0.14)",
               marginBottom: 16,
             }}
           >
@@ -1404,7 +1404,7 @@ function PostModal({ onClose, onPost, employerName }: { onClose: () => void; onP
                 id="externallyManaged"
                 checked={externallyManaged}
                 onChange={(e) => setExternallyManaged(e.target.checked)}
-                style={{ marginTop: 3, accentColor: "#0369a1" }}
+                style={{ marginTop: 3, accentColor: "#0f766e" }}
               />
               <label htmlFor="externallyManaged" style={{ fontSize: "0.92rem", color: "#0a0908", fontWeight: 500, cursor: "pointer" }}>
                 Manage applications externally
@@ -1459,9 +1459,9 @@ function PostModal({ onClose, onPost, employerName }: { onClose: () => void; onP
                     style={{
                       padding: "8px 14px",
                       borderRadius: 999,
-                      border: selected ? `2px solid ${REACTION_RED}` : "1px solid rgba(10,9,8,0.18)",
-                      background: selected ? `rgba(185,28,28,0.08)` : "#fff",
-                      color: selected ? REACTION_RED : "#3a342d",
+                      border: selected ? `2px solid ${REACTION_BLUE}` : "1px solid rgba(10,9,8,0.18)",
+                      background: selected ? `rgba(77,111,153,0.08)` : "#fff",
+                      color: selected ? REACTION_BLUE : "#3a342d",
                       fontSize: "0.85rem",
                       fontWeight: 500,
                       cursor: "pointer",
@@ -1490,7 +1490,7 @@ function PostModal({ onClose, onPost, employerName }: { onClose: () => void; onP
                 flex: "1 1 auto",
                 padding: "14px 22px",
                 borderRadius: 999,
-                background: canSubmit ? REACTION_RED : "rgba(185,28,28,0.4)",
+                background: canSubmit ? REACTION_BLUE : "rgba(77,111,153,0.4)",
                 color: "#fff",
                 border: "none",
                 fontSize: "0.95rem",
@@ -1543,7 +1543,7 @@ function Field({ label, required, children }: { label: string; required?: boolea
         }}
       >
         {label}
-        {required && <span style={{ color: REACTION_RED, marginLeft: 4 }}>·</span>}
+        {required && <span style={{ color: REACTION_BLUE, marginLeft: 4 }}>·</span>}
       </label>
       {children}
     </div>
