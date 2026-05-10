@@ -250,7 +250,7 @@ export default function HomePage() {
               { num: "02 · OFF CAMPUS", h: "Get involved", p: "A place for your students to give their energy to a cause that matters to them, with listings from local charities and community groups looking for a helping hand" },
               { num: "03 · WHAT'S NEXT", h: "Set yourself up", p: "Part-time work, summer internships, graduate schemes — and the people, employers and partners that turn three years of study into a head start." },
             ].map((p) => (
-              <div key={p.num} style={{ background: "#ffffff", padding: "36px 32px 40px" }}>
+              <div key={p.num} style={{ background: "#e1e4e8", padding: "36px 32px 40px" }}>
                 <div className="mono" style={{ fontSize: "0.7rem", letterSpacing: "0.1em", color: "#4d6f99", marginBottom: 28 }}>
                   {p.num}
                 </div>
