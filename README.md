@@ -1,58 +1,63 @@
-# Fictionalise demo company names
+# Employer Demo v2
 
-Replaces real Plymouth/Devon-area company names in all three demos with
-plausibly-real fictional names. Adds a small disclaimer at the foot of each
-demo. Public bodies (City Council, County Council) and university names
-remain real.
+Three changes:
 
-## What's in this bundle
+## 1. Smart salary icon
+The £ icon next to salaries is now context-aware:
+- "£26,000" → no icon (already has £)
+- "Competitive" → no icon (no number)  
+- "26,000 pro-rata" → icon shown (helps clarify currency)
 
-- demos/exeter/src/WannaGameBoard.jsx (UPDATED)
-- demos/plymouth/src/WannaGameBoard.jsx (UPDATED)
-- demos/employer/src/WannaGameBoard.tsx (UPDATED)
+No more double-£ or weird icon next to text-only values.
 
-## Name changes applied where present
+## 2. Application link field
+New section in the post modal:
+- Optional URL field for an external application link
+- "Manage applications externally" checkbox makes it required
+- When ticked: post displays "External portal" badge and "View on company portal" button
+- When unticked: applications come through Reaction (Review applications button)
 
-Princess Yachts -> Tamar Marine Yachts
-Plymouth Marine Laboratory -> Sound Marine Research Institute
-South West Water -> West Devon Water Co
-Plymouth Argyle FC -> Devonport Athletic FC
-Plymouth Science Park -> Saltash Innovation Centre
-Babcock International -> Tamar Defence Engineering
-Met Office -> South West Climate Centre
-EDF Energy -> Devon Power Partners
-Pennon Group -> Westcountry Holdings
-Lloyds Banking Group -> Westbridge Banking Group
-Argyle Community Trust -> Devonport Community Trust
-Plymouth Energy Community -> Tamar Energy Cooperative
-Shekinah Mission / St Petrock's -> Plymouth Outreach Network
-Mind Devon -> Devon Wellbeing Network
-Livewell Southwest -> Westcountry Care Network
-Age UK Plymouth -> Plymouth Elder Connect
-Age UK Exeter -> Exeter Elder Connect
-Devon Wildlife Trust -> Devon Nature Trust
-Exeter Community Energy -> Exeter Energy Cooperative
-Exeter City Community Trust -> Devon Community Trust
-Exeter Science Park -> Exeter Innovation Park
+## 3. Review applications view
+Click "Review N applications" on any internal post → drill into a new screen:
+- Post summary at top
+- List of applicants as expandable cards
+- Click any applicant → expands to show:
+  - Full contact email (mailto link)
+  - University + course details
+  - Cover letter (formatted nicely)
+  - CV placeholder ("name_CV.pdf — sample")
+  - "Reply to applicant" button (mailto)
+- Back to dashboard link at top
+
+Applicant data is fictional — 15 plausible applicants distributed across the 
+3 seeded posts. The pre-seeded "Graduate Engineering Scheme" is marked
+externally managed (links to example.com/careers/graduate-scheme) to demo that flow.
 
 ## Deploy
 
-xcopy /E /Y "%USERPROFILE%\Downloads\fictional-bundle\*" "C:\Users\Rhys\Reaction\"
-
-Then rebuild each demo:
-
-cd C:\Users\Rhys\Reaction\demos\exeter
-npm run build
-
-cd C:\Users\Rhys\Reaction\demos\plymouth
-npm run build
-
+```
+xcopy /E /Y "%USERPROFILE%\Downloads\employer-v2-bundle\*" "C:\Users\Rhys\Reaction\"
 cd C:\Users\Rhys\Reaction\demos\employer
 npm run build
-
-Then push:
-
 cd C:\Users\Rhys\Reaction
 git add -A
-git commit -m "Fictionalise company names across all three demos"
+git commit -m "Employer demo v2: salary icon fix, app links, review applications"
 git push
+```
+
+## Test sequence
+
+1. Sign in as employer user
+2. Check the "Your opportunities" section:
+   - Software Engineering Internship: shows "Review 6 applications" button
+   - Marketing Assistant: shows "Review 4 applications" button
+   - Graduate Scheme: shows "External portal" badge + "View on company portal" link
+3. Click "Review 6 applications" on the first post
+4. New screen loads with 6 applicants
+5. Click any applicant — card expands to show cover letter + CV placeholder
+6. Click "Back to dashboard"
+7. Click "Post a new opportunity"
+8. In modal, scroll to the blue "Manage applications externally" section
+9. Try unticked: just fill in optional link field
+10. Try ticked: link becomes required
+11. Submit — new post appears at top with the right flow
