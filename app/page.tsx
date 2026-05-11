@@ -87,6 +87,18 @@ export default function HomePage() {
               Book a demo
               <span className="arrow" aria-hidden="true">→</span>
             </Link>
+            <Link
+              href="/portal"
+              className="btn btn-large"
+              style={{
+                background: "transparent",
+                color: "var(--reaction)",
+                border: "1px solid var(--reaction)",
+              }}
+            >
+              Launch demo
+              <span className="arrow" aria-hidden="true">→</span>
+            </Link>
             <Link href="#what" className="btn btn-ghost btn-large">
               What we do
             </Link>
