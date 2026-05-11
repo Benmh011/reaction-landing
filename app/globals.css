@@ -170,6 +170,22 @@ section { position: relative; z-index: 2; }
 .btn-primary .arrow { transition: transform 0.25s ease; }
 .btn-primary:hover:not(:disabled) .arrow { transform: translateX(3px); }
 
+/* Outlined variant — same lift + arrow animation as primary, but with brand-coloured border.
+   Used for secondary "Launch demo" style CTAs that should feel interactive without
+   competing visually with the primary action. */
+.btn-outlined {
+  background: transparent;
+  color: var(--reaction);
+  border-color: var(--reaction);
+}
+.btn-outlined:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--reaction) 8%, transparent);
+  transform: translateY(-1px);
+  box-shadow: 0 1px 2px rgba(77, 111, 153, 0.10), 0 6px 18px rgba(77, 111, 153, 0.14);
+}
+.btn-outlined .arrow { transition: transform 0.25s ease; }
+.btn-outlined:hover:not(:disabled) .arrow { transform: translateX(3px); }
+
 .btn-large { padding: 14px 28px; font-size: 1rem; }
 .btn-block { display: flex; width: 100%; }
 
