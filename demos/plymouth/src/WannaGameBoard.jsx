@@ -76,52 +76,121 @@ const LANDING_SECTIONS = [
 
 // ──── UPSU SOCIETIES (real Plymouth societies) ────
 const UPSU_SOCIETIES = [
+  // ── SPORTS CLUBS (each tied to one sport) ──
+  'Basketball Club',
+  'Football Club',
+  'Rugby Union Club',
+  'Tennis Club',
+  'Badminton Club',
+  'Cricket Club',
+  'Volleyball Club',
+  // ── BOARD GAME / TABLETOP SOCIETIES ──
+  'Chess Society',
+  'Tabletop Gaming Society',
+  'Poker Society',
+  // ── ACADEMIC SOCIETIES ──
   'Architecture Society (PARCS)',
   'Biomedical Science Society',
   'Civil Engineering Society',
-  'Christian Union (UPCU)',
   'Computing Society',
-  'Drama Society',
-  'Environmental Society',
-  'Gaming Society',
   'Geography Society',
   'Law Society (UPLS)',
   'Marine Biology Society',
-  'Music Society',
   'Nursing Society',
-  'Photography Society',
   'Psychology Society',
   'Robotics Society',
-  'Tabletop Gaming Society',
+  // ── GENERAL INTEREST / CULTURAL / WELFARE ──
+  'Drama Society',
+  'Music Society',
+  'Photography Society',
+  'Christian Union (UPCU)',
+  'Environmental Society',
+  'Gaming Society',
+  'Plymouth Night Patrol',
 ];
 
-// ──── SOCIETY → CATEGORIES MAP ────
-// Defines which categories each society can post in. Sport is intentionally
-// excluded for all societies — Sport posts come from individual students.
-// Community is always allowed since fundraising/volunteering is universal.
-const SOCIETY_CATEGORIES = {
-  'Architecture Society (PARCS)': ['Study', 'Community'],
-  'Biomedical Science Society':   ['Study', 'Community'],
-  'Civil Engineering Society':    ['Study', 'Community'],
-  'Christian Union (UPCU)':       ['Community'],
-  'Computing Society':            ['Study', 'Board Games', 'Community'],
-  'Drama Society':                ['Community'],
-  'Environmental Society':        ['Community'],
-  'Gaming Society':               ['Board Games', 'Community'],
-  'Geography Society':            ['Study', 'Community'],
-  'Law Society (UPLS)':           ['Study', 'Community'],
-  'Marine Biology Society':       ['Study', 'Community'],
-  'Music Society':                ['Community'],
-  'Nursing Society':              ['Study', 'Community'],
-  'Photography Society':          ['Community'],
-  'Psychology Society':           ['Study', 'Community'],
-  'Robotics Society':             ['Study', 'Board Games', 'Community'],
-  'Tabletop Gaming Society':      ['Board Games', 'Community'],
+// ──── SOCIETY → ACTIVITIES MAP ────
+// Each society maps to the specific activities they can legitimately post.
+// Community activities (Volunteering, Fundraising, Social Events, Campaigns)
+// are always allowed for ALL societies via the union below — no need to list.
+// Study posts are NOT society-led — they come from individual students.
+// Sport posts: only the sport-specific club can post that sport.
+// Board Games: chess only for Chess Society; Tabletop covers the multi-player games.
+const SOCIETY_ACTIVITIES = {
+  // Sports clubs
+  'Basketball Club':         ['Basketball'],
+  'Football Club':           ['Football'],
+  'Rugby Union Club':        ['Rugby'],
+  'Tennis Club':             ['Tennis'],
+  'Badminton Club':          ['Badminton'],
+  'Cricket Club':            ['Cricket'],
+  'Volleyball Club':         ['Volleyball'],
+  // Board game societies
+  'Chess Society':           ['Chess'],
+  'Tabletop Gaming Society': ['Catan', 'Risk', 'Monopoly', 'Scrabble', 'Dungeons & Dragons'],
+  'Poker Society':           ['Poker'],
+  // Academic + general societies — Community only (handled below)
+  'Architecture Society (PARCS)': [],
+  'Biomedical Science Society':   [],
+  'Civil Engineering Society':    [],
+  'Computing Society':            [],
+  'Geography Society':            [],
+  'Law Society (UPLS)':           [],
+  'Marine Biology Society':       [],
+  'Nursing Society':              [],
+  'Psychology Society':           [],
+  'Robotics Society':             [],
+  'Drama Society':                [],
+  'Music Society':                [],
+  'Photography Society':          [],
+  'Christian Union (UPCU)':       [],
+  'Environmental Society':        [],
+  'Gaming Society':               [],
+  'Plymouth Night Patrol':        [],
 };
 
-// Helper: get societies that can legitimately post in a given category
-const societiesForCategory = (cat) =>
-  UPSU_SOCIETIES.filter(s => (SOCIETY_CATEGORIES[s] || []).includes(cat));
+// Community activities are universal — any society can post them.
+const COMMUNITY_ACTIVITIES = ['Volunteering', 'Social Events', 'Fundraising', 'Campaigns'];
+
+// Helper: which activities a society can post in a given category
+// - For Community → always all 4 community activities
+// - For other categories → only their specific listed activities
+// - Study category → always empty (students-only)
+function activitiesForSocietyInCategory(society, category) {
+  if (category === 'Study') return [];
+  if (category === 'Community') return COMMUNITY_ACTIVITIES;
+  const specific = SOCIETY_ACTIVITIES[society] || [];
+  // Filter to only the activities that actually exist in this category
+  const validInCat = Object.keys(CATEGORIES[category]?.activities || {});
+  return specific.filter(a => validInCat.includes(a));
+}
+
+// Helper: which societies are eligible to post in a given category
+// (i.e. they have at least one valid activity available)
+function societiesForCategory(category) {
+  if (category === 'Study') return [];
+  if (category === 'Community') return UPSU_SOCIETIES; // any society can do community
+  return UPSU_SOCIETIES.filter(s => activitiesForSocietyInCategory(s, category).length > 0);
+}
+
+// Helper: when a society is posting, build their full activity dropdown.
+// Each native activity ALSO gets a 'Taster Session' variant which uses group
+// mode regardless of the parent activity's mode. Display label: 'Tennis — Taster Session'
+function activityOptionsForPoster(category, postedBy, society) {
+  const allActivities = Object.keys(CATEGORIES[category]?.activities || {});
+  if (postedBy !== 'Societies') return allActivities.map(a => ({ value: a, label: a, isTaster: false }));
+  // Society poster — restrict to their activities + add taster variants
+  const allowed = activitiesForSocietyInCategory(society, category);
+  const out = [];
+  for (const a of allowed) {
+    out.push({ value: a, label: a, isTaster: false });
+    // Taster sessions only make sense for Sport + Board Games — not Community
+    if (category === 'Sport' || category === 'Board Games') {
+      out.push({ value: `${a} (Taster Session)`, label: `${a} — Taster Session`, isTaster: true, parentActivity: a });
+    }
+  }
+  return out;
+}
 
 const getCategoryColor = (cat) => {
   const c = CATEGORIES[cat]?.color || 'blue';
@@ -1066,8 +1135,16 @@ const CreatePostModal = ({ onClose, onCreate, allowedCategories, defaultCategory
   const [postedBy, setPostedBy] = useState('Student');
   const [society, setSociety] = useState(UPSU_SOCIETIES[0]);
 
-  const activities = Object.keys(CATEGORIES[category].activities);
-  const cfg = getActivityConfig(category, activity);
+  // Activity list adapts to who's posting and what category.
+  // For societies, this restricts to their specific activities + adds Taster variants.
+  const activityOptions = activityOptionsForPoster(category, postedBy, society);
+  const activities = activityOptions.map(o => o.value);
+  // Resolve activity config. Taster Sessions always behave as group mode regardless
+  // of the underlying activity (a tennis taster might have 12 people, not 2).
+  const tasterMatch = activityOptions.find(o => o.value === activity && o.isTaster);
+  const cfg = tasterMatch
+    ? { mode: 'group', defaultPerTeam: 6 }
+    : getActivityConfig(category, activity);
 
   const locationsByCategory = {
     'Sport': ['SU Sports Hall','Nancy Astor Sports Centre','Brickfield Pitches','Mast House Courts','Plymouth Life Centre','Mast House Courts'],
@@ -1080,16 +1157,21 @@ const CreatePostModal = ({ onClose, onCreate, allowedCategories, defaultCategory
 
   const handleCategoryChange = (c) => {
     setCategory(c);
-    const acts = Object.keys(CATEGORIES[c].activities);
-    setActivity(acts[0]);
-    const newCfg = getActivityConfig(c, acts[0]);
+    const opts = activityOptionsForPoster(c, postedBy, society);
+    const firstOpt = opts[0];
+    const firstActValue = firstOpt ? firstOpt.value : Object.keys(CATEGORIES[c].activities)[0];
+    setActivity(firstActValue);
+    const isTaster = firstOpt && firstOpt.isTaster;
+    const newCfg = isTaster ? { mode: 'group', defaultPerTeam: 6 } : getActivityConfig(c, firstActValue);
     setMaxPeople(newCfg.mode === '1v1' ? 2 : (newCfg.defaultPerTeam || 4) * 2);
     setLocation((locationsByCategory[c] || locationsByCategory['Sport'])[0]);
   };
 
   const handleActivityChange = (a) => {
     setActivity(a);
-    const newCfg = getActivityConfig(category, a);
+    const opt = activityOptions.find(o => o.value === a);
+    const isTaster = opt && opt.isTaster;
+    const newCfg = isTaster ? { mode: 'group', defaultPerTeam: 6 } : getActivityConfig(category, a);
     setMaxPeople(newCfg.mode === '1v1' ? 2 : (newCfg.defaultPerTeam || 4) * 2);
   };
 
@@ -1131,7 +1213,17 @@ const CreatePostModal = ({ onClose, onCreate, allowedCategories, defaultCategory
       </div>
       <div><label className="block text-sm font-semibold text-gray-600 mb-1.5">Posted As *</label>
         <div className="grid grid-cols-3 gap-2">{['Student','Societies','Staff'].map(g => (
-          <button key={g} onClick={() => setPostedBy(g)} className={`py-2 rounded-lg font-semibold text-sm transition-all text-center ${postedBy === g ? 'text-white' : 'bg-gray-50 text-gray-500 border border-gray-200 hover:bg-gray-100'}`} style={postedBy === g ? { background: '#1e3a5f' } : {}}>
+          <button key={g} onClick={() => {
+            setPostedBy(g);
+            // Reset activity to first valid option for the new poster type
+            const opts = activityOptionsForPoster(category, g, society);
+            if (opts.length > 0) {
+              setActivity(opts[0].value);
+              const isTaster = opts[0].isTaster;
+              const newCfg = isTaster ? { mode: 'group', defaultPerTeam: 6 } : getActivityConfig(category, opts[0].value);
+              setMaxPeople(newCfg.mode === '1v1' ? 2 : (newCfg.defaultPerTeam || 4) * 2);
+            }
+          }} className={`py-2 rounded-lg font-semibold text-sm transition-all text-center ${postedBy === g ? 'text-white' : 'bg-gray-50 text-gray-500 border border-gray-200 hover:bg-gray-100'}`} style={postedBy === g ? { background: '#1e3a5f' } : {}}>
             {g}
           </button>
         ))}</div>
@@ -1139,15 +1231,29 @@ const CreatePostModal = ({ onClose, onCreate, allowedCategories, defaultCategory
           const eligibleSocieties = societiesForCategory(category);
           // Sport: no society can post — show explanation instead of empty dropdown
           if (eligibleSocieties.length === 0) {
+            const reason = category === 'Study'
+              ? "Study posts come from individual students — switch to 'Student' above to post here."
+              : `No societies post in ${category} currently. Switch to 'Student' above, or pick a different category.`;
             return (
               <div className="mt-2 px-3 py-2 rounded-lg text-xs" style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a' }}>
-                Societies can't post Sport activities — these come from individual students. Switch to 'Student' above, or pick a different category.
+                {reason}
               </div>
             );
           }
           return (
             <div className="mt-2">
-              <select value={eligibleSocieties.includes(society) ? society : eligibleSocieties[0]} onChange={e => setSociety(e.target.value)} className={inputCls}>
+              <select value={eligibleSocieties.includes(society) ? society : eligibleSocieties[0]} onChange={e => {
+                  const newSoc = e.target.value;
+                  setSociety(newSoc);
+                  // Reset activity to one this new society can post
+                  const opts = activityOptionsForPoster(category, 'Societies', newSoc);
+                  if (opts.length > 0 && !opts.some(o => o.value === activity)) {
+                    setActivity(opts[0].value);
+                    const isTaster = opts[0].isTaster;
+                    const newCfg = isTaster ? { mode: 'group', defaultPerTeam: 6 } : getActivityConfig(category, opts[0].value);
+                    setMaxPeople(newCfg.mode === '1v1' ? 2 : (newCfg.defaultPerTeam || 4) * 2);
+                  }
+                }} className={inputCls}>
                 {eligibleSocieties.map(s => (<option key={s} value={s}>{s}</option>))}
               </select>
               <p className="text-xs text-gray-500 mt-1">Only societies relevant to {category} are shown.</p>
@@ -1306,16 +1412,19 @@ const BulletinBoardApp = () => {
   const [showCategoryStats, setShowCategoryStats] = useState(false);
 
   const [posts, setPosts] = useState([
-    // ── SPORT (7 activities × mixed postedBy) ──
+    // ── SPORT (mix of student-led casual + sports club-led + Taster Sessions) ──
     { id:1,  user:'Alex Johnson',    category:'Sport', activity:'Basketball',  location:'SU Sports Hall',          date:'2026-02-07', time:'15:00', mode:'team', maxPeople:10, description:'Friendly 5v5, all levels welcome. Bibs provided!', postedBy:'Student' },
     { id:2,  user:'Sarah Martinez',  category:'Sport', activity:'Tennis',      location:'Mast House Courts',       date:'2026-02-08', time:'14:00', mode:'1v1',  maxPeople:2,  description:'Looking for a rally partner — intermediate level.', postedBy:'Student' },
     { id:3,  user:'Zara Khan',       category:'Sport', activity:'Football',    location:'Brickfield Pitches',      date:'2026-02-09', time:'14:00', mode:'team', maxPeople:10, description:'5-a-side kickabout on the outdoor pitch. Bring water!', postedBy:'Staff' },
     { id:4,  user:'Ryan Cooper',     category:'Sport', activity:'Volleyball',  location:'Nancy Astor Sports Centre',date:'2026-02-10', time:'11:00', mode:'team', maxPeople:12, description:'Beach rules on the indoor court. Staff vs students!', postedBy:'Staff' },
-    { id:5,  user:'Emily Davis',     category:'Sport', activity:'Rugby',       location:'Brickfield Pitches',      date:'2026-02-11', time:'16:00', mode:'team', maxPeople:14, description:'Touch rugby, mixed abilities welcome. Far pitch.', postedBy:'Student' },
-    { id:6,  user:'Tom Wilson',      category:'Sport', activity:'Cricket',     location:'Plymouth Life Centre',     date:'2026-02-12', time:'13:00', mode:'team', maxPeople:22, description:'Casual cricket — pads and bats provided, just turn up!', postedBy:'Student' },
+    { id:5,  user:'James Holloway',  category:'Sport', activity:'Rugby',       location:'Brickfield Pitches',      date:'2026-02-11', time:'16:00', mode:'team', maxPeople:14, description:'Touch rugby training session — all positions welcome.', postedBy:'Societies', society:'Rugby Union Club' },
+    { id:6,  user:'Aaron Webb',      category:'Sport', activity:'Cricket',     location:'Plymouth Life Centre',     date:'2026-02-12', time:'13:00', mode:'team', maxPeople:22, description:'Indoor nets practice ahead of BUCS fixture. Whites optional.', postedBy:'Societies', society:'Cricket Club' },
     { id:7,  user:'Sarah Martinez',  category:'Sport', activity:'Badminton',   location:'SU Sports Hall',          date:'2026-02-09', time:'10:00', mode:'1v1',  maxPeople:2,  description:'Morning singles — just need a partner at a similar level.', postedBy:'Student' },
-    { id:8,  user:'Lisa Park',       category:'Sport', activity:'Football',    location:'Brickfield Pitches',      date:'2026-02-13', time:'17:00', mode:'team', maxPeople:10, description:'Women\'s 5-a-side, all abilities. Boots or trainers fine.', postedBy:'Student' },
+    { id:8,  user:'Olivia Reed',     category:'Sport', activity:'Football',    location:'Brickfield Pitches',      date:'2026-02-13', time:'17:00', mode:'team', maxPeople:10, description:'Women\'s 5-a-side training session. New members welcome.', postedBy:'Societies', society:'Football Club' },
     { id:9,  user:'Mike Chen',       category:'Sport', activity:'Basketball',  location:'Nancy Astor Sports Centre',date:'2026-02-08', time:'12:00', mode:'team', maxPeople:10, description:'Staff lunchtime hoops — open to postgrads too.', postedBy:'Staff' },
+    { id:45, user:'Tennis Club Committee', category:'Sport', activity:'Tennis (Taster Session)', location:'Mast House Courts', date:'2026-02-14', time:'13:00', mode:'group', maxPeople:12, description:'Free taster session — racquets provided. Bring trainers. New members especially welcome!', postedBy:'Societies', society:'Tennis Club' },
+    { id:46, user:'Basketball Club Captain', category:'Sport', activity:'Basketball (Taster Session)', location:'SU Sports Hall', date:'2026-02-15', time:'14:00', mode:'group', maxPeople:16, description:'Open court taster. All abilities — drills, skills, scrimmage. No commitment to join.', postedBy:'Societies', society:'Basketball Club' },
+    { id:47, user:'Volleyball Captain', category:'Sport', activity:'Volleyball (Taster Session)', location:'Nancy Astor Sports Centre', date:'2026-02-16', time:'15:00', mode:'group', maxPeople:14, description:'Beach + indoor rules taught. Trainers required. Pizza after for those who stay.', postedBy:'Societies', society:'Volleyball Club' },
 
     // ── STUDY (6 activities × mixed postedBy) ──
     { id:10, user:'Mike Chen',       category:'Study', activity:'Group Revision',   location:'Charles Seale-Hayne Library', date:'2026-02-07', time:'17:00', mode:'group', maxPeople:6,  description:'Covering modules 3–5 for the Thursday exam. Bring notes!', postedBy:'Student' },
@@ -1329,16 +1438,16 @@ const BulletinBoardApp = () => {
     { id:18, user:'Alex Johnson',    category:'Study', activity:'Project Group',    location:'Babbage Building',            date:'2026-02-12', time:'11:00', mode:'group', maxPeople:5,  description:'Computing Society hackathon prep — need backend devs.', postedBy:'Societies', society:'Computing Society' },
     { id:29, user:'Lisa Park',       category:'Study', activity:'Writing Café',     location:'Café on the Green',              date:'2026-02-10', time:'10:00', mode:'group', maxPeople:8,  description:'Quiet co-working session for essays and dissertations. Bring your laptop!', postedBy:'Societies', society:'Psychology Society' },
 
-    // ── BOARD GAMES (7 activities × mixed postedBy) ──
+    // ── BOARD GAMES (mix of student + society-led, with Taster Sessions) ──
     { id:19, user:'Emily Davis',     category:'Board Games', activity:'Catan',              location:'UPSU Building',   date:'2026-02-09', time:'16:00', mode:'group', maxPeople:4,  description:'Settlers + Seafarers expansion. Beginners very welcome.', postedBy:'Societies', society:'Tabletop Gaming Society' },
-    { id:20, user:'Tom Wilson',      category:'Board Games', activity:'Chess',              location:'Davy Building',   date:'2026-02-08', time:'12:00', mode:'1v1',   maxPeople:2,  description:'Casual lunchtime game. Any skill level.', postedBy:'Student' },
-    { id:21, user:'Alex Johnson',    category:'Board Games', activity:'Monopoly',           location:'Peter Chalk Centre', date:'2026-02-10', time:'19:00', mode:'group', maxPeople:4,  description:'Classic rules, no house rules debate this time. Promise.', postedBy:'Student' },
-    { id:22, user:'Lisa Park',       category:'Board Games', activity:'Risk',               location:'UPSU Building',   date:'2026-02-11', time:'17:00', mode:'group', maxPeople:5,  description:'World domination session. Expect it to last 3+ hours.', postedBy:'Societies', society:'Gaming Society' },
-    { id:23, user:'Ryan Cooper',     category:'Board Games', activity:'Scrabble',           location:'Café on the Green',   date:'2026-02-08', time:'15:00', mode:'group', maxPeople:4,  description:'Relaxed game over coffee. Dictionary debates welcome.', postedBy:'Student' },
-    { id:24, user:'Zara Khan',       category:'Board Games', activity:'Poker',              location:'Davy Building',   date:'2026-02-12', time:'20:00', mode:'group', maxPeople:6,  description:'Texas hold\'em, chips only — no real money. Snacks provided.', postedBy:'Staff' },
+    { id:20, user:'Daniel Park',     category:'Board Games', activity:'Chess',              location:'Café on the Green', date:'2026-02-10', time:'12:00', mode:'1v1', maxPeople:2,  description:'Lunchtime chess at the café. ELO welcome, beginners more welcome.', postedBy:'Societies', society:'Chess Society' },
+    { id:21, user:'Aisha Banda',     category:'Board Games', activity:'Monopoly',           location:'UPSU Building',   date:'2026-02-10', time:'19:00', mode:'group', maxPeople:4,  description:'Classic Monopoly night. Snacks provided. House rules vetoed.', postedBy:'Student' },
+    { id:22, user:'Lisa Park',       category:'Board Games', activity:'Risk',               location:'UPSU Building',   date:'2026-02-11', time:'17:00', mode:'group', maxPeople:5,  description:'World domination session. Expect it to last 3+ hours.', postedBy:'Societies', society:'Tabletop Gaming Society' },
+    { id:23, user:'Marcus Etemadi',  category:'Board Games', activity:'Scrabble',           location:'Café on the Green', date:'2026-02-12', time:'14:00', mode:'group', maxPeople:4,  description:'Casual Scrabble — official word list, friendly stakes.', postedBy:'Student' },
+    { id:24, user:'Hana Nakamura',   category:'Board Games', activity:'Poker',              location:'Ram Bar',          date:'2026-02-12', time:'20:00', mode:'group', maxPeople:6,  description:'No-limit hold em — chips, not cash. Bring your poker face.', postedBy:'Societies', society:'Poker Society' },
     { id:25, user:'Emily Davis',     category:'Board Games', activity:'Dungeons & Dragons', location:'Peter Chalk Centre', date:'2026-02-13', time:'18:00', mode:'group', maxPeople:5,  description:'New campaign starting! DM has a one-shot for newcomers.', postedBy:'Societies', society:'Tabletop Gaming Society' },
-    { id:26, user:'Sarah Martinez',  category:'Board Games', activity:'Chess',              location:'Café on the Green',   date:'2026-02-09', time:'10:00', mode:'1v1',   maxPeople:2,  description:'Morning chess and coffee — timed games, 10 min each.', postedBy:'Student' },
-    { id:27, user:'Ryan Cooper',     category:'Board Games', activity:'Catan',              location:'UPSU Building',   date:'2026-02-14', time:'14:00', mode:'group', maxPeople:4,  description:'Staff board game social — all welcome, not just staff!', postedBy:'Staff' },
+    { id:48, user:'Chess Society Captain', category:'Board Games', activity:'Chess (Taster Session)', location:'UPSU Building', date:'2026-02-15', time:'13:00', mode:'group', maxPeople:10, description:'Free open-board session. Learn the basics or play casual matches. Boards provided.', postedBy:'Societies', society:'Chess Society' },
+    { id:49, user:'Tabletop Society President', category:'Board Games', activity:'Catan (Taster Session)', location:'UPSU Building', date:'2026-02-17', time:'18:00', mode:'group', maxPeople:8, description:'Multiple boards running — try Catan for the first time, or join a longer game.', postedBy:'Societies', society:'Tabletop Gaming Society' },
 
     // ── OPPORTUNITIES (with listing details for dedicated pages) ──
     { id:30, user:'Zara Khan',       category:'Opportunities', activity:'Part Time Vacancies',  location:'Careers Service',         date:'2026-02-07', time:'09:00', mode:'group', maxPeople:20, description:'Student Ambassador roles now open — flexible hours, great for your CV!', postedBy:'Staff', sector:'University', activityType:'Customer-Facing',
@@ -1361,7 +1470,7 @@ const BulletinBoardApp = () => {
     { id:37, user:'Lisa Park',       category:'Community', activity:'Volunteering',     location:'UPSU Building',    date:'2026-02-13', time:'16:00', mode:'group', maxPeople:15, description:'Code Club mentor training — help local schoolchildren learn to code.', postedBy:'Societies', society:'Computing Society', cause:'Education & Youth', activityType:'Tutoring & Mentoring' },
     { id:39, user:'Emily Davis',     category:'Community', activity:'Social Events',    location:'Davy Building',           date:'2026-02-08', time:'19:00', mode:'group', maxPeople:40, description:'International food night — bring a dish from home! Sign up sheet at the Guild.', postedBy:'Societies', society:'Geography Society', cause:'Cultural & Inclusion', activityType:'Cultural Nights' },
     { id:40, user:'Alex Johnson',    category:'Community', activity:'Social Events',    location:'The House',          date:'2026-02-14', time:'20:00', mode:'group', maxPeople:50, description:'Valentine\'s quiz night — teams of 4-6, prizes for winners!', postedBy:'Staff', cause:'Social & Wellbeing', activityType:'Quiz & Games' },
-    { id:41, user:'Zara Khan',       category:'Community', activity:'Fundraising',      location:'Roland Levinsky Building',               date:'2026-02-10', time:'11:00', mode:'group', maxPeople:20, description:'RAG week bake sale — all donations go to Devon Air Ambulance.', postedBy:'Societies', society:'Medical Sciences Society', cause:'Health', activityType:'Bake Sales' },
+    { id:41, user:'Zara Khan',       category:'Community', activity:'Fundraising',      location:'Roland Levinsky Building',               date:'2026-02-10', time:'11:00', mode:'group', maxPeople:20, description:'RAG week bake sale — all donations go to Devon Air Ambulance.', postedBy:'Societies', society:'Biomedical Science Society', cause:'Health', activityType:'Bake Sales' },
     { id:42, user:'Tom Wilson',      category:'Community', activity:'Campaigns',        location:'UPSU Building',    date:'2026-02-11', time:'14:00', mode:'group', maxPeople:25, description:'Sustainability swap shop — bring old clothes, take something new to you!', postedBy:'Societies', society:'Environmental Society', cause:'Environment', activityType:'Sustainability' },
     { id:43, user:'Jordan Lee',      category:'Community', activity:'Campaigns',        location:'Online',              date:'2026-02-12', time:'18:00', mode:'group', maxPeople:30, description:'Mental health awareness week planning meeting. All welcome to contribute ideas.', postedBy:'Staff', cause:'Mental Health', activityType:'Awareness Campaign' },
   ]);

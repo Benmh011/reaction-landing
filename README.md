@@ -1,72 +1,81 @@
-# Plymouth demo fixes — society alignment, modal cleanup, Pair label
+# Plymouth societies v2 — proper society/activity alignment
 
-Three integrity fixes for the Plymouth demo's post system.
+Three structural changes to make society posts feel realistic.
 
 ## What's in this bundle
 
 ```
-demos/plymouth/src/WannaGameBoard.jsx   ← UPDATED (~75 net new lines)
+demos/plymouth/src/WannaGameBoard.jsx   ← UPDATED (~185 net new lines)
 ```
 
-## Changes
+## What changed
 
-### Fix 1 — Society/activity alignment
+### 1. New society list — 27 societies / clubs (was 17)
 
-**Data (seed posts fixed):**
-- Drama Society posting Rugby → now Student
-- Geography Society posting Cricket → now Student  
-- Education Society (didn't exist in society list) posting Football → now Student
-- Engineering Society (didn't exist) posting Group Revision → now Architecture Society (PARCS)
+Sport-specific clubs added so they can actually post their sport:
+- Basketball Club · Football Club · Rugby Union Club · Tennis Club
+- Badminton Club · Cricket Club · Volleyball Club
 
-**Logic (new map):**
-Added `SOCIETY_CATEGORIES` map defining which categories each society can post in.
-Sport is intentionally excluded for ALL societies — sport posts come from students.
-Community is allowed for all societies (fundraising/volunteering is universal).
-Other categories are matched to society purpose (e.g. Tabletop Gaming Society can
-post Board Games + Community; Computing Society can post Study + Board Games +
-Community).
+Board game specifics added:
+- Chess Society (was missing entirely)
+- Poker Society (was implicit in Tabletop)
+- Tabletop Gaming Society (existing, now covers Catan / Risk / Monopoly / Scrabble / D&D)
 
-**UI behaviour:** When admin/user selects 'Societies' as the poster and the
-chosen category is Sport, a warning appears explaining societies can't post
-sport. When in any other category, the society dropdown filters to only show
-relevant societies.
+Academic + general societies kept, plus added: Plymouth Night Patrol (a real Plymouth-specific society) and a few academic ones aligned with course offerings.
 
-### Fix 2 — Post modal cleanup
+### 2. Society → activity restrictions (not category)
 
-**Visual:**
-- Category buttons restyled cleaner — solid navy when active, white/grey when not. 
-  No more gradient blur, no more chunky shadows.
-- Buttons now use CSS grid for even spacing (was flex-wrap which created uneven rows).
+Replaced the previous `SOCIETY_CATEGORIES` map with `SOCIETY_ACTIVITIES`:
+- Tennis Club → can post Tennis (and Tennis Taster Session)
+- Chess Society → can post Chess (and Chess Taster Session)
+- Tabletop Gaming Society → Catan / Risk / Monopoly / Scrabble / D&D + their Tasters
+- Academic societies (Computing, Law, Psychology etc.) → Community only
+- Drama / Music / Photography → Community only
+- All societies can ALWAYS post Community activities (Volunteering, Fundraising, Social Events, Campaigns)
+- Study posts are student-only — Study isn't a society-led category
 
-**Behavioural:**
-- Modal now accepts `allowedCategories` prop.
-- When opened from Campus board → shows Sport / Study / Board Games only
-- When opened from Community board → shows Community only
-- When opened from Opportunities board → shows Opportunities only
-- Default category pre-fills appropriately based on which board you were on.
+### 3. Taster Sessions — new activity variant
 
-### Fix 3 — "1v1" rename to "Pair"
+Sport clubs and Board Game societies can post "[Activity] Taster Session" variants.
+Tasters force `group` mode regardless of the parent activity's mode — so the Tennis 
+Club can run a 12-person intro instead of being capped at 2 (pair mode). Display label:
+"Tennis — Taster Session".
 
-Two render sites updated:
-- The mode badge in the create modal: was "1v1 / Pair", now "Pair"  
-- The mode display in the post card: was "1v1", now "Pair"
+### Modal behaviour now
 
-Data model unchanged — `mode: '1v1'` is still the internal value (used to compute 
-maxPeople=2 and other logic). Only the user-facing string changed.
+When you click "+ New Post" and select "Societies" as poster:
+- Society dropdown filters to only societies eligible for the current category
+- If Sport: shows only sport-specific clubs
+- If Board Games: shows Chess Soc, Tabletop, Poker Soc
+- If Community: shows ALL societies
+- If Study: warns "Study posts come from students" and disables society mode
+- Activity dropdown filters to only activities that society can post
+- Taster Session variants appear automatically for Sport + Board Games
 
-This fixes the "Lab Partner / 1v1" confusion: Lab Partner is still a pair-mode
-activity (you need ONE partner), but now reads as "Pair" which is unambiguous
-across Sport, Study, and Board Games contexts.
+### Reseed of sport posts
+
+12 sport posts total (was 9):
+- 3 student-posted casual (Basketball, Tennis pair, Badminton pair)
+- 3 staff-posted (Football, Volleyball, Basketball lunchtime)
+- 3 society-posted training (Rugby Union Club, Cricket Club, Football Club)
+- 3 Taster Sessions (Tennis Club, Basketball Club, Volleyball Club)
+
+### Reseed of board game posts
+
+9 board game posts total (was 7):
+- 4 society-posted (Chess Soc, Tabletop x2, Poker Soc)
+- 1 student-posted (Monopoly night, Scrabble)
+- 2 Taster Sessions (Chess Society, Tabletop Gaming Society)
 
 ## Deploy
 
 ```
-xcopy /E /Y "%USERPROFILE%\Downloads\plymouth-fixes\*" "C:\Users\Rhys\Reaction\"
+xcopy /E /Y "%USERPROFILE%\Downloads\plymouth-societies-v2\*" "C:\Users\Rhys\Reaction\"
 cd C:\Users\Rhys\Reaction\demos\plymouth
 npm run build
 cd C:\Users\Rhys\Reaction
 git add -A
-git commit -m "Plymouth: society/category alignment, modal cleanup, Pair label"
+git commit -m "Plymouth: society→activity restrictions, Taster Sessions, expanded society list"
 git push
 ```
 
@@ -75,22 +84,30 @@ Vercel auto-deploys ~90 sec.
 ## Test sequence
 
 1. Sign in to Plymouth demo
-2. **Visual check** — scroll posts. Confirm:
-   - No Sport posts show a society badge (they're all student-posted now)
-   - Lab Partner post shows "Pair" not "1v1"
-   - Tennis / Badminton / Chess all show "Pair"
-3. **Modal check (Campus board)** — click + New Post while viewing Campus:
-   - Category buttons show: Sport · Study · Board Games (NO Community, NO Opportunities)
-   - Buttons look clean (solid colours, no gradient blur)
-   - Pick Sport, select Societies as poster — see warning explaining societies can't post sport
-   - Switch to Study, select Societies — society dropdown only shows Study-eligible societies
-4. **Modal check (Community board)** — navigate to Community board, click + New Post:
-   - Category buttons show: Community only
-5. **Modal check (Opportunities board)** — same for Opportunities
+2. **Visual sweep — existing posts:**
+   - Rugby post should now attribute to Rugby Union Club (not Drama)
+   - Cricket post → Cricket Club (not Geography)
+   - Women's football → Football Club (not Education)
+   - Tennis Taster shows "Tennis — Taster Session", 12 max people
+3. **Create a Sport post:**
+   - Click + New Post on Campus board
+   - Select Sport, click Societies
+   - Society dropdown shows only sports clubs
+   - Pick "Tennis Club" — activity dropdown shows "Tennis" + "Tennis — Taster Session"
+   - Pick the Taster — max people becomes group-sized (6+ default)
+4. **Create a Board Game post:**
+   - Same flow, Board Games + Societies
+   - Pick "Chess Society" — activity dropdown shows "Chess" + "Chess — Taster Session"
+   - Pick "Tabletop Gaming Society" — dropdown shows Catan/Risk/Monopoly/Scrabble/D&D + their Tasters
+5. **Study + Societies:**
+   - Switch to Study, click Societies
+   - Warning appears explaining study posts are student-only
+6. **Community + Societies:**
+   - Switch to Community, click Societies
+   - All societies available
+   - All 4 community activities available regardless of which society
 
-## Known limitation
+## Known limitations
 
-The Opportunities board still allows users to post — in a real product these
-would be employer-only. For demo purposes we kept it open. If you want to lock
-it down too, easy follow-up: change the LANDING_SECTIONS to mark some as 
-"read-only" and hide the + New Post button on those boards.
+- The Opportunities board still allows user posts. In a real product these would be employer-only.
+- Taster Sessions only exist for Sport + Board Games. If you ever want Community-style Taster Sessions, easy to extend.
