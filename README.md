@@ -1,96 +1,127 @@
-# Plymouth demo fixes — society alignment, modal cleanup, Pair label
+# Email rebrand + unsubscribe system
 
-Three integrity fixes for the Plymouth demo's post system.
+Rebrands all outbound emails to the new blue/grey palette + adds a real
+unsubscribe flow with List-Unsubscribe headers for spam-filter reputation.
 
 ## What's in this bundle
 
 ```
-demos/plymouth/src/WannaGameBoard.jsx   ← UPDATED (~75 net new lines)
+lib/email-templates.ts             ← NEW (shared template helper + HMAC token logic)
+auth.ts                            ← UPDATED (uses shared template)
+app/api/demo-request/route.ts      ← UPDATED (rebrand + new prospect ack email)
+app/api/unsubscribe/route.ts       ← NEW (handles GET + POST one-click)
+app/unsubscribe/page.tsx           ← NEW (confirmation page)
+prisma/SCHEMA-PATCH.md             ← Schema changes to apply manually
 ```
 
-## Changes
+## What changes for users
 
-### Fix 1 — Society/activity alignment
+**Magic-link sign-in email** — same flow, new look:
+- Pearl grey background, white card, slate blue Reaction wordmark
+- Deep navy CTA button
+- Footer with reaction.org.uk + Contact us
+- NO unsubscribe link (it's transactional — users would lock themselves out)
+- BUT List-Unsubscribe headers ARE added for spam-filter reputation
 
-**Data (seed posts fixed):**
-- Drama Society posting Rugby → now Student
-- Geography Society posting Cricket → now Student  
-- Education Society (didn't exist in society list) posting Football → now Student
-- Engineering Society (didn't exist) posting Group Revision → now Architecture Society (PARCS)
+**Demo-request admin notification** — same content, new look. Internal-only, no unsubscribe.
 
-**Logic (new map):**
-Added `SOCIETY_CATEGORIES` map defining which categories each society can post in.
-Sport is intentionally excluded for ALL societies — sport posts come from students.
-Community is allowed for all societies (fundraising/volunteering is universal).
-Other categories are matched to society purpose (e.g. Tabletop Gaming Society can
-post Board Games + Community; Computing Society can post Study + Board Games +
-Community).
+**Prospect acknowledgment** — NEW. When someone submits the demo form, they
+now receive a "Thanks for getting in touch" email within seconds. Includes:
+- Personalised greeting using their first name
+- Confirmation we'll respond within one business day
+- Working Unsubscribe link in the footer
 
-**UI behaviour:** When admin/user selects 'Societies' as the poster and the
-chosen category is Sport, a warning appears explaining societies can't post
-sport. When in any other category, the society dropdown filters to only show
-relevant societies.
+## ⚠️ Deploy order matters
 
-### Fix 2 — Post modal cleanup
+This bundle changes the Prisma schema. Two days ago we had a production outage
+because the schema was pushed before the code. This time do it in the safe order:
 
-**Visual:**
-- Category buttons restyled cleaner — solid navy when active, white/grey when not. 
-  No more gradient blur, no more chunky shadows.
-- Buttons now use CSS grid for even spacing (was flex-wrap which created uneven rows).
+### Step 1 — Apply the schema patch manually
 
-**Behavioural:**
-- Modal now accepts `allowedCategories` prop.
-- When opened from Campus board → shows Sport / Study / Board Games only
-- When opened from Community board → shows Community only
-- When opened from Opportunities board → shows Opportunities only
-- Default category pre-fills appropriately based on which board you were on.
+Open `prisma/schema.prisma` on your Mac. Make the two changes described in
+`prisma/SCHEMA-PATCH.md` (add `marketingOptOut` to User, add EmailOptOut model).
 
-### Fix 3 — "1v1" rename to "Pair"
-
-Two render sites updated:
-- The mode badge in the create modal: was "1v1 / Pair", now "Pair"  
-- The mode display in the post card: was "1v1", now "Pair"
-
-Data model unchanged — `mode: '1v1'` is still the internal value (used to compute 
-maxPeople=2 and other logic). Only the user-facing string changed.
-
-This fixes the "Lab Partner / 1v1" confusion: Lab Partner is still a pair-mode
-activity (you need ONE partner), but now reads as "Pair" which is unambiguous
-across Sport, Study, and Board Games contexts.
-
-## Deploy
+### Step 2 — Copy the new code into place
 
 ```
-xcopy /E /Y "%USERPROFILE%\Downloads\plymouth-fixes\*" "C:\Users\Rhys\Reaction\"
-cd C:\Users\Rhys\Reaction\demos\plymouth
-npm run build
-cd C:\Users\Rhys\Reaction
+cp -R ~/Downloads/email-rebrand/. ~/Reaction/
+```
+
+(Or the Windows xcopy equivalent if deploying from there.)
+
+### Step 3 — Push the schema to production DB
+
+```
+cd ~/Reaction
+npx prisma db push
+npx prisma generate
+```
+
+This adds the new column + table BEFORE the code references them.
+
+The code is also defensive — if `marketingOptOut` is missing it treats users
+as not-opted-out, so we won't have an outage even if step 3 is briefly delayed.
+
+### Step 4 — Commit + push
+
+```
+cd ~/Reaction
 git add -A
-git commit -m "Plymouth: society/category alignment, modal cleanup, Pair label"
+git commit -m "Rebrand emails + add unsubscribe with List-Unsubscribe headers"
 git push
 ```
 
-Vercel auto-deploys ~90 sec.
+Vercel deploys ~90 sec.
 
-## Test sequence
+### Step 5 — Verify
 
-1. Sign in to Plymouth demo
-2. **Visual check** — scroll posts. Confirm:
-   - No Sport posts show a society badge (they're all student-posted now)
-   - Lab Partner post shows "Pair" not "1v1"
-   - Tennis / Badminton / Chess all show "Pair"
-3. **Modal check (Campus board)** — click + New Post while viewing Campus:
-   - Category buttons show: Sport · Study · Board Games (NO Community, NO Opportunities)
-   - Buttons look clean (solid colours, no gradient blur)
-   - Pick Sport, select Societies as poster — see warning explaining societies can't post sport
-   - Switch to Study, select Societies — society dropdown only shows Study-eligible societies
-4. **Modal check (Community board)** — navigate to Community board, click + New Post:
-   - Category buttons show: Community only
-5. **Modal check (Opportunities board)** — same for Opportunities
+1. Submit a test demo request from /demo using a real email you can read
+2. Check inbox for the new acknowledgment email (pearl grey + slate blue branding)
+3. Check the admin email (info@reaction.org.uk) for the admin notification
+4. Click the "Unsubscribe" link in the prospect email — should land on /unsubscribe with confirmation
+5. Trigger a magic-link signin from /auth/signin — should arrive in new branded style with NO unsubscribe link in footer
 
-## Known limitation
+## Optional: View source of an inbox email
 
-The Opportunities board still allows users to post — in a real product these
-would be employer-only. For demo purposes we kept it open. If you want to lock
-it down too, easy follow-up: change the LANDING_SECTIONS to mark some as 
-"read-only" and hide the + New Post button on those boards.
+In Gmail: click ⋮ → "Show original". Look for these headers:
+```
+List-Unsubscribe: <mailto:info@reaction.org.uk?subject=unsubscribe>, <https://reaction.org.uk/unsubscribe?email=...&token=...>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+```
+
+If both are present, Gmail will show the prominent "Unsubscribe" button next
+to the sender name on receiving devices — major spam-filter goodwill.
+
+## Security note
+
+Unsubscribe links are signed with HMAC-SHA256 of the email + AUTH_SECRET. This
+means:
+- A token only works for the email it was generated for
+- Tokens can't be forged without AUTH_SECRET
+- Tokens don't expire (intentional — old emails should still work)
+- Verification is timing-safe (no length-leak attacks)
+
+## Known limitations
+
+1. The shared template is **light-mode only** (no dark mode). All email clients
+   handle light/dark differently — fighting them is a losing battle. The
+   `color-scheme: light only` meta tag tells modern clients not to apply
+   automatic dark-mode inversion.
+
+2. The Newsreader font won't load in any email client. Falls back to Georgia
+   which is a safe default (installed on Windows, macOS, iOS, Android, ChromeOS).
+
+3. The `EmailOptOut` table is populated but not yet *checked* in `auth.ts`
+   (because magic-link is transactional). If you later add marketing emails
+   to logged-in users (newsletter, product announcements), import the helper
+   and check `EmailOptOut.findUnique({ where: { email } })` before sending.
+
+4. **Existing users who submitted demo requests before this deploy** won't have
+   `marketingOptOut` set, but the field defaults to `false`, so they'll receive
+   acknowledgments on any future submissions. No backfill needed.
+
+## Roll back
+
+If something breaks badly, the previous deployment in Vercel can be promoted
+back. The schema change (added column + table) is backward compatible — the
+old code ignored these fields, so rolling back doesn't break anything.
