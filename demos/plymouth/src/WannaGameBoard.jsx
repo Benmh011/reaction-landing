@@ -94,6 +94,35 @@ const UPSU_SOCIETIES = [
   'Robotics Society',
   'Tabletop Gaming Society',
 ];
+
+// ──── SOCIETY → CATEGORIES MAP ────
+// Defines which categories each society can post in. Sport is intentionally
+// excluded for all societies — Sport posts come from individual students.
+// Community is always allowed since fundraising/volunteering is universal.
+const SOCIETY_CATEGORIES = {
+  'Architecture Society (PARCS)': ['Study', 'Community'],
+  'Biomedical Science Society':   ['Study', 'Community'],
+  'Civil Engineering Society':    ['Study', 'Community'],
+  'Christian Union (UPCU)':       ['Community'],
+  'Computing Society':            ['Study', 'Board Games', 'Community'],
+  'Drama Society':                ['Community'],
+  'Environmental Society':        ['Community'],
+  'Gaming Society':               ['Board Games', 'Community'],
+  'Geography Society':            ['Study', 'Community'],
+  'Law Society (UPLS)':           ['Study', 'Community'],
+  'Marine Biology Society':       ['Study', 'Community'],
+  'Music Society':                ['Community'],
+  'Nursing Society':              ['Study', 'Community'],
+  'Photography Society':          ['Community'],
+  'Psychology Society':           ['Study', 'Community'],
+  'Robotics Society':             ['Study', 'Board Games', 'Community'],
+  'Tabletop Gaming Society':      ['Board Games', 'Community'],
+};
+
+// Helper: get societies that can legitimately post in a given category
+const societiesForCategory = (cat) =>
+  UPSU_SOCIETIES.filter(s => (SOCIETY_CATEGORIES[s] || []).includes(cat));
+
 const getCategoryColor = (cat) => {
   const c = CATEGORIES[cat]?.color || 'blue';
   return { bg: `bg-${c}-50`, text: `text-${c}-700`, border: `border-${c}-100` };
@@ -1016,10 +1045,20 @@ const RegisterModal = ({ onClose, onRegister, onSwitchToLogin }) => {
   </div></div></div>);
 };
 
-const CreatePostModal = ({ onClose, onCreate }) => {
-  const [category, setCategory] = useState('Sport');
-  const [activity, setActivity] = useState('Basketball');
-  const [location, setLocation] = useState('SU Sports Hall');
+const CreatePostModal = ({ onClose, onCreate, allowedCategories, defaultCategory }) => {
+  const visibleCategories = (allowedCategories && allowedCategories.length > 0) ? allowedCategories : CATEGORY_NAMES;
+  const initialCategory = defaultCategory && visibleCategories.includes(defaultCategory) ? defaultCategory : visibleCategories[0];
+  const initialActivity = Object.keys(CATEGORIES[initialCategory].activities)[0];
+  const initialLocations = ({
+    'Sport': 'SU Sports Hall',
+    'Study': 'Charles Seale-Hayne Library',
+    'Board Games': 'UPSU Building',
+    'Opportunities': 'Roland Levinsky Building',
+    'Community': 'UPSU Building',
+  })[initialCategory] || 'SU Sports Hall';
+  const [category, setCategory] = useState(initialCategory);
+  const [activity, setActivity] = useState(initialActivity);
+  const [location, setLocation] = useState(initialLocations);
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [maxPeople, setMaxPeople] = useState(10);
@@ -1071,11 +1110,23 @@ const CreatePostModal = ({ onClose, onCreate }) => {
     <div className="flex justify-between items-center mb-6"><h2 className="text-xl font-bold" style={{ color: '#1e3a5f' }}>Create Post</h2><button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button></div>
     <div className="space-y-4">
       <div><label className="block text-sm font-semibold text-gray-700 mb-2">Category *</label>
-        <div className="flex flex-wrap gap-2">{CATEGORY_NAMES.map(c => {
-          const cc = catColors[c];
-          return (<button key={c} onClick={() => handleCategoryChange(c)} className={`py-3 px-2 rounded-xl font-bold text-sm transition-all text-center flex-1 min-w-0 ${category === c ? `bg-gradient-to-r ${cc.active} text-white shadow-md` : cc.idle}`} style={{ minWidth: '80px' }}>
-            {c}
-          </button>);
+        <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${visibleCategories.length}, 1fr)` }}>{visibleCategories.map(c => {
+          const isActive = category === c;
+          return (
+            <button
+              key={c}
+              onClick={() => handleCategoryChange(c)}
+              className="py-2.5 px-3 rounded-lg text-sm font-medium transition-all"
+              style={isActive
+                ? { background: '#1e3a5f', color: '#ffffff', border: '1px solid #1e3a5f' }
+                : { background: '#ffffff', color: '#475569', border: '1px solid #e2e8f0' }
+              }
+              onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = '#f8fafc'; }}
+              onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = '#ffffff'; }}
+            >
+              {c}
+            </button>
+          );
         })}</div>
       </div>
       <div><label className="block text-sm font-semibold text-gray-600 mb-1.5">Posted As *</label>
@@ -1084,14 +1135,30 @@ const CreatePostModal = ({ onClose, onCreate }) => {
             {g}
           </button>
         ))}</div>
-        {postedBy === 'Societies' && (
-          <div className="mt-2"><select value={society} onChange={e => setSociety(e.target.value)} className={inputCls}>{UPSU_SOCIETIES.map(s => (<option key={s} value={s}>{s}</option>))}</select></div>
-        )}
+        {postedBy === 'Societies' && (() => {
+          const eligibleSocieties = societiesForCategory(category);
+          // Sport: no society can post — show explanation instead of empty dropdown
+          if (eligibleSocieties.length === 0) {
+            return (
+              <div className="mt-2 px-3 py-2 rounded-lg text-xs" style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a' }}>
+                Societies can't post Sport activities — these come from individual students. Switch to 'Student' above, or pick a different category.
+              </div>
+            );
+          }
+          return (
+            <div className="mt-2">
+              <select value={eligibleSocieties.includes(society) ? society : eligibleSocieties[0]} onChange={e => setSociety(e.target.value)} className={inputCls}>
+                {eligibleSocieties.map(s => (<option key={s} value={s}>{s}</option>))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">Only societies relevant to {category} are shown.</p>
+            </div>
+          );
+        })()}
       </div>
       <div><label className="block text-sm font-semibold text-gray-700 mb-2">Activity *</label><select value={activity} onChange={e=>handleActivityChange(e.target.value)} className={inputCls}>{activities.map(a=>(<option key={a} value={a}>{a}</option>))}</select></div>
       <div className="flex items-center gap-3">
         <span className={`px-3 py-1.5 rounded-lg text-xs font-bold ${cfg.mode === '1v1' ? 'bg-purple-100 text-purple-700 border border-purple-200' : 'bg-emerald-100 text-emerald-700 border border-emerald-200'}`}>
-          {cfg.mode === '1v1' ? '1v1 / Pair' : 'Group'}
+          {cfg.mode === '1v1' ? 'Pair' : 'Group'}
         </span>
         {cfg.mode !== '1v1' && (
           <div className="flex items-center gap-2 flex-1">
@@ -1244,10 +1311,10 @@ const BulletinBoardApp = () => {
     { id:2,  user:'Sarah Martinez',  category:'Sport', activity:'Tennis',      location:'Mast House Courts',       date:'2026-02-08', time:'14:00', mode:'1v1',  maxPeople:2,  description:'Looking for a rally partner — intermediate level.', postedBy:'Student' },
     { id:3,  user:'Zara Khan',       category:'Sport', activity:'Football',    location:'Brickfield Pitches',      date:'2026-02-09', time:'14:00', mode:'team', maxPeople:10, description:'5-a-side kickabout on the outdoor pitch. Bring water!', postedBy:'Staff' },
     { id:4,  user:'Ryan Cooper',     category:'Sport', activity:'Volleyball',  location:'Nancy Astor Sports Centre',date:'2026-02-10', time:'11:00', mode:'team', maxPeople:12, description:'Beach rules on the indoor court. Staff vs students!', postedBy:'Staff' },
-    { id:5,  user:'Emily Davis',     category:'Sport', activity:'Rugby',       location:'Brickfield Pitches',      date:'2026-02-11', time:'16:00', mode:'team', maxPeople:14, description:'Touch rugby, mixed abilities welcome. Far pitch.', postedBy:'Societies', society:'Drama Society' },
-    { id:6,  user:'Tom Wilson',      category:'Sport', activity:'Cricket',     location:'Plymouth Life Centre',     date:'2026-02-12', time:'13:00', mode:'team', maxPeople:22, description:'Casual cricket — pads and bats provided, just turn up!', postedBy:'Societies', society:'Geography Society' },
+    { id:5,  user:'Emily Davis',     category:'Sport', activity:'Rugby',       location:'Brickfield Pitches',      date:'2026-02-11', time:'16:00', mode:'team', maxPeople:14, description:'Touch rugby, mixed abilities welcome. Far pitch.', postedBy:'Student' },
+    { id:6,  user:'Tom Wilson',      category:'Sport', activity:'Cricket',     location:'Plymouth Life Centre',     date:'2026-02-12', time:'13:00', mode:'team', maxPeople:22, description:'Casual cricket — pads and bats provided, just turn up!', postedBy:'Student' },
     { id:7,  user:'Sarah Martinez',  category:'Sport', activity:'Badminton',   location:'SU Sports Hall',          date:'2026-02-09', time:'10:00', mode:'1v1',  maxPeople:2,  description:'Morning singles — just need a partner at a similar level.', postedBy:'Student' },
-    { id:8,  user:'Lisa Park',       category:'Sport', activity:'Football',    location:'Brickfield Pitches',      date:'2026-02-13', time:'17:00', mode:'team', maxPeople:10, description:'Women\'s 5-a-side, all abilities. Boots or trainers fine.', postedBy:'Societies', society:'Education Society' },
+    { id:8,  user:'Lisa Park',       category:'Sport', activity:'Football',    location:'Brickfield Pitches',      date:'2026-02-13', time:'17:00', mode:'team', maxPeople:10, description:'Women\'s 5-a-side, all abilities. Boots or trainers fine.', postedBy:'Student' },
     { id:9,  user:'Mike Chen',       category:'Sport', activity:'Basketball',  location:'Nancy Astor Sports Centre',date:'2026-02-08', time:'12:00', mode:'team', maxPeople:10, description:'Staff lunchtime hoops — open to postgrads too.', postedBy:'Staff' },
 
     // ── STUDY (6 activities × mixed postedBy) ──
@@ -1257,7 +1324,7 @@ const BulletinBoardApp = () => {
     { id:13, user:'Mike Chen',       category:'Study', activity:'Project Group',    location:'Harrison Building',               date:'2026-02-11', time:'14:00', mode:'group', maxPeople:4,  description:'Final year project sprint — UX research group forming.', postedBy:'Student' },
     { id:14, user:'Jordan Lee',      category:'Study', activity:'Lecture Buddy',    location:'Café on the Green',              date:'2026-02-09', time:'11:00', mode:'1v1',   maxPeople:2,  description:'Anyone else doing PSY310? Could use a note-sharing buddy.', postedBy:'Student' },
     { id:15, user:'Zara Khan',       category:'Study', activity:'Dissertation Help',location:'Charles Seale-Hayne Library', date:'2026-02-12', time:'15:00', mode:'group', maxPeople:3,  description:'Peer feedback on chapter drafts. Bring a printed copy!', postedBy:'Staff' },
-    { id:16, user:'Tom Wilson',      category:'Study', activity:'Group Revision',   location:'Davy Building',    date:'2026-02-10', time:'10:00', mode:'group', maxPeople:8,  description:'Open revision drop-in for ARCH modules. All years welcome.', postedBy:'Societies', society:'Engineering Society' },
+    { id:16, user:'Tom Wilson',      category:'Study', activity:'Group Revision',   location:'Davy Building',    date:'2026-02-10', time:'10:00', mode:'group', maxPeople:8,  description:'Open revision drop-in for ARCH modules. All years welcome.', postedBy:'Societies', society:'Architecture Society (PARCS)' },
     { id:17, user:'Emily Davis',     category:'Study', activity:'Exam Prep',        location:'Peter Chalk Centre',            date:'2026-02-13', time:'09:00', mode:'group', maxPeople:6,  description:'Mock viva practice for MSc students. Staff-led session.', postedBy:'Staff' },
     { id:18, user:'Alex Johnson',    category:'Study', activity:'Project Group',    location:'Babbage Building',            date:'2026-02-12', time:'11:00', mode:'group', maxPeople:5,  description:'Computing Society hackathon prep — need backend devs.', postedBy:'Societies', society:'Computing Society' },
     { id:29, user:'Lisa Park',       category:'Study', activity:'Writing Café',     location:'Café on the Green',              date:'2026-02-10', time:'10:00', mode:'group', maxPeople:8,  description:'Quiet co-working session for essays and dissertations. Bring your laptop!', postedBy:'Societies', society:'Psychology Society' },
@@ -2013,7 +2080,7 @@ const BulletinBoardApp = () => {
                       {post.category !== 'Opportunities' && (
                       <div className="flex items-center gap-1.5 px-3.5 py-1 rounded-md transition-colors" style={{ borderLeft: '1px solid #e5e7eb' }}>
                         <Users className="w-3 h-3" style={{ color: cc.accent }} />
-                        <span className="font-semibold" style={{ color: cc.text }}>{post.mode === '1v1' ? '1v1' : `${maxPlayers} max`}</span>
+                        <span className="font-semibold" style={{ color: cc.text }}>{post.mode === '1v1' ? 'Pair' : `${maxPlayers} max`}</span>
                       </div>
                       )}
                       <div className="flex items-center gap-1.5 px-3.5 py-1 rounded-md transition-colors" style={{ borderLeft: '1px solid #e5e7eb' }}>
@@ -2061,7 +2128,15 @@ const BulletinBoardApp = () => {
 
       {showLoginModal && <LoginModal onClose={()=>setShowLoginModal(false)} onLogin={handleLogin} onSwitchToRegister={()=>{setShowLoginModal(false);setShowRegisterModal(true);}}/>}
       {showRegisterModal && <RegisterModal onClose={()=>setShowRegisterModal(false)} onRegister={handleRegister} onSwitchToLogin={()=>{setShowRegisterModal(false);setShowLoginModal(true);}}/>}
-      {showCreateModal && <CreatePostModal onClose={()=>setShowCreateModal(false)} onCreate={handleCreatePost}/>}
+      {showCreateModal && (() => {
+        // Derive which categories are available based on the user's current board.
+        // 'Sport', 'Study', 'Board Games' for Campus
+        // 'Community' for Community
+        // 'Opportunities' for Opportunities (admin-only in real app, but allowed here for demo)
+        const section = LANDING_SECTIONS.find(s => s.key === activeLandingSection);
+        const allowedCategories = section ? section.categories : ['Sport', 'Study', 'Board Games'];
+        return <CreatePostModal onClose={()=>setShowCreateModal(false)} onCreate={handleCreatePost} allowedCategories={allowedCategories} defaultCategory={allowedCategories[0]} />;
+      })()}
     </div>
   );
 };
