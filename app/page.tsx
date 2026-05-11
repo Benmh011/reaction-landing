@@ -89,12 +89,7 @@ export default function HomePage() {
             </Link>
             <Link
               href="/portal"
-              className="btn btn-large"
-              style={{
-                background: "transparent",
-                color: "var(--reaction)",
-                border: "1px solid var(--reaction)",
-              }}
+              className="btn btn-outlined btn-large"
             >
               Launch demo
               <span className="arrow" aria-hidden="true">→</span>
