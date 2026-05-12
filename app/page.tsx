@@ -11,9 +11,37 @@ const display = {
   letterSpacing: "-0.025em",
 } as const;
 
+// SoftwareApplication schema — describes the Reaction platform itself.
+// Renders on the homepage only (Organization schema in layout covers site-wide).
+const softwareApplicationSchema = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "Reaction",
+  applicationCategory: "BusinessApplication",
+  applicationSubCategory: "Higher Education",
+  operatingSystem: "Web",
+  url: "https://reaction.org.uk",
+  description:
+    "A B2B SaaS platform that helps universities and students' unions connect students on and off campus — supporting engagement, wellbeing, and employability.",
+  provider: {
+    "@type": "Organization",
+    name: "Reaction",
+    url: "https://reaction.org.uk",
+  },
+  audience: {
+    "@type": "Audience",
+    audienceType: "Universities, Students' Unions, Employers, Charities",
+  },
+};
+
 export default function HomePage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareApplicationSchema) }}
+      />
+
       <SiteNav />
 
       {/* HERO */}

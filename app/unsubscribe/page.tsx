@@ -4,12 +4,22 @@
 // Reading the token + email from searchParams, calling the same verification
 // logic the API route uses, then rendering a branded confirmation page.
 
+import type { Metadata } from "next";
 import { verifyUnsubscribeToken } from "@/lib/email-templates";
 import { prisma } from "@/lib/prisma";
 import SiteNav from "@/components/SiteNav";
 import SiteFooter from "@/components/SiteFooter";
 
-export const metadata = { title: "Unsubscribe · Reaction" };
+export const metadata: Metadata = {
+  title: "Unsubscribe",
+  description: "Manage your Reaction email preferences.",
+  // Utility page — keep it out of search results.
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
+
 export const dynamic = "force-dynamic";
 
 interface PageProps {
