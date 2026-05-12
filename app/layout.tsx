@@ -56,10 +56,9 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "https://reaction.org.uk",
   },
-  icons: {
-    // Updated favicon: blue R to match the new brand colour (was red).
-    icon: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='75' font-size='80' font-family='Georgia,serif' font-style='italic' fill='%234d6f99'%3ER%3C/text%3E%3C/svg%3E",
-  },
+  // Note: no `icons` field — Next.js auto-detects app/icon.tsx and emits the
+  // correct <link rel="icon"> tag. Setting metadata.icons here would override
+  // the file convention and reintroduce the data-URI favicon bug.
 };
 
 // Organization schema rendered site-wide — describes Reaction as a company.
