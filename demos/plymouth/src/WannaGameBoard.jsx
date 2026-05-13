@@ -1795,12 +1795,12 @@ const BulletinBoardApp = () => {
     { id:1,  user:'Alex Johnson',    category:'Sport', activity:'Basketball',  location:'SU Sports Hall',          date:'2026-02-07', time:'15:00', mode:'team', maxPeople:10, description:'Friendly 5v5, all levels welcome. Bibs provided!', postedBy:'Student' },
     { id:2,  user:'Sarah Martinez',  category:'Sport', activity:'Tennis',      location:'Mast House Courts',       date:'2026-02-08', time:'14:00', mode:'1v1',  maxPeople:2,  description:'Looking for a rally partner — intermediate level.', postedBy:'Student' },
     { id:3,  user:'Zara Khan',       category:'Sport', activity:'Football',    location:'Brickfield Pitches',      date:'2026-02-09', time:'14:00', mode:'team', maxPeople:10, description:'5-a-side kickabout on the outdoor pitch. Bring water!', postedBy:'Staff' },
-    { id:4,  user:'Ryan Cooper',     category:'Sport', activity:'Volleyball',  location:'Nancy Astor Sports Centre',date:'2026-02-10', time:'11:00', mode:'team', maxPeople:12, description:'Beach rules on the indoor court. Staff vs students!', postedBy:'Staff' },
+    { id:4,  user:'Ryan Cooper',     category:'Sport', activity:'Volleyball',  location:'Nancy Astor Sports Centre',date:'2026-02-14', time:'11:00', mode:'team', maxPeople:12, description:'Beach rules on the indoor court. Staff vs students!', postedBy:'Staff' },
     { id:5,  user:'James Holloway',  category:'Sport', activity:'Rugby',       location:'Brickfield Pitches',      date:'2026-02-11', time:'16:00', mode:'team', maxPeople:14, description:'Touch rugby training session — all positions welcome.', postedBy:'Societies', society:'Rugby Union Club' },
-    { id:6,  user:'Aaron Webb',      category:'Sport', activity:'Cricket',     location:'Plymouth Life Centre',     date:'2026-02-12', time:'13:00', mode:'team', maxPeople:22, description:'Indoor nets practice ahead of BUCS fixture. Whites optional.', postedBy:'Societies', society:'Cricket Club' },
+    { id:6,  user:'Aaron Webb',      category:'Sport', activity:'Cricket',     location:'Plymouth Life Centre',     date:'2026-02-16', time:'13:00', mode:'team', maxPeople:22, description:'Indoor nets practice ahead of BUCS fixture. Whites optional.', postedBy:'Societies', society:'Cricket Club' },
     { id:7,  user:'Sarah Martinez',  category:'Sport', activity:'Badminton',   location:'SU Sports Hall',          date:'2026-02-09', time:'10:00', mode:'1v1',  maxPeople:2,  description:'Morning singles — just need a partner at a similar level.', postedBy:'Student' },
     { id:8,  user:'Olivia Reed',     category:'Sport', activity:'Football',    location:'Brickfield Pitches',      date:'2026-02-13', time:'17:00', mode:'team', maxPeople:10, description:'Women\'s 5-a-side training session. New members welcome.', postedBy:'Societies', society:'Football Club' },
-    { id:9,  user:'Mike Chen',       category:'Sport', activity:'Basketball',  location:'Nancy Astor Sports Centre',date:'2026-02-08', time:'12:00', mode:'team', maxPeople:10, description:'Staff lunchtime hoops — open to postgrads too.', postedBy:'Staff' },
+    { id:9,  user:'Mike Chen',       category:'Sport', activity:'Basketball',  location:'Nancy Astor Sports Centre',date:'2026-02-15', time:'12:00', mode:'team', maxPeople:10, description:'Staff lunchtime hoops — open to postgrads too.', postedBy:'Staff' },
     { id:45, user:'Tennis Club Committee', category:'Sport', activity:'Tennis (Taster Session)', location:'Mast House Courts', date:'2026-02-14', time:'13:00', mode:'group', maxPeople:12, description:'Free taster session — racquets provided. Bring trainers. New members especially welcome!', postedBy:'Societies', society:'Tennis Club' },
     { id:46, user:'Basketball Club Captain', category:'Sport', activity:'Basketball (Taster Session)', location:'SU Sports Hall', date:'2026-02-15', time:'14:00', mode:'group', maxPeople:16, description:'Open court taster. All abilities — drills, skills, scrimmage. No commitment to join.', postedBy:'Societies', society:'Basketball Club' },
     { id:47, user:'Volleyball Captain', category:'Sport', activity:'Volleyball (Taster Session)', location:'Nancy Astor Sports Centre', date:'2026-02-16', time:'15:00', mode:'group', maxPeople:14, description:'Beach + indoor rules taught. Trainers required. Pizza after for those who stay.', postedBy:'Societies', society:'Volleyball Club' },
@@ -1808,22 +1808,22 @@ const BulletinBoardApp = () => {
     // ── STUDY (6 activities × mixed postedBy) ──
     { id:10, user:'Mike Chen',       category:'Study', activity:'Group Revision',   location:'Charles Seale-Hayne Library', date:'2026-02-07', time:'17:00', mode:'group', maxPeople:6,  description:'Covering modules 3–5 for the Thursday exam. Bring notes!', postedBy:'Student' },
     { id:11, user:'Jordan Lee',      category:'Study', activity:'Exam Prep',        location:'Babbage Building',            date:'2026-02-08', time:'18:00', mode:'group', maxPeople:5,  description:'Past paper practice session for BIO201.', postedBy:'Student' },
-    { id:12, user:'Lisa Park',       category:'Study', activity:'Lab Partner',      location:'Harrison Building',               date:'2026-02-10', time:'09:00', mode:'1v1',   maxPeople:2,  description:'Need a lab partner for CHEM220 practicals this week.', postedBy:'Student' },
-    { id:13, user:'Mike Chen',       category:'Study', activity:'Project Group',    location:'Harrison Building',               date:'2026-02-11', time:'14:00', mode:'group', maxPeople:4,  description:'Final year project sprint — UX research group forming.', postedBy:'Student' },
-    { id:14, user:'Jordan Lee',      category:'Study', activity:'Lecture Buddy',    location:'Café on the Green',              date:'2026-02-09', time:'11:00', mode:'1v1',   maxPeople:2,  description:'Anyone else doing PSY310? Could use a note-sharing buddy.', postedBy:'Student' },
-    { id:15, user:'Zara Khan',       category:'Study', activity:'Dissertation Help',location:'Charles Seale-Hayne Library', date:'2026-02-12', time:'15:00', mode:'group', maxPeople:3,  description:'Peer feedback on chapter drafts. Bring a printed copy!', postedBy:'Staff' },
-    { id:16, user:'Tom Wilson',      category:'Study', activity:'Group Revision',   location:'Davy Building',    date:'2026-02-10', time:'10:00', mode:'group', maxPeople:8,  description:'Open revision drop-in for ARCH modules. All years welcome.', postedBy:'Societies', society:'Architecture Society (PARCS)' },
+    { id:12, user:'Lisa Park',       category:'Study', activity:'Lab Partner',      location:'Harrison Building',               date:'2026-02-17', time:'09:00', mode:'1v1',   maxPeople:2,  description:'Need a lab partner for CHEM220 practicals this week.', postedBy:'Student' },
+    { id:13, user:'Mike Chen',       category:'Study', activity:'Project Group',    location:'Harrison Building',               date:'2026-02-18', time:'14:00', mode:'group', maxPeople:4,  description:'Final year project sprint — UX research group forming.', postedBy:'Student' },
+    { id:14, user:'Jordan Lee',      category:'Study', activity:'Lecture Buddy',    location:'Café on the Green',              date:'2026-02-19', time:'11:00', mode:'1v1',   maxPeople:2,  description:'Anyone else doing PSY310? Could use a note-sharing buddy.', postedBy:'Student' },
+    { id:15, user:'Zara Khan',       category:'Study', activity:'Dissertation Help',location:'Charles Seale-Hayne Library', date:'2026-02-20', time:'15:00', mode:'group', maxPeople:3,  description:'Peer feedback on chapter drafts. Bring a printed copy!', postedBy:'Staff' },
+    { id:16, user:'Tom Wilson',      category:'Study', activity:'Group Revision',   location:'Davy Building',    date:'2026-02-13', time:'10:00', mode:'group', maxPeople:8,  description:'Open revision drop-in for ARCH modules. All years welcome.', postedBy:'Societies', society:'Architecture Society (PARCS)' },
     { id:17, user:'Emily Davis',     category:'Study', activity:'Exam Prep',        location:'Peter Chalk Centre',            date:'2026-02-13', time:'09:00', mode:'group', maxPeople:6,  description:'Mock viva practice for MSc students. Staff-led session.', postedBy:'Staff' },
-    { id:18, user:'Alex Johnson',    category:'Study', activity:'Project Group',    location:'Babbage Building',            date:'2026-02-12', time:'11:00', mode:'group', maxPeople:5,  description:'Computing Society hackathon prep — need backend devs.', postedBy:'Societies', society:'Computing Society' },
-    { id:29, user:'Lisa Park',       category:'Study', activity:'Writing Café',     location:'Café on the Green',              date:'2026-02-10', time:'10:00', mode:'group', maxPeople:8,  description:'Quiet co-working session for essays and dissertations. Bring your laptop!', postedBy:'Societies', society:'Psychology Society' },
+    { id:18, user:'Alex Johnson',    category:'Study', activity:'Project Group',    location:'Babbage Building',            date:'2026-02-14', time:'11:00', mode:'group', maxPeople:5,  description:'Computing Society hackathon prep — need backend devs.', postedBy:'Societies', society:'Computing Society' },
+    { id:29, user:'Lisa Park',       category:'Study', activity:'Writing Café',     location:'Café on the Green',              date:'2026-02-22', time:'10:00', mode:'group', maxPeople:8,  description:'Quiet co-working session for essays and dissertations. Bring your laptop!', postedBy:'Societies', society:'Psychology Society' },
 
     // ── BOARD GAMES (mix of student + society-led, with Taster Sessions) ──
     { id:19, user:'Emily Davis',     category:'Board Games', activity:'Catan',              location:'UPSU Building',   date:'2026-02-09', time:'16:00', mode:'group', maxPeople:4,  description:'Settlers + Seafarers expansion. Beginners very welcome.', postedBy:'Societies', society:'Tabletop Gaming Society' },
     { id:20, user:'Daniel Park',     category:'Board Games', activity:'Chess',              location:'Café on the Green', date:'2026-02-10', time:'12:00', mode:'1v1', maxPeople:2,  description:'Lunchtime chess at the café. ELO welcome, beginners more welcome.', postedBy:'Societies', society:'Chess Society' },
-    { id:21, user:'Aisha Banda',     category:'Board Games', activity:'Monopoly',           location:'UPSU Building',   date:'2026-02-10', time:'19:00', mode:'group', maxPeople:4,  description:'Classic Monopoly night. Snacks provided. House rules vetoed.', postedBy:'Student' },
-    { id:22, user:'Lisa Park',       category:'Board Games', activity:'Risk',               location:'UPSU Building',   date:'2026-02-11', time:'17:00', mode:'group', maxPeople:5,  description:'World domination session. Expect it to last 3+ hours.', postedBy:'Societies', society:'Tabletop Gaming Society' },
-    { id:23, user:'Marcus Etemadi',  category:'Board Games', activity:'Scrabble',           location:'Café on the Green', date:'2026-02-12', time:'14:00', mode:'group', maxPeople:4,  description:'Casual Scrabble — official word list, friendly stakes.', postedBy:'Student' },
-    { id:24, user:'Hana Nakamura',   category:'Board Games', activity:'Poker',              location:'Ram Bar',          date:'2026-02-12', time:'20:00', mode:'group', maxPeople:6,  description:'No-limit hold em — chips, not cash. Bring your poker face.', postedBy:'Societies', society:'Poker Society' },
+    { id:21, user:'Aisha Banda',     category:'Board Games', activity:'Monopoly',           location:'UPSU Building',   date:'2026-02-15', time:'19:00', mode:'group', maxPeople:4,  description:'Classic Monopoly night. Snacks provided. House rules vetoed.', postedBy:'Student' },
+    { id:22, user:'Lisa Park',       category:'Board Games', activity:'Risk',               location:'UPSU Building',   date:'2026-02-17', time:'17:00', mode:'group', maxPeople:5,  description:'World domination session. Expect it to last 3+ hours.', postedBy:'Societies', society:'Tabletop Gaming Society' },
+    { id:23, user:'Marcus Etemadi',  category:'Board Games', activity:'Scrabble',           location:'Café on the Green', date:'2026-02-19', time:'14:00', mode:'group', maxPeople:4,  description:'Casual Scrabble — official word list, friendly stakes.', postedBy:'Student' },
+    { id:24, user:'Hana Nakamura',   category:'Board Games', activity:'Poker',              location:'Ram Bar',          date:'2026-02-21', time:'20:00', mode:'group', maxPeople:6,  description:'No-limit hold em — chips, not cash. Bring your poker face.', postedBy:'Societies', society:'Poker Society' },
     { id:25, user:'Emily Davis',     category:'Board Games', activity:'Dungeons & Dragons', location:'Peter Chalk Centre', date:'2026-02-13', time:'18:00', mode:'group', maxPeople:5,  description:'New campaign starting! DM has a one-shot for newcomers.', postedBy:'Societies', society:'Tabletop Gaming Society' },
     { id:48, user:'Chess Society Captain', category:'Board Games', activity:'Chess (Taster Session)', location:'UPSU Building', date:'2026-02-15', time:'13:00', mode:'group', maxPeople:10, description:'Free open-board session. Learn the basics or play casual matches. Boards provided.', postedBy:'Societies', society:'Chess Society' },
     { id:49, user:'Tabletop Society President', category:'Board Games', activity:'Catan (Taster Session)', location:'UPSU Building', date:'2026-02-17', time:'18:00', mode:'group', maxPeople:8, description:'Multiple boards running — try Catan for the first time, or join a longer game.', postedBy:'Societies', society:'Tabletop Gaming Society' },
@@ -1831,13 +1831,13 @@ const BulletinBoardApp = () => {
     // ── OPPORTUNITIES (with listing details for dedicated pages) ──
     { id:30, user:'Zara Khan',       category:'Opportunities', activity:'Part Time Vacancies',  location:'Careers Service',         date:'2026-02-07', time:'09:00', mode:'group', maxPeople:20, description:'Student Ambassador roles now open — flexible hours, great for your CV!', postedBy:'Staff', sector:'University', activityType:'Customer-Facing',
       listingDetails: { employer: 'University of Plymouth', hours: '6–12 hrs/week', pay: '£12.00/hr', duration: 'Ongoing (term-time)', deadline: '2026-02-28', requirements: 'Current UoE student, confident communicator, enthusiastic about the university.', responsibilities: 'Leading campus tours for prospective students and families, representing the university at open days and offer-holder events, sharing your student experience authentically.', howToApply: 'Submit your CV and a short cover letter via the Careers Service portal.' }},
-    { id:31, user:'Emily Davis',     category:'Opportunities', activity:'Part Time Vacancies',  location:'Roland Levinsky Building',               date:'2026-02-09', time:'10:00', mode:'group', maxPeople:15, description:'Library assistant positions available. 10–15 hrs/week during term.', postedBy:'Staff', sector:'University', activityType:'Admin & Operations',
+    { id:31, user:'Emily Davis',     category:'Opportunities', activity:'Part Time Vacancies',  location:'Roland Levinsky Building',               date:'2026-02-15', time:'10:00', mode:'group', maxPeople:15, description:'Library assistant positions available. 10–15 hrs/week during term.', postedBy:'Staff', sector:'University', activityType:'Admin & Operations',
       listingDetails: { employer: 'University of Plymouth Library Services', hours: '10–15 hrs/week', pay: '£11.44/hr', duration: 'Term-time only', deadline: '2026-02-20', requirements: 'Attention to detail, ability to work independently, familiarity with library systems is a plus.', responsibilities: 'Shelving and organising materials, assisting students with enquiries, processing inter-library loans, and maintaining study spaces.', howToApply: 'Apply online via the university jobs portal. Reference: LIB-2026-PT.' }},
-    { id:32, user:'Mike Chen',       category:'Opportunities', activity:'Summer Internships',   location:'Marine Building',   date:'2026-02-08', time:'14:00', mode:'group', maxPeople:30, description:'Tech internships fair — local startups and national firms. Bring your CV!', postedBy:'Staff', sector:'Tech & Engineering', activityType:'Careers Fair',
+    { id:32, user:'Mike Chen',       category:'Opportunities', activity:'Summer Internships',   location:'Marine Building',   date:'2026-02-14', time:'14:00', mode:'group', maxPeople:30, description:'Tech internships fair — local startups and national firms. Bring your CV!', postedBy:'Staff', sector:'Tech & Engineering', activityType:'Careers Fair',
       listingDetails: { employer: 'Various (Careers Fair)', hours: 'Full-time (summer)', pay: 'Varies by employer', duration: '8–12 weeks', deadline: '2026-02-08 (event date)', requirements: 'Open to all year groups. Bring printed CVs and be ready to network.', responsibilities: 'Attend employer stands, participate in speed networking sessions, submit applications on the day or shortly after.', howToApply: 'Register attendance via the Careers Service events page. No pre-application needed.' }},
-    { id:33, user:'Alex Johnson',    category:'Opportunities', activity:'Summer Internships',   location:'Online',              date:'2026-02-10', time:'11:00', mode:'group', maxPeople:50, description:'Deadline reminder: Civil Service Summer Diversity Internship closes Feb 14.', postedBy:'Societies', society:'Law Society (UPLS)', sector:'Public Sector', activityType:'Diversity Scheme',
+    { id:33, user:'Alex Johnson',    category:'Opportunities', activity:'Summer Internships',   location:'Online',              date:'2026-02-20', time:'11:00', mode:'group', maxPeople:50, description:'Deadline reminder: Civil Service Summer Diversity Internship closes Feb 14.', postedBy:'Societies', society:'Law Society (UPLS)', sector:'Public Sector', activityType:'Diversity Scheme',
       listingDetails: { employer: 'HM Civil Service', hours: 'Full-time (summer)', pay: '£22,000 pro rata', duration: '9 weeks (July–September)', deadline: '2026-02-14', requirements: 'Must be from an underrepresented background in the Civil Service. Open to penultimate-year undergraduates.', responsibilities: 'Working within a government department on a live policy or operational project, mentoring, and structured development programme.', howToApply: 'Apply via the Civil Service Jobs portal. You will need to complete online tests and a written application.' }},
-    { id:34, user:'Tom Wilson',      category:'Opportunities', activity:'Graduate Schemes',     location:'Babbage Building',     date:'2026-02-11', time:'13:00', mode:'group', maxPeople:25, description:'Employer panel: Deloitte, Teach First & NHS Graduate Management. Q&A after.', postedBy:'Staff', sector:'Consulting', activityType:'Employer Panel',
+    { id:34, user:'Tom Wilson',      category:'Opportunities', activity:'Graduate Schemes',     location:'Babbage Building',     date:'2026-02-18', time:'13:00', mode:'group', maxPeople:25, description:'Employer panel: Deloitte, Teach First & NHS Graduate Management. Q&A after.', postedBy:'Staff', sector:'Consulting', activityType:'Employer Panel',
       listingDetails: { employer: 'Deloitte, Teach First, NHS', hours: 'Full-time', pay: '£25,000–£33,000 starting', duration: '2–3 year programmes', deadline: 'Various (rolling)', requirements: 'Finalists or recent graduates. 2:1 or above typically required (varies by scheme).', responsibilities: 'Rotational placements, structured training, professional qualifications, and mentoring across different business areas or schools/trusts.', howToApply: 'Attend the panel to hear from current trainees, then apply direct via each employer\'s graduate portal.' }},
     { id:35, user:'Jordan Lee',      category:'Opportunities', activity:'Graduate Schemes',     location:'Careers Service',         date:'2026-02-12', time:'15:00', mode:'group', maxPeople:20, description:'1-to-1 CV and application review drop-in. No booking needed.', postedBy:'Staff', sector:'University', activityType:'Application Support',
       listingDetails: { employer: 'University of Plymouth Careers Service', hours: 'Drop-in (30 min slots)', pay: 'Free service', duration: 'One-off session', deadline: 'No deadline — drop in', requirements: 'Bring a draft CV or application you are working on. Open to all students and recent graduates.', responsibilities: 'A careers adviser will review your CV, cover letter, or application form and provide tailored feedback to strengthen it.', howToApply: 'Just turn up at the Careers Service during drop-in hours. First come, first served.' }},
@@ -1856,6 +1856,22 @@ const BulletinBoardApp = () => {
 
   const currentUser = userProfile ? `${userProfile.firstName} ${userProfile.lastName}`.trim() : null;
 
+  // ──── BOOTSTRAP: add a signed-in user to a couple of seeded past events
+  // so they immediately have something to check-in/reflect on without RSVP'ing first.
+  // Used by handleLogin and handleRegister. Idempotent — won't double-add.
+  const PAST_BOOTSTRAP_POSTS = [1, 11]; // Basketball (Feb 7) + Exam Prep (Feb 8)
+  const bootstrapPastAttendance = (userName) => {
+    if (!userName) return;
+    setAttendance(prev => {
+      const next = { ...prev };
+      PAST_BOOTSTRAP_POSTS.forEach(pid => {
+        const list = next[pid] || [];
+        if (!list.includes(userName)) next[pid] = [...list, userName];
+      });
+      return next;
+    });
+  };
+
   const handleLogin = (email) => {
     // Read firstName from URL hash if present (passed by /portal page on Reaction site).
     // Falls back to 'there' if the demo is opened directly without going through portal.
@@ -1869,8 +1885,14 @@ const BulletinBoardApp = () => {
     setUserProfile({firstName, lastName:'', email, university:'University of Plymouth'});
     setIsLoggedIn(true);
     setShowLoginModal(false);
+    bootstrapPastAttendance(firstName.trim());
   };
-  const handleRegister = (d) => { setUserProfile(d); setIsLoggedIn(true); setShowRegisterModal(false); };
+  const handleRegister = (d) => {
+    setUserProfile(d);
+    setIsLoggedIn(true);
+    setShowRegisterModal(false);
+    bootstrapPastAttendance(`${d.firstName || ''} ${d.lastName || ''}`.trim());
+  };
   const handleLogout = () => { setIsLoggedIn(false); setUserProfile(null); };
   const handleCreatePost = (d) => {
     const newId = posts.length + 1;
@@ -2001,6 +2023,11 @@ const BulletinBoardApp = () => {
 
   const filteredPosts = posts.filter(p => {
     const inSection = activeLandingSection ? sectionCategories.includes(p.category) : true;
+    // Hide past events from the board unless the current user is in the attendees list.
+    // This keeps the board feeling live; past events only surface when the user has a check-in or reflection to file.
+    const past = isPastEvent(p);
+    const joined = currentUser && (attendance[p.id] || []).includes(currentUser);
+    if (past && !joined) return false;
     return inSection
       && (selectedCategory==='all'||p.category===selectedCategory)
       && (selectedPostedBy==='all'||p.postedBy===selectedPostedBy)
