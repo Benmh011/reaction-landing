@@ -87,6 +87,13 @@ export default function HomePage() {
               Book a demo
               <span className="arrow" aria-hidden="true">→</span>
             </Link>
+            <Link
+              href="/portal"
+              className="btn btn-outlined btn-large"
+            >
+              Launch demo
+              <span className="arrow" aria-hidden="true">→</span>
+            </Link>
             <Link href="#what" className="btn btn-ghost btn-large">
               What we do
             </Link>
@@ -308,6 +315,76 @@ export default function HomePage() {
                 { num: "02", h: "Engagement gaps, visible", p: "Real-time data on which cohorts are connecting — broken down by demographic so your Access & Participation Plan has the proof points it needs." },
                 { num: "03", h: "Belonging to outcomes", p: "Integrate with your student records to track which peer-connection patterns actually improve second-year continuation rates." },
                 { num: "04", h: "Career engagement to graduate outcomes", p: "Track which cohorts are engaging with internships, part-time roles, and graduate schemes through Reaction. Direct evidence for the TEF Student Outcomes pillar, and useful context for your Graduate Outcomes survey results." },
+              ].map((row, i, arr) => (
+                <div
+                  key={row.num}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "48px 1fr",
+                    gap: 32,
+                    padding: "36px 0",
+                    borderTop: "1px solid var(--rule)",
+                    borderBottom: i === arr.length - 1 ? "1px solid var(--rule)" : "none",
+                  }}
+                >
+                  <div className="mono" style={{ color: "var(--reaction)", fontSize: "0.7rem", letterSpacing: "0.1em", paddingTop: 10 }}>
+                    {row.num}
+                  </div>
+                  <div>
+                    <h3
+                      style={{
+                        fontFamily: "'Newsreader', Georgia, serif",
+                        fontWeight: 600,
+                        fontVariationSettings: '"opsz" 96, "SOFT" 0, "WONK" 0',
+                        fontSize: "1.5rem",
+                        letterSpacing: "-0.015em",
+                        lineHeight: 1.15,
+                        margin: "0 0 12px",
+                        color: "var(--text)",
+                      }}
+                    >
+                      {row.h}
+                    </h3>
+                    <p style={{ fontSize: "0.95rem", lineHeight: 1.55, color: "var(--text-soft)", margin: 0, maxWidth: "54ch" }}>
+                      {row.p}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FOR EMPLOYERS */}
+      <section style={{ padding: "100px 0", borderTop: "1px solid var(--rule)" }} id="for-employers">
+        <div className="container">
+          <header style={{ textAlign: "center", marginBottom: 56 }}>
+            <div style={{ display: "block", width: 32, height: 1, background: "var(--reaction)", margin: "0 auto 18px" }} />
+            <div className="mono" style={{ fontSize: "0.7rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 24 }}>
+              For employers
+            </div>
+            <h2
+              style={{
+                ...display,
+                fontSize: "clamp(2rem, 4vw, 3rem)",
+                lineHeight: 1.15,
+                margin: "0 auto",
+                maxWidth: "22ch",
+                color: "var(--text)",
+              }}
+            >
+              The talent pipeline already <em style={{ color: "var(--reaction)" }}>lives</em> on campus.
+            </h2>
+          </header>
+
+          <div>
+            <div>
+              {[
+                { num: "01", h: "Reach the universities you choose", p: "Internships, placement years, graduate schemes, part-time roles, all shared directly to our student opportunity boards - advertise to one university, or many, with our tailored posting feature" },
+                { num: "02", h: "Applications, your way", p: "Local businesses can review applications inside Reaction, with each applicant's cover letter and CV in one place. Large employer? link your own application portal directly to posts  — students get routed to your existing application flow, no migration needed." },
+                { num: "03", h: "Local business? local discounts", p: "If you're a local business, you'll receive a discount when advertising opportunities at local universities. Visibility metrics on every post: views, applicants, response rates. See which posts are live, and which are still waiting for the right Reaction." },
+                { num: "04", h: "Craft a presence with the next cohort", p: "Every post is an impression with engaged, employment-curious students at the universities you care about. Build employer brand recognition years before students start job-hunting." },
               ].map((row, i, arr) => (
                 <div
                   key={row.num}

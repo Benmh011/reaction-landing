@@ -1,113 +1,127 @@
-# Plymouth societies v2 — proper society/activity alignment
+# Email rebrand + unsubscribe system
 
-Three structural changes to make society posts feel realistic.
+Rebrands all outbound emails to the new blue/grey palette + adds a real
+unsubscribe flow with List-Unsubscribe headers for spam-filter reputation.
 
 ## What's in this bundle
 
 ```
-demos/plymouth/src/WannaGameBoard.jsx   ← UPDATED (~185 net new lines)
+lib/email-templates.ts             ← NEW (shared template helper + HMAC token logic)
+auth.ts                            ← UPDATED (uses shared template)
+app/api/demo-request/route.ts      ← UPDATED (rebrand + new prospect ack email)
+app/api/unsubscribe/route.ts       ← NEW (handles GET + POST one-click)
+app/unsubscribe/page.tsx           ← NEW (confirmation page)
+prisma/SCHEMA-PATCH.md             ← Schema changes to apply manually
 ```
 
-## What changed
+## What changes for users
 
-### 1. New society list — 27 societies / clubs (was 17)
+**Magic-link sign-in email** — same flow, new look:
+- Pearl grey background, white card, slate blue Reaction wordmark
+- Deep navy CTA button
+- Footer with reaction.org.uk + Contact us
+- NO unsubscribe link (it's transactional — users would lock themselves out)
+- BUT List-Unsubscribe headers ARE added for spam-filter reputation
 
-Sport-specific clubs added so they can actually post their sport:
-- Basketball Club · Football Club · Rugby Union Club · Tennis Club
-- Badminton Club · Cricket Club · Volleyball Club
+**Demo-request admin notification** — same content, new look. Internal-only, no unsubscribe.
 
-Board game specifics added:
-- Chess Society (was missing entirely)
-- Poker Society (was implicit in Tabletop)
-- Tabletop Gaming Society (existing, now covers Catan / Risk / Monopoly / Scrabble / D&D)
+**Prospect acknowledgment** — NEW. When someone submits the demo form, they
+now receive a "Thanks for getting in touch" email within seconds. Includes:
+- Personalised greeting using their first name
+- Confirmation we'll respond within one business day
+- Working Unsubscribe link in the footer
 
-Academic + general societies kept, plus added: Plymouth Night Patrol (a real Plymouth-specific society) and a few academic ones aligned with course offerings.
+## ⚠️ Deploy order matters
 
-### 2. Society → activity restrictions (not category)
+This bundle changes the Prisma schema. Two days ago we had a production outage
+because the schema was pushed before the code. This time do it in the safe order:
 
-Replaced the previous `SOCIETY_CATEGORIES` map with `SOCIETY_ACTIVITIES`:
-- Tennis Club → can post Tennis (and Tennis Taster Session)
-- Chess Society → can post Chess (and Chess Taster Session)
-- Tabletop Gaming Society → Catan / Risk / Monopoly / Scrabble / D&D + their Tasters
-- Academic societies (Computing, Law, Psychology etc.) → Community only
-- Drama / Music / Photography → Community only
-- All societies can ALWAYS post Community activities (Volunteering, Fundraising, Social Events, Campaigns)
-- Study posts are student-only — Study isn't a society-led category
+### Step 1 — Apply the schema patch manually
 
-### 3. Taster Sessions — new activity variant
+Open `prisma/schema.prisma` on your Mac. Make the two changes described in
+`prisma/SCHEMA-PATCH.md` (add `marketingOptOut` to User, add EmailOptOut model).
 
-Sport clubs and Board Game societies can post "[Activity] Taster Session" variants.
-Tasters force `group` mode regardless of the parent activity's mode — so the Tennis 
-Club can run a 12-person intro instead of being capped at 2 (pair mode). Display label:
-"Tennis — Taster Session".
-
-### Modal behaviour now
-
-When you click "+ New Post" and select "Societies" as poster:
-- Society dropdown filters to only societies eligible for the current category
-- If Sport: shows only sport-specific clubs
-- If Board Games: shows Chess Soc, Tabletop, Poker Soc
-- If Community: shows ALL societies
-- If Study: warns "Study posts come from students" and disables society mode
-- Activity dropdown filters to only activities that society can post
-- Taster Session variants appear automatically for Sport + Board Games
-
-### Reseed of sport posts
-
-12 sport posts total (was 9):
-- 3 student-posted casual (Basketball, Tennis pair, Badminton pair)
-- 3 staff-posted (Football, Volleyball, Basketball lunchtime)
-- 3 society-posted training (Rugby Union Club, Cricket Club, Football Club)
-- 3 Taster Sessions (Tennis Club, Basketball Club, Volleyball Club)
-
-### Reseed of board game posts
-
-9 board game posts total (was 7):
-- 4 society-posted (Chess Soc, Tabletop x2, Poker Soc)
-- 1 student-posted (Monopoly night, Scrabble)
-- 2 Taster Sessions (Chess Society, Tabletop Gaming Society)
-
-## Deploy
+### Step 2 — Copy the new code into place
 
 ```
-xcopy /E /Y "%USERPROFILE%\Downloads\plymouth-societies-v2\*" "C:\Users\Rhys\Reaction\"
-cd C:\Users\Rhys\Reaction\demos\plymouth
-npm run build
-cd C:\Users\Rhys\Reaction
+cp -R ~/Downloads/email-rebrand/. ~/Reaction/
+```
+
+(Or the Windows xcopy equivalent if deploying from there.)
+
+### Step 3 — Push the schema to production DB
+
+```
+cd ~/Reaction
+npx prisma db push
+npx prisma generate
+```
+
+This adds the new column + table BEFORE the code references them.
+
+The code is also defensive — if `marketingOptOut` is missing it treats users
+as not-opted-out, so we won't have an outage even if step 3 is briefly delayed.
+
+### Step 4 — Commit + push
+
+```
+cd ~/Reaction
 git add -A
-git commit -m "Plymouth: society→activity restrictions, Taster Sessions, expanded society list"
+git commit -m "Rebrand emails + add unsubscribe with List-Unsubscribe headers"
 git push
 ```
 
-Vercel auto-deploys ~90 sec.
+Vercel deploys ~90 sec.
 
-## Test sequence
+### Step 5 — Verify
 
-1. Sign in to Plymouth demo
-2. **Visual sweep — existing posts:**
-   - Rugby post should now attribute to Rugby Union Club (not Drama)
-   - Cricket post → Cricket Club (not Geography)
-   - Women's football → Football Club (not Education)
-   - Tennis Taster shows "Tennis — Taster Session", 12 max people
-3. **Create a Sport post:**
-   - Click + New Post on Campus board
-   - Select Sport, click Societies
-   - Society dropdown shows only sports clubs
-   - Pick "Tennis Club" — activity dropdown shows "Tennis" + "Tennis — Taster Session"
-   - Pick the Taster — max people becomes group-sized (6+ default)
-4. **Create a Board Game post:**
-   - Same flow, Board Games + Societies
-   - Pick "Chess Society" — activity dropdown shows "Chess" + "Chess — Taster Session"
-   - Pick "Tabletop Gaming Society" — dropdown shows Catan/Risk/Monopoly/Scrabble/D&D + their Tasters
-5. **Study + Societies:**
-   - Switch to Study, click Societies
-   - Warning appears explaining study posts are student-only
-6. **Community + Societies:**
-   - Switch to Community, click Societies
-   - All societies available
-   - All 4 community activities available regardless of which society
+1. Submit a test demo request from /demo using a real email you can read
+2. Check inbox for the new acknowledgment email (pearl grey + slate blue branding)
+3. Check the admin email (info@reaction.org.uk) for the admin notification
+4. Click the "Unsubscribe" link in the prospect email — should land on /unsubscribe with confirmation
+5. Trigger a magic-link signin from /auth/signin — should arrive in new branded style with NO unsubscribe link in footer
+
+## Optional: View source of an inbox email
+
+In Gmail: click ⋮ → "Show original". Look for these headers:
+```
+List-Unsubscribe: <mailto:info@reaction.org.uk?subject=unsubscribe>, <https://reaction.org.uk/unsubscribe?email=...&token=...>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+```
+
+If both are present, Gmail will show the prominent "Unsubscribe" button next
+to the sender name on receiving devices — major spam-filter goodwill.
+
+## Security note
+
+Unsubscribe links are signed with HMAC-SHA256 of the email + AUTH_SECRET. This
+means:
+- A token only works for the email it was generated for
+- Tokens can't be forged without AUTH_SECRET
+- Tokens don't expire (intentional — old emails should still work)
+- Verification is timing-safe (no length-leak attacks)
 
 ## Known limitations
 
-- The Opportunities board still allows user posts. In a real product these would be employer-only.
-- Taster Sessions only exist for Sport + Board Games. If you ever want Community-style Taster Sessions, easy to extend.
+1. The shared template is **light-mode only** (no dark mode). All email clients
+   handle light/dark differently — fighting them is a losing battle. The
+   `color-scheme: light only` meta tag tells modern clients not to apply
+   automatic dark-mode inversion.
+
+2. The Newsreader font won't load in any email client. Falls back to Georgia
+   which is a safe default (installed on Windows, macOS, iOS, Android, ChromeOS).
+
+3. The `EmailOptOut` table is populated but not yet *checked* in `auth.ts`
+   (because magic-link is transactional). If you later add marketing emails
+   to logged-in users (newsletter, product announcements), import the helper
+   and check `EmailOptOut.findUnique({ where: { email } })` before sending.
+
+4. **Existing users who submitted demo requests before this deploy** won't have
+   `marketingOptOut` set, but the field defaults to `false`, so they'll receive
+   acknowledgments on any future submissions. No backfill needed.
+
+## Roll back
+
+If something breaks badly, the previous deployment in Vercel can be promoted
+back. The schema change (added column + table) is backward compatible — the
+old code ignored these fields, so rolling back doesn't break anything.

@@ -5,6 +5,7 @@ import Resend from "next-auth/providers/resend";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { emailShell, buildListUnsubscribeHeader } from "@/lib/email-templates";
 
 // Extend the Session type so `session.user.role` and `.demoVersion` are typed
 declare module "next-auth" {
@@ -46,14 +47,35 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
       sendVerificationRequest: async ({ identifier: email, url, provider }) => {
         const { Resend: ResendSdk } = await import("resend");
         const resend = new ResendSdk(provider.apiKey as string);
-        const { host } = new URL(url);
+
+        // Build the email using the shared template helper.
+        // Magic-link is transactional — no unsubscribe link (users can't unsubscribe
+        // from auth emails without locking themselves out of their account).
+        // But we still include List-Unsubscribe headers for spam-filter reputation.
+        const html = emailShell({
+          eyebrow: "Sign in to your demo",
+          bodyHtml: `
+            <p style="margin:0 0 14px;">Click the button below to sign in to your Reaction preview.</p>
+            <p style="margin:0;">This link is single-use and expires in 24 hours.</p>
+          `,
+          ctaText: "Sign in to Reaction",
+          ctaUrl: url,
+          ctaFootnote: `If the button doesn't work, copy this URL into your browser: ${url}`,
+          recipientEmail: email,
+          includeUnsubscribe: false,
+        });
+
+        const text = `Sign in to Reaction\n\nClick this link to sign in:\n${url}\n\nThis link is single-use and expires in 24 hours.\n\nIf you didn't request this email, you can safely ignore it.\n\n— Reaction`;
+
         const result = await resend.emails.send({
           from: provider.from as string,
           to: email,
           subject: `Sign in to Reaction`,
-          html: magicLinkEmail({ url, host }),
-          text: `Sign in to Reaction\n\nClick this link to sign in:\n${url}\n\nIf you didn't request this email, you can safely ignore it.\n\n— Reaction`,
+          html,
+          text,
+          headers: buildListUnsubscribeHeader(email),
         });
+
         if (result.error) {
           throw new Error(`Resend error: ${result.error.message}`);
         }
@@ -124,38 +146,3 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
     },
   },
 });
-
-function magicLinkEmail({ url, host }: { url: string; host: string }) {
-  return `<!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8" /></head>
-<body style="margin:0;padding:48px 24px;background:#f4ede0;font-family:Georgia,serif;color:#0a0908;">
-  <div style="max-width:560px;margin:0 auto;background:#fbf7ed;padding:48px 40px;border-radius:12px;border:1px solid rgba(10,9,8,0.12);">
-    <div style="font-family:Georgia,serif;font-style:italic;font-size:32px;color:#b91c1c;margin-bottom:8px;letter-spacing:-0.02em;">Reaction</div>
-    <div style="font-family:'Helvetica Neue',Arial,sans-serif;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#756a5d;margin-bottom:32px;">Sign in to your demo</div>
-
-    <p style="font-size:18px;line-height:1.5;margin:0 0 24px;color:#0a0908;">
-      Click the button below to sign in to your Reaction preview.
-    </p>
-
-    <div style="text-align:center;margin:36px 0;">
-      <a href="${url}" style="display:inline-block;background:#0a0908;color:#fbf7ed;padding:14px 28px;border-radius:999px;text-decoration:none;font-family:'Helvetica Neue',Arial,sans-serif;font-size:15px;font-weight:500;">Sign in to Reaction →</a>
-    </div>
-
-    <p style="font-size:14px;line-height:1.6;color:#3a342d;margin:24px 0;">
-      This link is valid for 24 hours and can only be used once. If you didn't request this email, you can safely ignore it.
-    </p>
-
-    <hr style="border:none;border-top:1px solid rgba(10,9,8,0.12);margin:36px 0;" />
-
-    <p style="font-size:12px;line-height:1.6;color:#756a5d;margin:0;">
-      If the button doesn't work, copy and paste this URL into your browser:<br />
-      <span style="word-break:break-all;color:#3a342d;">${url}</span>
-    </p>
-  </div>
-  <div style="max-width:560px;margin:24px auto 0;text-align:center;font-family:'Helvetica Neue',Arial,sans-serif;font-size:11px;color:#756a5d;letter-spacing:0.06em;">
-    Sent from ${host} · Reaction is a university platform that connects students on and off campus.
-  </div>
-</body>
-</html>`;
-}

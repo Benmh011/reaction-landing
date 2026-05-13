@@ -1,10 +1,27 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import SiteNav from "@/components/SiteNav";
 import SiteFooter from "@/components/SiteFooter";
 import DemoRequestForm from "./DemoRequestForm";
 
-export const metadata = {
-  title: "Book a demo · Reaction",
+export const metadata: Metadata = {
+  title: "Book a demo",
+  description:
+    "See how Reaction connects students on and off campus. Book a demo — for universities, students' unions, local employers, and charities.",
+  openGraph: {
+    title: "Book a demo · Reaction",
+    description: "See how Reaction connects students on and off campus.",
+    url: "https://reaction.org.uk/demo",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Book a demo · Reaction",
+    description: "See how Reaction connects students on and off campus.",
+  },
+  alternates: {
+    canonical: "https://reaction.org.uk/demo",
+  },
 };
 
 export default function DemoPage() {

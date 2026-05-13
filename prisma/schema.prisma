@@ -79,6 +79,10 @@ model User {
   demoVersion   String?
   organisation  String?
 
+  // When true, this user has unsubscribed from marketing emails. Transactional
+  // emails (magic-link sign-in etc.) are unaffected by this flag.
+  marketingOptOut Boolean @default(false)
+
   accounts      Account[]
   sessions      Session[]
   demoRequest   DemoRequest?
@@ -126,4 +130,18 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+// ─────────────── EMAIL OPT-OUT TOMBSTONE ───────────────
+// Captures unsubscribes from prospects who never registered an account.
+// When a User exists, their marketingOptOut field is also set. This table
+// catches the case where someone submitted /demo, got the acknowledgment
+// email, clicked Unsubscribe — but never became a User.
+//
+// Before sending any marketing email, check both:
+//   1. User.marketingOptOut (if a User exists)
+//   2. EmailOptOut existence (catches non-User prospects)
+model EmailOptOut {
+  email      String   @id
+  optedOutAt DateTime @default(now())
 }
