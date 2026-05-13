@@ -386,7 +386,7 @@ export default function HomePage() {
             <p
               style={{
                 fontFamily: "'Newsreader', Georgia, serif",
-                fontStyle: "italic",
+                fontWeight: 600,
                 fontSize: "1.15rem",
                 lineHeight: 1.5,
                 color: "var(--bg)",
