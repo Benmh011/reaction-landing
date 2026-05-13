@@ -402,6 +402,7 @@ const INSIGHTS_CATEGORIES = {
     contextLine: 'Academic Year 2025/26 · TEF Gold (2023–27) · NSS Positivity · A&P Plan',
     tabs: [
       { id: 'overview',      label: 'Overview' },
+      { id: 'gains',         label: 'Educational Gains' },
       { id: 'belonging',     label: 'NSS & Belonging' },
       { id: 'participation', label: 'Access & Participation' },
       { id: 'retention',     label: 'Social Engagement' },
@@ -437,13 +438,38 @@ const INSIGHTS_CATEGORIES = {
   },
 };
 
-const AnalyticsDashboard = ({ onBack }) => {
+const AnalyticsDashboard = ({ onBack, checkedIn = {}, reflections = {}, outcomes = {}, posts = [] }) => {
   // ── campus stats ──
   const totalUsers = 451;
   const totalSessions = MONTHLY_ENGAGEMENT.reduce((s, m) => s + m.sessions, 0);
   const avgBelonging = BELONGING_TREND[BELONGING_TREND.length - 1].appUsers;
   const crossGroupPct = Math.round((CROSS_GROUP.reduce((s,m) => s + m.crossGroup, 0) / (CROSS_GROUP.reduce((s,m) => s + m.crossGroup + m.sameGroup, 0))) * 100);
   const activePct = Math.round((ENGAGEMENT_TREND_DATA[ENGAGEMENT_TREND_DATA.length-1].active / (ENGAGEMENT_TREND_DATA[ENGAGEMENT_TREND_DATA.length-1].active + ENGAGEMENT_TREND_DATA[ENGAGEMENT_TREND_DATA.length-1].declining)) * 100);
+
+  // ── CAPTURED OUTCOME STATS (TEF SO4–SO6 evidence) ──
+  // Flatten captured reflections into a single list of records
+  const reflectionRecords = Object.entries(reflections).flatMap(([postId, byUser]) =>
+    Object.entries(byUser).map(([user, data]) => ({ postId: Number(postId), user, ...data }))
+  );
+  const outcomeRecords = Object.entries(outcomes).flatMap(([postId, byUser]) =>
+    Object.entries(byUser).map(([user, data]) => ({ postId: Number(postId), user, ...data }))
+  );
+  const totalCheckIns = Object.values(checkedIn).reduce((sum, arr) => sum + arr.length, 0);
+  const totalReflections = reflectionRecords.length;
+  const avg = (nums) => nums.length ? (nums.reduce((a,b)=>a+b,0) / nums.length) : 0;
+  const reflBelonging = avg(reflectionRecords.map(r => r.belonging || 0).filter(Boolean));
+  const reflLearned   = avg(reflectionRecords.map(r => r.learned || 0).filter(Boolean));
+  const reflConnection = avg(reflectionRecords.map(r => r.connection || 0).filter(Boolean));
+  // SO4 articulation: % of reflections where the student typed something in "oneThing"
+  const so4Articulation = totalReflections === 0 ? 0
+    : Math.round((reflectionRecords.filter(r => (r.oneThing || '').trim().length > 0).length / totalReflections) * 100);
+  // Outcome funnel from captured data
+  const outcomeFunnel = {
+    applied: outcomeRecords.length,
+    interviewed: outcomeRecords.filter(r => ['interviewed','offered','accepted'].includes(r.status)).length,
+    offered: outcomeRecords.filter(r => ['offered','accepted'].includes(r.status)).length,
+    accepted: outcomeRecords.filter(r => r.status === 'accepted').length,
+  };
 
   // ── community stats ──
   const communityActiveVolunteers = COMMUNITY_MONTHLY[COMMUNITY_MONTHLY.length-1].volunteers;
@@ -534,6 +560,84 @@ const AnalyticsDashboard = ({ onBack }) => {
               <p className="text-xs text-gray-400 mb-4">Sessions and unique participants across Sport, Study & Board Games</p>
               <ResponsiveContainer width="100%" height={260}><BarChart data={CATEGORY_ENGAGEMENT} margin={{top:5,right:10,left:-10,bottom:5}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/><XAxis dataKey="category" tick={{fontSize:12}}/><YAxis tick={{fontSize:12}}/><Tooltip contentStyle={{borderRadius:8,border:'1px solid rgba(30,58,95,0.1)',boxShadow:'0 2px 12px rgba(0,0,0,.06)',fontSize:12}}/><Legend/><Bar dataKey="sessions" name="Sessions" fill="#1e3a5f" radius={[6,6,0,0]}/><Bar dataKey="participants" name="Participants" fill="#c5a13b" radius={[6,6,0,0]}/></BarChart></ResponsiveContainer>
             </div>
+          </div>
+        </>)}
+
+        {/* ════════════════════ CAMPUS — EDUCATIONAL GAINS (SO4–SO6) ════════════════════ */}
+        {activeCategory === 'campus' && activeTab === 'gains' && (<>
+          <div className="rounded-xl p-4 mb-6" style={{ background: 'rgba(30,58,95,0.06)', border: '1px solid rgba(30,58,95,0.15)' }}>
+            <h3 className="font-bold text-sm mb-1" style={{ color: '#1e3a5f' }}>TEF Educational Gains Framework (SO4–SO6)</h3>
+            <p className="text-xs" style={{ color: '#5a6a7a' }}>The TEF Student Outcomes aspect explicitly admits no national measure exists for educational gains, and that most providers do not have one. This panel surfaces evidence captured directly from students <strong>at the point of experience</strong>: attendance check-ins, post-event reflections (SO5 support, SO6 evaluation), and articulation of gains in students' own words (SO4). Captured live, not modelled or imputed.</p>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {statCard('Check-Ins Captured', totalCheckIns, 'students attended (vs. just RSVP\'d)', null, {text:'TEF'})}
+            {statCard('Reflections Captured', totalReflections, 'post-event Likert + free-text', null, {text:'TEF'})}
+            {statCard('SO4 Articulation', `${so4Articulation}%`, 'reflections naming a specific gain', null, {text:'TEF'})}
+            {statCard('Avg. Peer Connection', reflConnection ? `${reflConnection.toFixed(1)}/5` : '—', 'self-reported (SO5 support)', null, {text:'TEF'})}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <div className="bg-white rounded-xl border border-gray-100 p-5">
+              <h2 className="text-sm font-bold mb-1" style={{color:"#1e3a5f"}}>SO6 — Evaluation: Self-Reported Gains</h2>
+              <p className="text-xs text-gray-400 mb-4">Averaged Likert (1–5) across captured post-event reflections</p>
+              <div className="space-y-4 mt-4">
+                {[
+                  { label: 'Sense of belonging', value: reflBelonging, color: '#1e3a5f', tag: 'SO6' },
+                  { label: 'Something learned', value: reflLearned, color: '#c5a13b', tag: 'SO6' },
+                  { label: 'Peer connection made', value: reflConnection, color: '#059669', tag: 'SO5' },
+                ].map(r => (
+                  <div key={r.label}>
+                    <div className="flex justify-between mb-1">
+                      <span className="text-sm font-bold text-gray-700">{r.label} <span className="text-xs font-semibold ml-1" style={{ color: r.color }}>({r.tag})</span></span>
+                      <span className="text-sm font-bold" style={{ color: r.color }}>{r.value ? r.value.toFixed(1) : '—'}/5</span>
+                    </div>
+                    <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: `${(r.value || 0) * 20}%`, background: r.color }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-gray-400 mt-4 italic">Captured immediately after each event; self-reported, not modelled. Supplementary evidence for TEF Student Outcomes submissions.</p>
+            </div>
+
+            <div className="bg-white rounded-xl border border-gray-100 p-5">
+              <h2 className="text-sm font-bold mb-1" style={{color:"#1e3a5f"}}>SO4 — Articulation: In Students' Own Words</h2>
+              <p className="text-xs text-gray-400 mb-4">A sample of free-text gains as students described them</p>
+              <div className="space-y-3 mt-3">
+                {reflectionRecords.filter(r => (r.oneThing || '').trim().length > 0).slice(0, 5).map((r, i) => {
+                  const post = posts.find(p => p.id === r.postId);
+                  return (
+                    <div key={i} className="rounded-lg p-3" style={{ background: 'rgba(197,161,59,0.06)', borderLeft: '3px solid #c5a13b' }}>
+                      <p className="text-sm" style={{ color: '#1e3a5f', fontStyle: 'italic' }}>"{r.oneThing}"</p>
+                      <p className="text-xs mt-1.5 text-gray-500">{r.user} · {post ? `${post.activity}` : 'event'}</p>
+                    </div>
+                  );
+                })}
+                {reflectionRecords.filter(r => (r.oneThing || '').trim().length > 0).length === 0 && (
+                  <p className="text-xs text-gray-300 italic">No free-text articulation captured yet — reflect on a past event to populate.</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-100 p-5 mb-6">
+            <h2 className="text-sm font-bold mb-1" style={{color:"#1e3a5f"}}>SO5 — Support: Captured Outcomes on Opportunities</h2>
+            <p className="text-xs text-gray-400 mb-4">Application outcomes captured directly from students, not modelled from a funnel</p>
+            <div className="grid grid-cols-4 gap-3">
+              {[
+                { label: 'Applied', value: outcomeFunnel.applied, color: '#1e3a5f' },
+                { label: 'Interviewed', value: outcomeFunnel.interviewed, color: '#c5a13b' },
+                { label: 'Offered', value: outcomeFunnel.offered, color: '#059669' },
+                { label: 'Accepted', value: outcomeFunnel.accepted, color: '#10b981' },
+              ].map(s => (
+                <div key={s.label} className="rounded-lg p-3 text-center" style={{ background: 'rgba(30,58,95,0.04)' }}>
+                  <div className="text-2xl font-bold" style={{ color: s.color }}>{s.value}</div>
+                  <div className="text-xs font-semibold mt-1" style={{ color: '#5a6a7a' }}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-gray-400 mt-3 italic">Outcomes are captured live as students update their application status; complements Graduate Outcomes Survey rather than substituting for it.</p>
           </div>
         </>)}
 
@@ -1282,13 +1386,171 @@ const CreatePostModal = ({ onClose, onCreate, allowedCategories, defaultCategory
   </div></div></div>);
 };
 
+// ──── REFLECTION MODAL (post-event Likert + free text) ────
+const ReflectionModal = ({ post, onSave, onClose }) => {
+  const [belonging, setBelonging] = useState(0);
+  const [learned, setLearned] = useState(0);
+  const [connection, setConnection] = useState(0);
+  const [oneThing, setOneThing] = useState('');
+  const canSave = belonging > 0 && learned > 0 && connection > 0;
+
+  const LikertRow = ({ label, value, setValue, sublabel }) => (
+    <div>
+      <div className="text-sm font-bold mb-1" style={{ color: '#1e3a5f' }}>{label}</div>
+      {sublabel && <div className="text-xs text-gray-400 mb-2">{sublabel}</div>}
+      <div style={{ display: 'flex', gap: '6px' }}>
+        {[1,2,3,4,5].map(n => (
+          <button
+            key={n}
+            onClick={() => setValue(n)}
+            className="flex-1 py-2 rounded-lg font-bold text-sm transition-all active:scale-[0.97]"
+            style={{
+              background: value === n ? '#1e3a5f' : 'rgba(30,58,95,0.06)',
+              color: value === n ? 'white' : '#1e3a5f',
+              border: value === n ? '1px solid #1e3a5f' : '1px solid rgba(30,58,95,0.12)',
+            }}
+          >{n}</button>
+        ))}
+      </div>
+      <div className="flex justify-between mt-1">
+        <span className="text-xs text-gray-400">Strongly disagree</span>
+        <span className="text-xs text-gray-400">Strongly agree</span>
+      </div>
+    </div>
+  );
+
+  return (
+    <div onClick={onClose} className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
+      <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl max-w-md w-full overflow-hidden" style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+        <div className="p-5" style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #2a4a6f 100%)' }}>
+          <div className="text-xs font-bold uppercase tracking-wider text-white opacity-70 mb-1">Quick reflection · 2 min</div>
+          <h2 className="text-lg font-bold text-white">{post?.activity}</h2>
+          <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.7)' }}>{post?.location} · helps your university evidence educational gains</p>
+        </div>
+        <div className="p-5 space-y-5">
+          <LikertRow label="I felt I belonged at this event" value={belonging} setValue={setBelonging} sublabel="NSS B2.1 framing" />
+          <LikertRow label="I learned something I'll use again" value={learned} setValue={setLearned} sublabel="TEF SO6 — evaluation of gains" />
+          <LikertRow label="I made or strengthened a peer connection" value={connection} setValue={setConnection} sublabel="TEF SO5 — peer support" />
+          <div>
+            <div className="text-sm font-bold mb-1" style={{ color: '#1e3a5f' }}>One thing you'll take from this <span className="text-xs font-normal text-gray-400">(optional)</span></div>
+            <div className="text-xs text-gray-400 mb-2">TEF SO4 — articulation of gains in your own words</div>
+            <textarea
+              value={oneThing}
+              onChange={e => setOneThing(e.target.value)}
+              placeholder="e.g. Met two course-mates I now revise with..."
+              rows={3}
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+              style={{ resize: 'vertical', fontFamily: 'inherit' }}
+            />
+          </div>
+        </div>
+        <div className="p-5 pt-0 flex gap-2">
+          <button onClick={onClose} className="py-2 px-4 rounded-lg font-semibold text-sm transition-all" style={{ background: 'rgba(30,58,95,0.06)', color: '#5a6a7a', border: '1px solid rgba(30,58,95,0.1)' }}>Skip</button>
+          <button
+            onClick={() => onSave({ belonging, learned, connection, oneThing })}
+            disabled={!canSave}
+            className="flex-1 py-2 px-4 rounded-lg font-semibold text-sm transition-all active:scale-[0.97] text-white"
+            style={{
+              background: canSave ? '#1e3a5f' : '#d1d5db',
+              boxShadow: canSave ? '0 2px 8px rgba(30,58,95,0.25)' : 'none',
+              cursor: canSave ? 'pointer' : 'not-allowed',
+            }}
+          >Save reflection</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ──── OUTCOME MODAL (captured application outcomes on Opportunities) ────
+const OutcomeModal = ({ post, onSave, onClose }) => {
+  const [status, setStatus] = useState('');
+  const [oneThing, setOneThing] = useState('');
+  const canSave = status !== '';
+
+  const options = [
+    { id: 'no-response', label: 'No response yet',        color: '#9ca3af' },
+    { id: 'rejected',    label: 'Not successful',          color: '#9ca3af' },
+    { id: 'interviewed', label: 'Got an interview',        color: '#c5a13b' },
+    { id: 'offered',     label: 'Offered the role',        color: '#059669' },
+    { id: 'accepted',    label: 'Accepted the offer',      color: '#10b981' },
+  ];
+
+  return (
+    <div onClick={onClose} className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
+      <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl max-w-md w-full overflow-hidden" style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+        <div className="p-5" style={{ background: 'linear-gradient(135deg, #064e3b 0%, #059669 100%)' }}>
+          <div className="text-xs font-bold uppercase tracking-wider text-white opacity-70 mb-1">Update outcome · 30 sec</div>
+          <h2 className="text-lg font-bold text-white">{post?.activity}</h2>
+          <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.75)' }}>{post?.listingDetails?.employer || 'Opportunity'} · helps your university evidence student outcomes</p>
+        </div>
+        <div className="p-5 space-y-4">
+          <div>
+            <div className="text-sm font-bold mb-2" style={{ color: '#1e3a5f' }}>What happened with your application?</div>
+            <div className="space-y-2">
+              {options.map(o => (
+                <button
+                  key={o.id}
+                  onClick={() => setStatus(o.id)}
+                  className="w-full py-2.5 px-3 rounded-lg font-semibold text-sm transition-all text-left flex items-center gap-2"
+                  style={{
+                    background: status === o.id ? o.color : 'white',
+                    color: status === o.id ? 'white' : '#1e3a5f',
+                    border: status === o.id ? `1px solid ${o.color}` : '1px solid rgba(30,58,95,0.12)',
+                  }}
+                >
+                  <span className="w-4 h-4 rounded-full border-2 flex items-center justify-center" style={{ borderColor: status === o.id ? 'white' : o.color }}>
+                    {status === o.id && <span className="w-2 h-2 rounded-full bg-white" />}
+                  </span>
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="text-sm font-bold mb-1" style={{ color: '#1e3a5f' }}>Anything you'd add? <span className="text-xs font-normal text-gray-400">(optional)</span></div>
+            <textarea
+              value={oneThing}
+              onChange={e => setOneThing(e.target.value)}
+              placeholder="e.g. Got through to second round — first interview ever..."
+              rows={3}
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+              style={{ resize: 'vertical', fontFamily: 'inherit' }}
+            />
+          </div>
+        </div>
+        <div className="p-5 pt-0 flex gap-2">
+          <button onClick={onClose} className="py-2 px-4 rounded-lg font-semibold text-sm transition-all" style={{ background: 'rgba(30,58,95,0.06)', color: '#5a6a7a', border: '1px solid rgba(30,58,95,0.1)' }}>Cancel</button>
+          <button
+            onClick={() => onSave({ status, oneThing })}
+            disabled={!canSave}
+            className="flex-1 py-2 px-4 rounded-lg font-semibold text-sm transition-all active:scale-[0.97] text-white"
+            style={{
+              background: canSave ? '#059669' : '#d1d5db',
+              boxShadow: canSave ? '0 2px 8px rgba(5,150,105,0.25)' : 'none',
+              cursor: canSave ? 'pointer' : 'not-allowed',
+            }}
+          >Save outcome</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ──── ATTENDANCE LOG COMPONENT ────
-const AttendanceLog = ({ post, attendees, currentUser, onJoin, onLeave, onViewProfile, onApply }) => {
+const AttendanceLog = ({
+  post, attendees, currentUser, onJoin, onLeave, onViewProfile, onApply,
+  isPast = false,
+  userCheckedIn = false, userReflected = false, userHasOutcome = false,
+  onCheckIn, onReflect, onOutcome,
+  capturedOutcomeStatus = null,
+}) => {
   const isOpportunity = post.category === 'Opportunities';
   const maxPlayers = post.mode === '1v1' ? 2 : (post.maxPeople || post.perTeam * 2);
   const hasJoined = attendees.includes(currentUser);
   const isFull = attendees.length >= maxPlayers;
 
+  // ── OPPORTUNITY POST ──
   if (isOpportunity) {
     return (
       <div className="pt-3 border-t border-gray-50">
@@ -1297,7 +1559,7 @@ const AttendanceLog = ({ post, attendees, currentUser, onJoin, onLeave, onViewPr
             Apply
           </button>
         )}
-        {hasJoined && (
+        {hasJoined && !isPast && (
           <div style={{ display: 'flex', gap: '6px' }}>
             <div className="py-2 rounded-lg font-semibold text-xs text-center flex items-center justify-center gap-1.5 text-white" style={{ background: '#059669', flex: 1 }}>
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
@@ -1312,10 +1574,30 @@ const AttendanceLog = ({ post, attendees, currentUser, onJoin, onLeave, onViewPr
             >Withdraw</button>
           </div>
         )}
+        {hasJoined && isPast && !userHasOutcome && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div className="py-2 rounded-lg font-semibold text-xs text-center flex items-center justify-center gap-1.5 text-white" style={{ background: '#059669' }}>
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+              Applied
+            </div>
+            <button
+              onClick={() => onOutcome && onOutcome(post.id)}
+              className="w-full py-2 rounded-lg font-semibold text-xs transition-all active:scale-[0.97]"
+              style={{ background: 'rgba(197,161,59,0.12)', color: '#9a7d2e', border: '1px solid rgba(197,161,59,0.3)' }}
+            >Update outcome →</button>
+            <p className="text-xs italic text-gray-400 text-center">Helps the university track student outcomes</p>
+          </div>
+        )}
+        {hasJoined && isPast && userHasOutcome && (
+          <div className="py-2 rounded-lg font-semibold text-xs text-center text-white" style={{ background: '#1e3a5f' }}>
+            ✓ Outcome recorded · <span style={{ opacity: 0.85, textTransform: 'capitalize' }}>{capturedOutcomeStatus || 'logged'}</span>
+          </div>
+        )}
       </div>
     );
   }
 
+  // ── NON-OPPORTUNITY POST (Sport, Study, Board Games, Community) ──
   return (
     <div className="pt-3 border-t border-gray-50">
       <div className="flex items-center justify-between mb-2">
@@ -1334,15 +1616,16 @@ const AttendanceLog = ({ post, attendees, currentUser, onJoin, onLeave, onViewPr
       ) : (
         <p className="text-xs text-gray-300 italic mb-3">No one has confirmed yet — be the first!</p>
       )}
-      {currentUser && !hasJoined && !isFull && (
+      {/* FUTURE EVENT — original RSVP behaviour */}
+      {!isPast && currentUser && !hasJoined && !isFull && (
         <button onClick={() => onJoin(post.id)} className="w-full py-2 text-white rounded-lg font-semibold text-xs transition-all active:scale-[0.97]" style={{ background: '#1e3a5f' }}>
           I'll Join
         </button>
       )}
-      {currentUser && !hasJoined && isFull && (
+      {!isPast && currentUser && !hasJoined && isFull && (
         <div className="w-full py-2 bg-gray-50 text-gray-400 rounded-lg font-semibold text-xs text-center">Full</div>
       )}
-      {hasJoined && (
+      {!isPast && hasJoined && (
         <div style={{ display: 'flex', gap: '6px' }}>
           <div className="py-2 rounded-lg font-semibold text-xs text-center flex items-center justify-center gap-1.5 text-white" style={{ background: '#2d7a4f', flex: 1 }}>
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
@@ -1356,6 +1639,31 @@ const AttendanceLog = ({ post, attendees, currentUser, onJoin, onLeave, onViewPr
             onMouseLeave={e => { e.currentTarget.style.background = 'rgba(30,58,95,0.06)'; e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.borderColor = 'rgba(30,58,95,0.08)'; }}
           >Cancel</button>
         </div>
+      )}
+      {/* PAST EVENT — check-in / reflect / done states */}
+      {isPast && hasJoined && !userCheckedIn && (
+        <button onClick={() => onCheckIn && onCheckIn(post.id)} className="w-full py-2 rounded-lg font-semibold text-xs transition-all active:scale-[0.97] text-white" style={{ background: '#c5a13b', boxShadow: '0 2px 6px rgba(197,161,59,0.25)' }}>
+          Check in — were you there?
+        </button>
+      )}
+      {isPast && hasJoined && userCheckedIn && !userReflected && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div className="py-2 rounded-lg font-semibold text-xs text-center flex items-center justify-center gap-1.5 text-white" style={{ background: '#2d7a4f' }}>
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+            Checked in
+          </div>
+          <button onClick={() => onReflect && onReflect(post.id)} className="w-full py-2 rounded-lg font-semibold text-xs transition-all active:scale-[0.97]" style={{ background: 'rgba(30,58,95,0.06)', color: '#1e3a5f', border: '1px solid rgba(30,58,95,0.15)' }}>
+            Reflect (2 min) →
+          </button>
+        </div>
+      )}
+      {isPast && hasJoined && userReflected && (
+        <div className="py-2 rounded-lg font-semibold text-xs text-center text-white" style={{ background: '#1e3a5f' }}>
+          ✓ Reflection saved
+        </div>
+      )}
+      {isPast && !hasJoined && (
+        <div className="w-full py-2 bg-gray-50 text-gray-400 rounded-lg font-semibold text-xs text-center italic">Event has passed</div>
       )}
     </div>
   );
@@ -1399,6 +1707,77 @@ const BulletinBoardApp = () => {
     19: ['Tom Wilson', 'Alex Johnson', 'Jordan Lee', 'Mike Chen', 'Lisa Park'],
     20: ['Zara Khan', 'Sarah Martinez', 'Ryan Cooper', 'Emily Davis'],
   });
+
+  // ──── OUTCOME CAPTURE STATE (TEF SO4–SO6 educational gains evidence) ────
+  // Demo "today" — drives which events are treated as past and so eligible for check-in / reflect
+  const TODAY = '2026-02-12';
+
+  // checkedIn: students who actually attended (distinct from RSVP'd via `attendance`)
+  // Shape: { [postId]: ['Alex Johnson', ...] }
+  const [checkedIn, setCheckedIn] = useState({
+    1: ['Alex Johnson', 'Tom Wilson', 'Lisa Park'],          // Basketball — 3 of 4 RSVPs actually came
+    2: ['Sarah Martinez'],                                    // Tennis — solo, attended
+    3: ['Mike Chen', 'Jordan Lee'],                           // Football — 2 of 3 attended
+    5: ['James Holloway', 'Ryan Cooper'],                     // Rugby Union taster
+    7: ['Zara Khan', 'Alex Johnson', 'Lisa Park'],            // Badminton — 3 of 5
+    10: ['Mike Chen', 'Emily Davis', 'Jordan Lee'],           // Group Revision — 3 of 3
+    11: ['Zara Khan', 'Alex Johnson'],                        // Exam Prep
+    19: ['Tom Wilson', 'Jordan Lee', 'Mike Chen', 'Lisa Park'], // Catan
+    20: ['Zara Khan', 'Sarah Martinez', 'Ryan Cooper'],       // Chess
+    30: ['Zara Khan'],                                        // Student Ambassador (opportunity)
+  });
+
+  // reflections: post-event Likert + one-thing-learned captured from students
+  // Shape: { [postId]: { [userName]: { belonging:1-5, learned:1-5, connection:1-5, oneThing:string, timestamp } } }
+  const [reflections, setReflections] = useState({
+    1: {
+      'Alex Johnson': { belonging: 5, learned: 3, connection: 5, oneThing: 'Met two people on my course I had never spoken to before — we now revise together.', timestamp: '2026-02-07T17:30:00Z' },
+      'Tom Wilson': { belonging: 4, learned: 3, connection: 4, oneThing: 'Confidence to keep showing up even when I am the worst player in the room.', timestamp: '2026-02-07T17:35:00Z' },
+      'Lisa Park': { belonging: 5, learned: 4, connection: 5, oneThing: 'Realised the SU sports hall is open to non-club members on Fridays.', timestamp: '2026-02-07T18:00:00Z' },
+    },
+    2: {
+      'Sarah Martinez': { belonging: 4, learned: 4, connection: 3, oneThing: 'Found a rally partner of similar level — first time in two years.', timestamp: '2026-02-08T16:00:00Z' },
+    },
+    5: {
+      'James Holloway': { belonging: 5, learned: 5, connection: 5, oneThing: 'Joined the rugby club. I had been on the fence since September.', timestamp: '2026-02-11T18:30:00Z' },
+      'Ryan Cooper': { belonging: 4, learned: 4, connection: 5, oneThing: 'Got introduced to two final-year students who offered to mentor me.', timestamp: '2026-02-11T18:45:00Z' },
+    },
+    7: {
+      'Zara Khan': { belonging: 4, learned: 3, connection: 4, oneThing: '', timestamp: '2026-02-09T11:30:00Z' }, // empty oneThing — counted in reflections but not articulation
+      'Alex Johnson': { belonging: 5, learned: 4, connection: 5, oneThing: 'A simple drill I can practise on my own between sessions.', timestamp: '2026-02-09T11:35:00Z' },
+      'Lisa Park': { belonging: 4, learned: 3, connection: 4, oneThing: 'That intramural is more welcoming than I thought.', timestamp: '2026-02-09T11:40:00Z' },
+    },
+    10: {
+      'Mike Chen': { belonging: 4, learned: 5, connection: 4, oneThing: 'Worked through module 4 — the bit I had been stuck on for a week.', timestamp: '2026-02-07T19:00:00Z' },
+      'Emily Davis': { belonging: 4, learned: 5, connection: 4, oneThing: 'Two people willing to share notes for the modules I missed.', timestamp: '2026-02-07T19:10:00Z' },
+      'Jordan Lee': { belonging: 5, learned: 5, connection: 5, oneThing: 'A study group I would not have found otherwise.', timestamp: '2026-02-07T19:15:00Z' },
+    },
+    11: {
+      'Zara Khan': { belonging: 4, learned: 5, connection: 3, oneThing: 'Three past paper questions I now actually understand.', timestamp: '2026-02-08T20:00:00Z' },
+      'Alex Johnson': { belonging: 4, learned: 4, connection: 4, oneThing: 'A clearer plan for the week before the exam.', timestamp: '2026-02-08T20:05:00Z' },
+    },
+    19: {
+      'Tom Wilson': { belonging: 5, learned: 3, connection: 5, oneThing: 'Made friends with people outside my course for the first time.', timestamp: '2026-02-09T18:00:00Z' },
+      'Jordan Lee': { belonging: 4, learned: 2, connection: 4, oneThing: '', timestamp: '2026-02-09T18:00:00Z' },
+      'Mike Chen': { belonging: 5, learned: 3, connection: 4, oneThing: 'A regular weekly thing to look forward to.', timestamp: '2026-02-09T18:00:00Z' },
+    },
+    20: {
+      'Zara Khan': { belonging: 4, learned: 4, connection: 4, oneThing: 'Joined the chess club. Going back next week.', timestamp: '2026-02-10T13:30:00Z' },
+      'Sarah Martinez': { belonging: 3, learned: 4, connection: 4, oneThing: '', timestamp: '2026-02-10T13:35:00Z' },
+    },
+  });
+
+  // outcomes: captured application outcomes on Opportunities posts
+  // Shape: { [postId]: { [userName]: { status:'no-response'|'rejected'|'interviewed'|'offered'|'accepted', oneThing:string, timestamp } } }
+  const [outcomes, setOutcomes] = useState({
+    30: {
+      'Zara Khan': { status: 'interviewed', oneThing: 'Got through to second round — first interview ever.', timestamp: '2026-02-09T14:00:00Z' },
+    },
+  });
+
+  // Modal controllers
+  const [reflectingOn, setReflectingOn] = useState(null);     // postId | null
+  const [outcomeOn, setOutcomeOn] = useState(null);           // postId | null
 
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedPostedBy, setSelectedPostedBy] = useState('all');
@@ -1517,6 +1896,50 @@ const BulletinBoardApp = () => {
     });
   };
 
+  // ──── OUTCOME CAPTURE HELPERS ────
+  const isPastEvent = (post) => {
+    if (!post?.date) return false;
+    return post.date <= TODAY;
+  };
+  const userHasCheckedIn = (postId) => currentUser && (checkedIn[postId] || []).includes(currentUser);
+  const userHasReflected = (postId) => currentUser && !!(reflections[postId]?.[currentUser]);
+  const userHasOutcome   = (postId) => currentUser && !!(outcomes[postId]?.[currentUser]);
+
+  const handleCheckIn = (postId) => {
+    if (!currentUser) return;
+    setCheckedIn(prev => {
+      const list = prev[postId] || [];
+      if (list.includes(currentUser)) return prev;
+      return { ...prev, [postId]: [...list, currentUser] };
+    });
+    // Open reflection prompt immediately after check-in
+    setReflectingOn(postId);
+  };
+
+  const handleSaveReflection = (postId, data) => {
+    if (!currentUser) return;
+    setReflections(prev => ({
+      ...prev,
+      [postId]: {
+        ...(prev[postId] || {}),
+        [currentUser]: { ...data, timestamp: new Date().toISOString() },
+      },
+    }));
+    setReflectingOn(null);
+  };
+
+  const handleSaveOutcome = (postId, data) => {
+    if (!currentUser) return;
+    setOutcomes(prev => ({
+      ...prev,
+      [postId]: {
+        ...(prev[postId] || {}),
+        [currentUser]: { ...data, timestamp: new Date().toISOString() },
+      },
+    }));
+    setOutcomeOn(null);
+  };
+
   const handlePostedByFilter = (v) => {
     setSelectedPostedBy(v);
     if (v !== 'Societies') setSelectedSociety('all');
@@ -1593,7 +2016,13 @@ const BulletinBoardApp = () => {
   const formatDate = (ds) => new Date(ds+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
   const formatTime = (ts) => { const [h,m]=ts.split(':'); const hr=parseInt(h); return `${hr%12||12}:${m} ${hr>=12?'PM':'AM'}`; };
 
-  if (page === 'analytics') return <AnalyticsDashboard onBack={() => setPage('home')} />;
+  if (page === 'analytics') return <AnalyticsDashboard
+    onBack={() => setPage('home')}
+    checkedIn={checkedIn}
+    reflections={reflections}
+    outcomes={outcomes}
+    posts={posts}
+  />;
   if (viewingProfile) return <ProfilePage userName={viewingProfile} onBack={() => setViewingProfile(null)} posts={posts} />;
 
   // ── LISTING DETAIL PAGE (Opportunities) ──
@@ -2203,7 +2632,23 @@ const BulletinBoardApp = () => {
                     </div>
 
                     {isLoggedIn ? (
-                      <AttendanceLog post={post} attendees={attendees} currentUser={currentUser} onJoin={handleJoin} onLeave={handleLeave} onViewProfile={setViewingProfile} onApply={(p) => setApplyingTo(p)} />
+                      <AttendanceLog
+                        post={post}
+                        attendees={attendees}
+                        currentUser={currentUser}
+                        onJoin={handleJoin}
+                        onLeave={handleLeave}
+                        onViewProfile={setViewingProfile}
+                        onApply={(p) => setApplyingTo(p)}
+                        isPast={isPastEvent(post)}
+                        userCheckedIn={userHasCheckedIn(post.id)}
+                        userReflected={userHasReflected(post.id)}
+                        userHasOutcome={userHasOutcome(post.id)}
+                        onCheckIn={handleCheckIn}
+                        onReflect={(pid) => setReflectingOn(pid)}
+                        onOutcome={(pid) => setOutcomeOn(pid)}
+                        capturedOutcomeStatus={outcomes[post.id]?.[currentUser]?.status}
+                      />
                     ) : (
                       <div className="pt-3 border-t border-gray-50 text-center">
                         <span className="text-xs text-gray-400">{post.category === 'Opportunities' ? 'Login to apply' : `${attendees.length}/${maxPlayers} confirmed — login to join`}</span>
@@ -2245,6 +2690,16 @@ const BulletinBoardApp = () => {
         const section = LANDING_SECTIONS.find(s => s.key === activeLandingSection);
         const allowedCategories = section ? section.categories : ['Sport', 'Study', 'Board Games'];
         return <CreatePostModal onClose={()=>setShowCreateModal(false)} onCreate={handleCreatePost} allowedCategories={allowedCategories} defaultCategory={allowedCategories[0]} />;
+      })()}
+      {reflectingOn && (() => {
+        const post = posts.find(p => p.id === reflectingOn);
+        if (!post) return null;
+        return <ReflectionModal post={post} onSave={(data) => handleSaveReflection(reflectingOn, data)} onClose={() => setReflectingOn(null)} />;
+      })()}
+      {outcomeOn && (() => {
+        const post = posts.find(p => p.id === outcomeOn);
+        if (!post) return null;
+        return <OutcomeModal post={post} onSave={(data) => handleSaveOutcome(outcomeOn, data)} onClose={() => setOutcomeOn(null)} />;
       })()}
     </div>
   );
