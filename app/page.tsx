@@ -474,17 +474,14 @@ export default function HomePage() {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Visit Tandem Creative Dev (opens in a new tab)"
+                className="tandem-credit-link"
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
                   justifyContent: "center",
                   color: "var(--bg)",
-                  opacity: 0.7,
-                  transition: "opacity 0.2s ease",
                   textDecoration: "none",
                 }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = "0.7"; }}
               >
                 {/* External-link icon: arrow leaving a box. Semantically signals "opens elsewhere". */}
                 <svg
@@ -632,10 +629,16 @@ export default function HomePage() {
           0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent); }
           50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 0%, transparent); }
         }
+        .tandem-credit-link {
+          opacity: 0.7;
+          transition: opacity 0.2s ease;
+        }
+        .tandem-credit-link:hover {
+          opacity: 1;
+        }
         @media (max-width: 760px) {
           .mantra-grid { grid-template-columns: 1fr !important; gap: 24px !important; }
           .tandem-pillars { grid-template-columns: 1fr !important; gap: 18px !important; }
-          .pillars-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </>
