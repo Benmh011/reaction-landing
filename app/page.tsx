@@ -356,6 +356,163 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* BUILT IN TANDEM */}
+      <section
+        style={{
+          padding: "100px 0",
+          background: "var(--reaction-deep)",
+        }}
+        id="built-in-tandem"
+      >
+        <div className="container" style={{ maxWidth: 880, margin: "0 auto" }}>
+
+          <header style={{ textAlign: "center", marginBottom: 48 }}>
+            <div style={{ display: "block", width: 32, height: 1, background: "var(--bg)", margin: "0 auto 18px" }} />
+            <div className="mono" style={{ fontSize: "0.7rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--bg)", marginBottom: 24 }}>
+              Who builds it
+            </div>
+            <h2
+              style={{
+                ...display,
+                fontSize: "clamp(2rem, 4vw, 3rem)",
+                lineHeight: 1.15,
+                color: "var(--bg)",
+                margin: "0 auto",
+                maxWidth: "22ch",
+              }}
+            >
+              Reaction is built in <em style={{ fontStyle: "italic", color: "var(--bg)", opacity: 0.85 }}>tandem</em>.
+            </h2>
+            <p
+              style={{
+                fontFamily: "'Newsreader', Georgia, serif",
+                fontStyle: "italic",
+                fontSize: "1.15rem",
+                lineHeight: 1.5,
+                color: "var(--bg)",
+                opacity: 0.82,
+                maxWidth: "48ch",
+                margin: "32px auto 0",
+              }}
+            >
+              Good software starts with understanding the problem. We work with developers who take that seriously.
+            </p>
+          </header>
+
+          <div
+            className="tandem-pillars"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr 1fr",
+              gap: 28,
+              marginBottom: 56,
+            }}
+          >
+            {[
+              { h: "Craft over code volume", p: "The team behind Reaction's engineering treats every feature as something universities will rely on. Considered architecture, polished interfaces, production-grade code." },
+              { h: "Built for the real world", p: "Tandem's work spans the Department for Education, Skills England, University of Warwick, and Gatsby Foundation. Public-facing platforms that have to work, for people who depend on them." },
+              { h: "Two developers, end to end", p: "From discovery through deployment, the people you'd brief are the people building Reaction. No handoffs, no diluted vision, no third-party drift between scope and ship." },
+            ].map((pillar) => (
+              <div
+                key={pillar.h}
+                style={{
+                  background: "rgba(225,228,232,0.04)",
+                  border: "1px solid rgba(225,228,232,0.22)",
+                  borderRadius: 10,
+                  padding: "24px 22px",
+                }}
+              >
+                <div className="mono" style={{ color: "var(--bg)", fontSize: "0.875rem", marginBottom: 14, lineHeight: 1 }}>
+                  ■
+                </div>
+                <h3
+                  style={{
+                    fontFamily: "'Newsreader', Georgia, serif",
+                    fontWeight: 600,
+                    fontSize: "1.125rem",
+                    letterSpacing: "-0.01em",
+                    lineHeight: 1.25,
+                    margin: "0 0 10px",
+                    color: "var(--bg)",
+                  }}
+                >
+                  {pillar.h}
+                </h3>
+                <p style={{ fontSize: "0.875rem", lineHeight: 1.55, color: "var(--bg)", opacity: 0.78, margin: 0 }}>
+                  {pillar.p}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Engineering partner credit */}
+          <div
+            style={{
+              borderTop: "1px solid rgba(225,228,232,0.22)",
+              paddingTop: 32,
+              textAlign: "center",
+            }}
+          >
+            <div className="mono" style={{ fontSize: "0.625rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--bg)", opacity: 0.7, marginBottom: 14 }}>
+              Engineering partner
+            </div>
+            <div style={{ display: "inline-flex", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
+              <span
+                style={{
+                  fontFamily: "'Newsreader', Georgia, serif",
+                  fontStyle: "italic",
+                  fontSize: "1.6rem",
+                  color: "var(--bg)",
+                  letterSpacing: "-0.02em",
+                  lineHeight: 1.2,
+                }}
+              >
+                Tandem
+              </span>
+              <a
+                href="https://runintandem.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Visit Tandem Creative Dev (opens in a new tab)"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "var(--bg)",
+                  opacity: 0.7,
+                  transition: "opacity 0.2s ease",
+                  textDecoration: "none",
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = "0.7"; }}
+              >
+                {/* External-link icon: arrow leaving a box. Semantically signals "opens elsewhere". */}
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path d="M14 5h5v5" />
+                  <path d="M19 5l-9 9" />
+                  <path d="M19 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5" />
+                </svg>
+              </a>
+            </div>
+            <div style={{ fontSize: "0.8125rem", color: "var(--bg)", opacity: 0.6 }}>
+              Creative development · London
+            </div>
+          </div>
+
+        </div>
+      </section>
+
       {/* FOR EMPLOYERS */}
       <section style={{ padding: "100px 0", borderTop: "1px solid var(--rule)" }} id="for-employers">
         <div className="container">
@@ -477,6 +634,7 @@ export default function HomePage() {
         }
         @media (max-width: 760px) {
           .mantra-grid { grid-template-columns: 1fr !important; gap: 24px !important; }
+          .tandem-pillars { grid-template-columns: 1fr !important; gap: 18px !important; }
           .pillars-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
