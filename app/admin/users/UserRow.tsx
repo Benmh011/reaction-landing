@@ -13,7 +13,13 @@ type User = {
   createdAt: string;
 };
 
-export default function UserRow({ user }: { user: User }) {
+export default function UserRow({ user, isSelf }: { user: User; isSelf?: boolean }) {
+  // isSelf is accepted here so admin/users/page.tsx can flag the row representing
+  // the currently-signed-in admin. Visual treatment (e.g. "(you)" tag, locked
+  // controls) is intentionally minimal for now — the prop existed in a previous
+  // iteration of this component and was lost when the file was regenerated.
+  // Suppress unused-var warnings without changing behaviour:
+  void isSelf;
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [demoVersion, setDemoVersion] = useState(user.demoVersion ?? "");
