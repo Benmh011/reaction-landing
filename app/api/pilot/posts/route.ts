@@ -3,8 +3,6 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
-// Only categories the pilot UI exposes. Opportunities is locked client-side
-// and rejected server-side too, defence in depth.
 const ALLOWED_CATEGORIES = ["Sport", "Study", "Board Games", "Community"] as const;
 
 const createPostSchema = z.object({
@@ -14,15 +12,14 @@ const createPostSchema = z.object({
   date: z.string().min(1).max(20),
   time: z.string().min(1).max(20),
   description: z.string().max(2000).optional().nullable(),
-  // Anything category-specific the modal collected (mode, perTeam, maxPeople,
-  // skillLevel, society, players, cause, etc.) rides along in metadata.
   metadata: z.record(z.string(), z.any()).optional().nullable(),
 });
 
-// Shape a Prisma row into the same flat object the Vite demo uses for
-// in-memory posts. The metadata object is spread back to top-level so all the
-// existing render code that reads p.mode / p.maxPeople / etc. keeps working.
-function shapePost(p: {
+function userDisplayName(user: { name: string | null; email: string }) {
+  return user.name ?? user.email;
+}
+
+type PostRowWithAuthor = {
   id: string;
   category: string;
   activity: string;
@@ -33,14 +30,16 @@ function shapePost(p: {
   metadata: unknown;
   createdAt: Date;
   author: { name: string | null; email: string };
-}) {
+};
+
+function shapePost(p: PostRowWithAuthor) {
   const meta =
     typeof p.metadata === "object" && p.metadata !== null && !Array.isArray(p.metadata)
       ? (p.metadata as Record<string, unknown>)
       : {};
   return {
     id: p.id,
-    user: p.author.name ?? p.author.email,
+    user: userDisplayName(p.author),
     category: p.category,
     activity: p.activity,
     location: p.location,
@@ -53,7 +52,8 @@ function shapePost(p: {
 }
 
 // ─────────────── GET /api/pilot/posts ───────────────
-// Returns all posts in the calling student's cohort, newest first.
+// Returns posts, attendance, checkedIn, and reflections all in one shot.
+// Front-end consumes the four keys and populates its in-memory state from them.
 export async function GET() {
   const session = await auth();
   if (!session?.user?.pilotCohort) {
@@ -64,9 +64,39 @@ export async function GET() {
     const posts = await prisma.pilotPost.findMany({
       where: { cohort: session.user.pilotCohort },
       orderBy: { createdAt: "desc" },
-      include: { author: { select: { name: true, email: true } } },
+      include: {
+        author: { select: { name: true, email: true } },
+        attendances: { include: { user: { select: { name: true, email: true } } } },
+        checkins: { include: { user: { select: { name: true, email: true } } } },
+        reflections: { include: { user: { select: { name: true, email: true } } } },
+      },
     });
-    return NextResponse.json({ posts: posts.map(shapePost) });
+
+    const attendance: Record<string, string[]> = {};
+    const checkedIn: Record<string, string[]> = {};
+    const reflections: Record<string, Record<string, unknown>> = {};
+
+    for (const p of posts) {
+      attendance[p.id] = p.attendances.map((a) => userDisplayName(a.user));
+      checkedIn[p.id] = p.checkins.map((c) => userDisplayName(c.user));
+      reflections[p.id] = {};
+      for (const r of p.reflections) {
+        reflections[p.id][userDisplayName(r.user)] = {
+          belonging: r.belonging,
+          learned: r.learned,
+          connection: r.connection,
+          oneThing: r.oneThing,
+          timestamp: r.createdAt.toISOString(),
+        };
+      }
+    }
+
+    return NextResponse.json({
+      posts: posts.map(shapePost),
+      attendance,
+      checkedIn,
+      reflections,
+    });
   } catch (err) {
     console.error("GET /api/pilot/posts failed", err);
     return NextResponse.json({ error: "Could not load posts" }, { status: 500 });
@@ -74,7 +104,7 @@ export async function GET() {
 }
 
 // ─────────────── POST /api/pilot/posts ───────────────
-// Creates one post in the calling student's cohort.
+// Creates one post and auto-RSVPs the author so they show as attending.
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user?.pilotCohort) {
@@ -110,6 +140,17 @@ export async function POST(req: Request) {
       },
       include: { author: { select: { name: true, email: true } } },
     });
+
+    // Author auto-RSVPs so the post creator shows as attending their own event.
+    // Try/catch on the inner write — a constraint failure shouldn't kill the post creation.
+    try {
+      await prisma.pilotAttendance.create({
+        data: { userId: session.user.id, postId: post.id },
+      });
+    } catch (innerErr) {
+      console.warn("Auto-RSVP for post author failed (non-fatal)", innerErr);
+    }
+
     return NextResponse.json({ post: shapePost(post) });
   } catch (err) {
     console.error("POST /api/pilot/posts failed", err);

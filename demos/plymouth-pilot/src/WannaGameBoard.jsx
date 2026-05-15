@@ -1676,8 +1676,8 @@ const BulletinBoardApp = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   // Pilot: when the student signs in, pull every post in their cohort from the
-  // API so the board reflects the shared, persisted state. Re-runs on every
-  // login event in case posts were added during the session by other students.
+  // API along with everyone's RSVPs, check-ins, and reflections. The board
+  // reflects the full shared state on every sign-in.
   useEffect(() => {
     if (!isLoggedIn) return;
     let cancelled = false;
@@ -1686,6 +1686,9 @@ const BulletinBoardApp = () => {
       .then(data => {
         if (cancelled || !data) return;
         if (Array.isArray(data.posts)) setPosts(data.posts);
+        if (data.attendance && typeof data.attendance === 'object') setAttendance(data.attendance);
+        if (data.checkedIn && typeof data.checkedIn === 'object') setCheckedIn(data.checkedIn);
+        if (data.reflections && typeof data.reflections === 'object') setReflections(data.reflections);
       })
       .catch(err => console.error('Pilot posts fetch failed', err));
     return () => { cancelled = true; };
@@ -1794,21 +1797,57 @@ const BulletinBoardApp = () => {
     }
   };
 
-  const handleJoin = (postId) => {
+  const handleJoin = async (postId) => {
     if (!currentUser) return;
+    // Optimistic update first — UI feels instant
     setAttendance(prev => {
       const list = prev[postId] || [];
       if (list.includes(currentUser)) return prev;
       return { ...prev, [postId]: [...list, currentUser] };
     });
+    // Persist to API; on failure, revert the optimistic update
+    try {
+      const res = await fetch('/api/pilot/attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postId }),
+      });
+      if (!res.ok) {
+        setAttendance(prev => {
+          const list = prev[postId] || [];
+          return { ...prev, [postId]: list.filter(n => n !== currentUser) };
+        });
+      }
+    } catch (err) {
+      console.error('handleJoin failed', err);
+      setAttendance(prev => {
+        const list = prev[postId] || [];
+        return { ...prev, [postId]: list.filter(n => n !== currentUser) };
+      });
+    }
   };
 
-  const handleLeave = (postId) => {
+  const handleLeave = async (postId) => {
     if (!currentUser) return;
+    // Capture the prior list so we can restore on failure
+    const previousList = attendance[postId] || [];
     setAttendance(prev => {
       const list = prev[postId] || [];
       return { ...prev, [postId]: list.filter(n => n !== currentUser) };
     });
+    try {
+      const res = await fetch('/api/pilot/attendance', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postId }),
+      });
+      if (!res.ok) {
+        setAttendance(prev => ({ ...prev, [postId]: previousList }));
+      }
+    } catch (err) {
+      console.error('handleLeave failed', err);
+      setAttendance(prev => ({ ...prev, [postId]: previousList }));
+    }
   };
 
   // ──── OUTCOME CAPTURE HELPERS ────
@@ -1820,19 +1859,41 @@ const BulletinBoardApp = () => {
   const userHasReflected = (postId) => currentUser && !!(reflections[postId]?.[currentUser]);
   const userHasOutcome   = (postId) => currentUser && !!(outcomes[postId]?.[currentUser]);
 
-  const handleCheckIn = (postId) => {
+  const handleCheckIn = async (postId) => {
     if (!currentUser) return;
+    // Optimistic update — UI shows check-in immediately, opens reflection
     setCheckedIn(prev => {
       const list = prev[postId] || [];
       if (list.includes(currentUser)) return prev;
       return { ...prev, [postId]: [...list, currentUser] };
     });
-    // Open reflection prompt immediately after check-in
     setReflectingOn(postId);
+    // Persist to API; on failure, revert the check-in mark (keep reflection modal open
+    // so the student can re-attempt without losing their place in the flow)
+    try {
+      const res = await fetch('/api/pilot/checkins', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postId }),
+      });
+      if (!res.ok) {
+        setCheckedIn(prev => {
+          const list = prev[postId] || [];
+          return { ...prev, [postId]: list.filter(n => n !== currentUser) };
+        });
+      }
+    } catch (err) {
+      console.error('handleCheckIn failed', err);
+      setCheckedIn(prev => {
+        const list = prev[postId] || [];
+        return { ...prev, [postId]: list.filter(n => n !== currentUser) };
+      });
+    }
   };
 
-  const handleSaveReflection = (postId, data) => {
+  const handleSaveReflection = async (postId, data) => {
     if (!currentUser) return;
+    // Optimistic update — UI dismisses modal and shows reflection immediately
     setReflections(prev => ({
       ...prev,
       [postId]: {
@@ -1841,6 +1902,35 @@ const BulletinBoardApp = () => {
       },
     }));
     setReflectingOn(null);
+    // Persist to API; this is the most important capture in the whole pilot
+    try {
+      const res = await fetch('/api/pilot/reflections', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          postId,
+          belonging: data.belonging,
+          learned: data.learned,
+          connection: data.connection,
+          oneThing: data.oneThing ?? null,
+        }),
+      });
+      if (!res.ok) {
+        // Revert: remove just this user's reflection on this post
+        setReflections(prev => {
+          if (!prev[postId]) return prev;
+          const { [currentUser]: _removed, ...rest } = prev[postId];
+          return { ...prev, [postId]: rest };
+        });
+      }
+    } catch (err) {
+      console.error('handleSaveReflection failed', err);
+      setReflections(prev => {
+        if (!prev[postId]) return prev;
+        const { [currentUser]: _removed, ...rest } = prev[postId];
+        return { ...prev, [postId]: rest };
+      });
+    }
   };
 
   const handleSaveOutcome = (postId, data) => {
