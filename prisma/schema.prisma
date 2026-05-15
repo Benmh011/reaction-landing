@@ -234,10 +234,16 @@ model PilotReflection {
   id         String   @id @default(cuid())
   userId     String
   postId     String
-  belonging  Int      // 1-5 — "I felt I belonged at this event" (NSS B2.1)
-  learned    Int      // 1-5 — "I learned something I'll use again" (TEF SO6)
-  connection Int      // 1-5 — "I made or strengthened a peer connection" (TEF SO5)
-  oneThing   String?  // free-text articulation (TEF SO4); nullable
+  // Likert values 1-5; null when the student opted out (see `skipped` below).
+  // The API layer validates that these are present and 1-5 when skipped=false.
+  belonging  Int?     // (NSS B2.1) "I felt I belonged at this event"
+  learned    Int?     // (TEF SO6)  "I learned something I'll use again"
+  connection Int?     // (TEF SO5)  "I made or strengthened a peer connection"
+  oneThing   String?  // (TEF SO4)  Free-text articulation; nullable either way
+  // True when the student explicitly chose to skip reflecting on this event.
+  // Treated equivalently to "reflection complete" for the purpose of hiding
+  // the post from the student's board — they've made their decision.
+  skipped    Boolean  @default(false)
   createdAt  DateTime @default(now())
 
   user User      @relation("PilotReflectionUser", fields: [userId], references: [id], onDelete: Cascade)

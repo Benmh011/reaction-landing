@@ -1387,7 +1387,7 @@ const CreatePostModal = ({ onClose, onCreate, allowedCategories, defaultCategory
 };
 
 // ──── REFLECTION MODAL (post-event Likert + free text) ────
-const ReflectionModal = ({ post, onSave, onClose }) => {
+const ReflectionModal = ({ post, onSave, onSkip, onClose }) => {
   const [belonging, setBelonging] = useState(0);
   const [learned, setLearned] = useState(0);
   const [connection, setConnection] = useState(0);
@@ -1445,7 +1445,7 @@ const ReflectionModal = ({ post, onSave, onClose }) => {
           </div>
         </div>
         <div className="p-5 pt-0 flex gap-2">
-          <button onClick={onClose} className="py-2 px-4 rounded-lg font-semibold text-sm transition-all" style={{ background: 'rgba(30,58,95,0.06)', color: '#5a6a7a', border: '1px solid rgba(30,58,95,0.1)' }}>Skip</button>
+          <button onClick={() => (onSkip ? onSkip() : onClose())} className="py-2 px-4 rounded-lg font-semibold text-sm transition-all" style={{ background: 'rgba(30,58,95,0.06)', color: '#5a6a7a', border: '1px solid rgba(30,58,95,0.1)' }}>Skip</button>
           <button
             onClick={() => onSave({ belonging, learned, connection, oneThing })}
             disabled={!canSave}
@@ -1675,6 +1675,42 @@ const BulletinBoardApp = () => {
   const [activeLandingSection, setActiveLandingSection] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
+  // Pilot: authenticate from the Auth.js session on mount. The marketing-site
+  // signup flow has already established a session cookie — this useEffect picks
+  // up that session and auto-logs the student into the demo. Replaces the
+  // legacy hash-based login that accepted any input.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/auth/session', { credentials: 'include' })
+      .then(r => (r.ok ? r.json() : null))
+      .then(session => {
+        if (cancelled) return;
+        if (!session || !session.user) {
+          // Not signed in — bounce to /pilot for signup
+          window.location.href = '/pilot';
+          return;
+        }
+        if (session.user.role !== 'STUDENT') {
+          // Wrong role for the pilot — send back to portal where their actual demo lives
+          window.location.href = '/portal';
+          return;
+        }
+        const fullName = session.user.name || '';
+        const parts = fullName.split(' ').filter(Boolean);
+        const firstName = parts[0] || 'there';
+        const lastName = parts.slice(1).join(' ');
+        setUserProfile({
+          firstName,
+          lastName,
+          email: session.user.email || '',
+          university: 'University of Plymouth',
+        });
+        setIsLoggedIn(true);
+      })
+      .catch(err => console.error('Pilot auth session fetch failed', err));
+    return () => { cancelled = true; };
+  }, []);
+
   // Pilot: when the student signs in, pull every post in their cohort from the
   // API along with everyone's RSVPs, check-ins, and reflections. The board
   // reflects the full shared state on every sign-in.
@@ -1707,8 +1743,9 @@ const BulletinBoardApp = () => {
   const [attendance, setAttendance] = useState({});
 
   // ──── OUTCOME CAPTURE STATE (TEF SO4–SO6 educational gains evidence) ────
-  // Demo "today" — drives which events are treated as past and so eligible for check-in / reflect
-  const TODAY = '2026-02-12';
+  // For the pilot, "past" is determined by comparing the event's date+time
+  // against real wall-clock time (see parseEventDateTime + isPastEvent below).
+  // No fixed TODAY constant — the board updates as time actually passes.
 
   // checkedIn: students who actually attended (distinct from RSVP'd via `attendance`)
   // Shape: { [postId]: ['Alex Johnson', ...] }
@@ -1742,24 +1779,15 @@ const BulletinBoardApp = () => {
   const currentUser = userProfile ? `${userProfile.firstName} ${userProfile.lastName}`.trim() : null;
 
 
-  const handleLogin = (email) => {
-    // Read firstName from URL hash if present (passed by /portal page on Reaction site).
-    // Falls back to 'there' if the demo is opened directly without going through portal.
-    let firstName = 'there';
-    try {
-      const hash = (typeof window !== 'undefined') ? window.location.hash.slice(1) : '';
-      const params = new URLSearchParams(hash);
-      const fn = params.get('firstName');
-      if (fn) firstName = decodeURIComponent(fn);
-    } catch (e) { /* ignore — fallback to 'there' */ }
-    setUserProfile({firstName, lastName:'', email, university:'University of Plymouth'});
-    setIsLoggedIn(true);
-    setShowLoginModal(false);
+  // Legacy login/register handlers. Should never actually run for pilot users —
+  // the auto-login useEffect either signs them in via session or redirects them
+  // to /pilot. If somehow these fire (e.g. session cookie expired mid-session),
+  // bounce to /pilot rather than accept arbitrary form input.
+  const handleLogin = () => {
+    if (typeof window !== 'undefined') window.location.href = '/pilot';
   };
-  const handleRegister = (d) => {
-    setUserProfile(d);
-    setIsLoggedIn(true);
-    setShowRegisterModal(false);
+  const handleRegister = () => {
+    if (typeof window !== 'undefined') window.location.href = '/pilot';
   };
   const handleLogout = () => { setIsLoggedIn(false); setUserProfile(null); };
   // Pilot create-post: persist to /api/pilot/posts so the post is shared across
@@ -1851,9 +1879,26 @@ const BulletinBoardApp = () => {
   };
 
   // ──── OUTCOME CAPTURE HELPERS ────
+  // Parse a post's date + time into a Date object for precise expiry comparison.
+  // Handles both 24-hour ("14:30") and 12-hour ("2:30 pm") time formats — the
+  // CreatePostModal may produce either depending on the input field.
+  const parseEventDateTime = (post) => {
+    if (!post?.date) return null;
+    const time = post.time || '00:00';
+    const ampmMatch = time.match(/^(\d{1,2}):(\d{2})\s*(am|pm)$/i);
+    if (ampmMatch) {
+      let h = parseInt(ampmMatch[1], 10);
+      const ampm = ampmMatch[3].toLowerCase();
+      if (ampm === 'pm' && h !== 12) h += 12;
+      if (ampm === 'am' && h === 12) h = 0;
+      return new Date(`${post.date}T${String(h).padStart(2, '0')}:${ampmMatch[2]}`);
+    }
+    return new Date(`${post.date}T${time}`);
+  };
   const isPastEvent = (post) => {
-    if (!post?.date) return false;
-    return post.date <= TODAY;
+    const dt = parseEventDateTime(post);
+    if (!dt) return false;
+    return dt < new Date();
   };
   const userHasCheckedIn = (postId) => currentUser && (checkedIn[postId] || []).includes(currentUser);
   const userHasReflected = (postId) => currentUser && !!(reflections[postId]?.[currentUser]);
@@ -1925,6 +1970,42 @@ const BulletinBoardApp = () => {
       }
     } catch (err) {
       console.error('handleSaveReflection failed', err);
+      setReflections(prev => {
+        if (!prev[postId]) return prev;
+        const { [currentUser]: _removed, ...rest } = prev[postId];
+        return { ...prev, [postId]: rest };
+      });
+    }
+  };
+
+  // Pilot: explicit "skip reflection" — the student has decided not to reflect
+  // on this event. Persists a skipped row so the post hides for them; their
+  // decision survives a refresh.
+  const handleSkipReflection = async (postId) => {
+    if (!currentUser) return;
+    setReflections(prev => ({
+      ...prev,
+      [postId]: {
+        ...(prev[postId] || {}),
+        [currentUser]: { skipped: true, timestamp: new Date().toISOString() },
+      },
+    }));
+    setReflectingOn(null);
+    try {
+      const res = await fetch('/api/pilot/reflections', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postId, skipped: true }),
+      });
+      if (!res.ok) {
+        setReflections(prev => {
+          if (!prev[postId]) return prev;
+          const { [currentUser]: _removed, ...rest } = prev[postId];
+          return { ...prev, [postId]: rest };
+        });
+      }
+    } catch (err) {
+      console.error('handleSkipReflection failed', err);
       setReflections(prev => {
         if (!prev[postId]) return prev;
         const { [currentUser]: _removed, ...rest } = prev[postId];
@@ -2006,11 +2087,22 @@ const BulletinBoardApp = () => {
 
   const filteredPosts = posts.filter(p => {
     const inSection = activeLandingSection ? sectionCategories.includes(p.category) : true;
-    // Hide past events from the board unless the current user is in the attendees list.
-    // This keeps the board feeling live; past events only surface when the user has a check-in or reflection to file.
     const past = isPastEvent(p);
     const joined = currentUser && (attendance[p.id] || []).includes(currentUser);
-    if (past && !joined) return false;
+    const isAuthor = currentUser && p.user === currentUser;
+    const involved = joined || isAuthor;
+    // Pilot rule 1: past events hide from anyone who wasn't involved (joined or author).
+    if (past && !involved) return false;
+    // Pilot rule 2: past + involved + already handled (reflected OR skipped) hides too.
+    // Involved students keep seeing the post until they explicitly reflect or skip it.
+    const userReflectionEntry = reflections[p.id]?.[currentUser];
+    if (past && involved && userReflectionEntry) return false;
+    // Pilot rule 3: full events hide from anyone who isn't already involved.
+    // The event is full — they can't join, so showing them an event they can't act on is noise.
+    const attendees = (attendance[p.id] || []).length;
+    const maxPeople = typeof p.maxPeople === 'number' ? p.maxPeople : Infinity;
+    const isFull = attendees >= maxPeople;
+    if (isFull && !involved) return false;
     return inSection
       && (selectedCategory==='all'||p.category===selectedCategory)
       && (selectedPostedBy==='all'||p.postedBy===selectedPostedBy)
@@ -2717,7 +2809,7 @@ const BulletinBoardApp = () => {
       {reflectingOn && (() => {
         const post = posts.find(p => p.id === reflectingOn);
         if (!post) return null;
-        return <ReflectionModal post={post} onSave={(data) => handleSaveReflection(reflectingOn, data)} onClose={() => setReflectingOn(null)} />;
+        return <ReflectionModal post={post} onSave={(data) => handleSaveReflection(reflectingOn, data)} onSkip={() => handleSkipReflection(reflectingOn)} onClose={() => setReflectingOn(null)} />;
       })()}
       {outcomeOn && (() => {
         const post = posts.find(p => p.id === outcomeOn);

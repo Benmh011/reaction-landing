@@ -53,7 +53,9 @@ function shapePost(p: PostRowWithAuthor) {
 
 // ─────────────── GET /api/pilot/posts ───────────────
 // Returns posts, attendance, checkedIn, and reflections all in one shot.
-// Front-end consumes the four keys and populates its in-memory state from them.
+// Reflections include a `skipped` flag — both completed and opted-out
+// reflections appear in this map so the UI can hide the post for the student
+// either way.
 export async function GET() {
   const session = await auth();
   if (!session?.user?.pilotCohort) {
@@ -86,6 +88,7 @@ export async function GET() {
           learned: r.learned,
           connection: r.connection,
           oneThing: r.oneThing,
+          skipped: r.skipped,
           timestamp: r.createdAt.toISOString(),
         };
       }
@@ -141,8 +144,6 @@ export async function POST(req: Request) {
       include: { author: { select: { name: true, email: true } } },
     });
 
-    // Author auto-RSVPs so the post creator shows as attending their own event.
-    // Try/catch on the inner write — a constraint failure shouldn't kill the post creation.
     try {
       await prisma.pilotAttendance.create({
         data: { userId: session.user.id, postId: post.id },
