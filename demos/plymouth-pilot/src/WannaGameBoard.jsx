@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User, Calendar, MapPin, Trophy, ChevronDown, ArrowLeft, BarChart3, Users } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, AreaChart, Area } from "recharts";
 
@@ -1674,6 +1674,22 @@ const BulletinBoardApp = () => {
   const [page, setPage] = useState('home');
   const [activeLandingSection, setActiveLandingSection] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // Pilot: when the student signs in, pull every post in their cohort from the
+  // API so the board reflects the shared, persisted state. Re-runs on every
+  // login event in case posts were added during the session by other students.
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    let cancelled = false;
+    fetch('/api/pilot/posts', { credentials: 'include' })
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => {
+        if (cancelled || !data) return;
+        if (Array.isArray(data.posts)) setPosts(data.posts);
+      })
+      .catch(err => console.error('Pilot posts fetch failed', err));
+    return () => { cancelled = true; };
+  }, [isLoggedIn]);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -1743,11 +1759,39 @@ const BulletinBoardApp = () => {
     setShowRegisterModal(false);
   };
   const handleLogout = () => { setIsLoggedIn(false); setUserProfile(null); };
-  const handleCreatePost = (d) => {
-    const newId = posts.length + 1;
-    setPosts([{ id:newId, user:currentUser, ...d }, ...posts]);
-    setAttendance(prev => ({ ...prev, [newId]: [currentUser] }));
-    setShowCreateModal(false);
+  // Pilot create-post: persist to /api/pilot/posts so the post is shared across
+  // every student in this cohort. Local state is updated only after the server
+  // confirms — keeps the UI source of truth aligned with the database.
+  const [createError, setCreateError] = useState(null);
+  const [creating, setCreating] = useState(false);
+  const handleCreatePost = async (d) => {
+    if (creating) return;
+    setCreating(true);
+    setCreateError(null);
+    try {
+      // Split the well-known fields from category-specific extras.
+      const { category, activity, location, date, time, description, ...metadata } = d;
+      const res = await fetch('/api/pilot/posts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category, activity, location, date, time, description, metadata }),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        setCreateError(errData?.error || 'Could not create post. Please try again.');
+        setCreating(false);
+        return;
+      }
+      const { post } = await res.json();
+      setPosts(prev => [post, ...prev]);
+      setAttendance(prev => ({ ...prev, [post.id]: [currentUser] }));
+      setShowCreateModal(false);
+    } catch (err) {
+      console.error('handleCreatePost failed', err);
+      setCreateError('Network error. Please try again.');
+    } finally {
+      setCreating(false);
+    }
   };
 
   const handleJoin = (postId) => {
