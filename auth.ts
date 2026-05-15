@@ -7,21 +7,23 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { emailShell, buildListUnsubscribeHeader } from "@/lib/email-templates";
 
-// Extend the Session type so `session.user.role` and `.demoVersion` are typed
+// Extend the Session type so `session.user.role`, `.demoVersion`, `.pilotCohort` are typed
 declare module "next-auth" {
   interface Session {
     user: {
       id: string;
-      role: "ADMIN" | "CLIENT";
+      role: "ADMIN" | "CLIENT" | "STUDENT";
       demoVersion: string | null;
       organisation: string | null;
+      pilotCohort: string | null;
     } & DefaultSession["user"];
   }
 
   interface User {
-    role?: "ADMIN" | "CLIENT";
+    role?: "ADMIN" | "CLIENT" | "STUDENT";
     demoVersion?: string | null;
     organisation?: string | null;
+    pilotCohort?: string | null;
   }
 }
 
@@ -107,30 +109,33 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
           role: user.role,
           demoVersion: user.demoVersion,
           organisation: user.organisation,
+          pilotCohort: user.pilotCohort,
         };
       },
     }),
   ],
 
   callbacks: {
-    // Persist role + demoVersion on the JWT so we don't hit the DB on every request
+    // Persist role + demoVersion + pilotCohort on the JWT so we don't hit the DB on every request
     jwt: async ({ token, user, trigger }) => {
       if (user) {
         token.id = user.id;
         token.role = user.role ?? "CLIENT";
         token.demoVersion = user.demoVersion ?? null;
         token.organisation = user.organisation ?? null;
+        token.pilotCohort = user.pilotCohort ?? null;
       }
-      // On every sign-in, refresh role/demoVersion in case admin updated them
+      // On every sign-in, refresh role/demoVersion/pilotCohort in case admin updated them
       if (trigger === "signIn" || trigger === "update") {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
-          select: { role: true, demoVersion: true, organisation: true },
+          select: { role: true, demoVersion: true, organisation: true, pilotCohort: true },
         });
         if (dbUser) {
           token.role = dbUser.role;
           token.demoVersion = dbUser.demoVersion;
           token.organisation = dbUser.organisation;
+          token.pilotCohort = dbUser.pilotCohort;
         }
       }
       return token;
@@ -138,9 +143,10 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
     session: ({ session, token }) => {
       if (session.user) {
         session.user.id = token.id as string;
-        session.user.role = (token.role as "ADMIN" | "CLIENT") ?? "CLIENT";
+        session.user.role = (token.role as "ADMIN" | "CLIENT" | "STUDENT") ?? "CLIENT";
         session.user.demoVersion = (token.demoVersion as string | null) ?? null;
         session.user.organisation = (token.organisation as string | null) ?? null;
+        session.user.pilotCohort = (token.pilotCohort as string | null) ?? null;
       }
       return session;
     },

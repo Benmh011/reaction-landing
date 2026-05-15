@@ -66,7 +66,8 @@ model User {
   // Optional bcrypt password hash for fallback login
   passwordHash  String?
 
-  // Role determines top-level access — CLIENT users see /portal, ADMIN sees everything.
+  // Role determines top-level access — CLIENT users see /portal, ADMIN sees everything,
+  // STUDENT is the pilot participant role (scoped to a cohort, limited surfaces).
   role          UserRole  @default(CLIENT)
 
   // What kind of organisation this user represents (mirrored from DemoRequest)
@@ -79,6 +80,10 @@ model User {
   demoVersion   String?
   organisation  String?
 
+  // Pilot cohort identifier (e.g. "plymouth-pilot-2026-q2"). Set for STUDENT users.
+  // Null for CLIENT and ADMIN users. Drives which pilot data this user can see/write.
+  pilotCohort   String?
+
   // When true, this user has unsubscribed from marketing emails. Transactional
   // emails (magic-link sign-in etc.) are unaffected by this flag.
   marketingOptOut Boolean @default(false)
@@ -87,6 +92,13 @@ model User {
   sessions      Session[]
   demoRequest   DemoRequest?
 
+  // Pilot relations
+  pilotPosts        PilotPost[]        @relation("PilotPostAuthor")
+  pilotAttendances  PilotAttendance[]  @relation("PilotAttendanceUser")
+  pilotCheckins     PilotCheckin[]     @relation("PilotCheckinUser")
+  pilotReflections  PilotReflection[]  @relation("PilotReflectionUser")
+  pilotOutcomes     PilotOutcome[]     @relation("PilotOutcomeUser")
+
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -94,6 +106,7 @@ model User {
 enum UserRole {
   CLIENT
   ADMIN
+  STUDENT
 }
 
 model Account {
@@ -144,4 +157,112 @@ model VerificationToken {
 model EmailOptOut {
   email      String   @id
   optedOutAt DateTime @default(now())
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+// PILOT TABLES
+// ═══════════════════════════════════════════════════════════════════
+// Used for live data capture during the Plymouth pilot (and future cohorts).
+// All rows are scoped to a `cohort` string (on PilotPost) so multiple pilots
+// can run in parallel without leakage. The pilot UI only writes to these tables;
+// the existing sales demo continues to run entirely on seed state and never
+// touches them.
+
+// User-created posts inside a pilot board. Replaces the JSX seed data the
+// sales demo uses. `category` is constrained at the API layer to:
+//   "Sport" | "Study" | "Board Games" | "Community"
+// Opportunities is locked in the pilot UI and rejected server-side.
+model PilotPost {
+  id          String   @id @default(cuid())
+  cohort      String   // e.g. "plymouth-pilot-2026-q2" — students only see their own cohort's posts
+  authorId    String   // who created the post (a STUDENT user)
+  category    String   // see comment above
+  activity    String   // e.g. "Football", "Group Revision", "Beach Clean"
+  location    String
+  date        String   // ISO date string e.g. "2026-06-14"
+  time        String   // e.g. "14:00"
+  description String?
+  // Flexible field for category-specific extras (mode, perTeam, maxPeople,
+  // skillLevel, cause, etc.) Keeps the schema small while accommodating the
+  // post shapes the demo already understands.
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  author       User              @relation("PilotPostAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  attendances  PilotAttendance[]
+  checkins     PilotCheckin[]
+  reflections  PilotReflection[]
+  outcomes     PilotOutcome[]
+
+  @@index([cohort, createdAt])
+  @@index([category])
+}
+
+// One row per student RSVP to a pilot post.
+model PilotAttendance {
+  id        String   @id @default(cuid())
+  userId    String
+  postId    String
+  createdAt DateTime @default(now())
+
+  user User      @relation("PilotAttendanceUser", fields: [userId], references: [id], onDelete: Cascade)
+  post PilotPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@index([postId])
+}
+
+// Captured when a student confirms they actually attended a past event.
+// Distinct from PilotAttendance: attendance is "I plan to come", check-in is "I came".
+model PilotCheckin {
+  id          String   @id @default(cuid())
+  userId      String
+  postId      String
+  checkedInAt DateTime @default(now())
+
+  user User      @relation("PilotCheckinUser", fields: [userId], references: [id], onDelete: Cascade)
+  post PilotPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@index([postId])
+}
+
+// The post-event Likert + free-text capture. Anchors all SO4-SO6 evidence.
+// Likert values 1-5, validated at the API layer.
+model PilotReflection {
+  id         String   @id @default(cuid())
+  userId     String
+  postId     String
+  belonging  Int      // 1-5 — "I felt I belonged at this event" (NSS B2.1)
+  learned    Int      // 1-5 — "I learned something I'll use again" (TEF SO6)
+  connection Int      // 1-5 — "I made or strengthened a peer connection" (TEF SO5)
+  oneThing   String?  // free-text articulation (TEF SO4); nullable
+  createdAt  DateTime @default(now())
+
+  user User      @relation("PilotReflectionUser", fields: [userId], references: [id], onDelete: Cascade)
+  post PilotPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@index([postId])
+  @@index([createdAt])
+}
+
+// Kept in the schema for future use (Tier 2 opportunities work). Not surfaced
+// in the pilot UI yet — Opportunities board is locked. Safe to leave; API layer
+// simply won't write to it during the pilot phase.
+model PilotOutcome {
+  id        String   @id @default(cuid())
+  userId    String
+  postId    String
+  status    String   // no-response | rejected | interviewed | offered | accepted
+  oneThing  String?
+  createdAt DateTime @default(now())
+
+  user User      @relation("PilotOutcomeUser", fields: [userId], references: [id], onDelete: Cascade)
+  post PilotPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@index([postId])
+  @@index([createdAt])
 }
