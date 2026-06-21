@@ -30,7 +30,7 @@ export default function HomePage() {
                 marginLeft: -10,
               }}
             />{" "}
-            University software - student engagement, experience, employability
+            Locally hosted multi-agentic systems · augmented intelligence for business
           </div>
 
           <h1
@@ -66,8 +66,8 @@ export default function HomePage() {
               margin: "0 0 22px",
             }}
           >
-            A university platform that connects students on and off
-            campus.
+            Locally hosted multi-agentic systems that augment how your
+            business works.
           </p>
 
           <p
@@ -79,19 +79,12 @@ export default function HomePage() {
               margin: "0 0 44px",
             }}
           >
-            When a <span style={{ color: "var(--reaction)" }}>student</span> chooses your university, they're taking positive action towards their future - make sure you give them the best <span style={{ color: "var(--reaction)" }}>Reaction</span> possible.
+            Your business takes <span style={{ color: "var(--action)" }}>action</span>. Our systems are the <span style={{ color: "var(--reaction)" }}>Reaction</span> — taking on the busywork and augmenting your people's judgment, on infrastructure you own.
           </p>
 
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
             <Link href="/demo" className="btn btn-primary btn-large">
               Book a demo
-              <span className="arrow" aria-hidden="true">→</span>
-            </Link>
-            <Link
-              href="/portal"
-              className="btn btn-outlined btn-large"
-            >
-              Launch demo
               <span className="arrow" aria-hidden="true">→</span>
             </Link>
             <Link href="#what" className="btn btn-ghost btn-large">
@@ -101,7 +94,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* MANTRA */}
+      {/* THE PROBLEM */}
       <section
         style={{
           padding: "100px 0",
@@ -113,7 +106,7 @@ export default function HomePage() {
           <header style={{ textAlign: "center", marginBottom: 56 }}>
             <div style={{ display: "block", width: 32, height: 1, background: "var(--bg)", margin: "0 auto 18px" }} />
             <div className="mono" style={{ fontSize: "0.7rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--bg)", marginBottom: 24 }}>
-              The mission
+              The problem
             </div>
             <h3
               style={{
@@ -125,7 +118,7 @@ export default function HomePage() {
                 maxWidth: "22ch",
               }}
             >
-              Our platform is a <span className="reaction-mark" style={{ color: "var(--bg)" }}>Reaction</span> to pressing student issues.
+              Built as a <span className="reaction-mark" style={{ color: "var(--bg)" }}>Reaction</span> to how AI is usually sold to business.
             </h3>
           </header>
 
@@ -134,24 +127,18 @@ export default function HomePage() {
               {[
                 {
                   num: "01",
-                  h: "Student loneliness",
-                  p: "53% of students feel uncomfortable seeking help for loneliness",
-                  href: "https://www.gov.uk/government/news/new-government-research-shows-lonely-seems-to-be-the-hardest-word-for-students",
-                  label: "Source: GOV.UK – government research on student loneliness",
+                  h: "Your data, someone else's cloud",
+                  p: "Most AI tools send your prompts and your data to third-party clouds you don't control — and quietly retain it.",
                 },
                 {
                   num: "02",
-                  h: "Drinking culture",
-                  p: "77% of students agree that they drink alcohol primarily to fit in with their peers",
-                  href: "https://www.drugandalcoholimpact.uk/news/the-latest-student-behaviors-and-perspectives-of-alcohol-and-drugs-in-higher-education",
-                  label: "Source: Drug and Alcohol Impact – student behaviours and perspectives",
+                  h: "Generic models you can't steer",
+                  p: "Off-the-shelf assistants don't know your business, shift without warning, and can't be tuned to how your teams actually work.",
                 },
                 {
                   num: "03",
-                  h: "Career crisis",
-                  p: "56% of students aren't confident of finding employment after graduation",
-                  href: "https://www.savethestudent.org/money/surveys/student-money-survey-2025-results.html",
-                  label: "Source: Save the Student – Student Money Survey 2025",
+                  h: "AI that replaces, not augments",
+                  p: "Most tools are sold as a way to cut people out — instead of making the people you already have measurably better at their jobs.",
                 },
               ].map((row, i, arr) => (
                 <div
@@ -184,24 +171,7 @@ export default function HomePage() {
                       {row.h}
                     </h4>
                     <p style={{ fontSize: "0.95rem", lineHeight: 1.55, color: "rgba(236,235,241,0.82)", margin: 0 }}>
-                      {/* Split the last word off so we can bind it to the SVG with a no-wrap wrapper.
-                          This guarantees the icon never wraps alone — at minimum one word precedes it. */}
-                      {row.p.replace(/\s+\S+$/, "")}{" "}
-                      <span style={{ whiteSpace: "nowrap" }}>
-                        {row.p.match(/\S+$/)?.[0]}
-                        <a
-                          href={row.href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          aria-label={row.label}
-                          style={{ display: "inline-block", verticalAlign: "baseline", marginLeft: 8, color: "var(--bg)", textDecoration: "none", lineHeight: 1 }}
-                        >
-                          <svg width="0.85em" height="0.85em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ display: "inline", verticalAlign: "baseline" }}>
-                            <path d="M7 17L17 7" />
-                            <path d="M7 7h10v10" />
-                          </svg>
-                        </a>
-                      </span>
+                      {row.p}
                     </p>
                   </div>
                 </div>
@@ -212,7 +182,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* WHAT WE DO */}
+      {/* WHAT IT DOES */}
       <section style={{ padding: "100px 0", background: "var(--bg-elevated)" }} id="what">
         <div className="container">
           <header
@@ -241,7 +211,7 @@ export default function HomePage() {
                 color: "var(--text)",
               }}
             >
-              One platform for everything <em style={{ color: "var(--reaction)", fontStyle: "italic" }}>around</em> a university degree.
+              One system that takes work <em style={{ color: "var(--reaction)", fontStyle: "italic" }}>off</em> your team's plate.
             </h2>
           </header>
 
@@ -258,9 +228,9 @@ export default function HomePage() {
             className="pillars-grid"
           >
             {[
-              { num: "01 · ON CAMPUS", h: "Find your people", p: "From study groups to societies, board games to basketball matches; Reaction provides an easy, responsive way of making social connections on campus. No photo sharing, no follower counts, no toxic lifestyle comparisons - just new people trying new things, together." },
-              { num: "02 · OFF CAMPUS", h: "Get involved", p: "A place for your students to give their energy to a cause that matters to them, with listings from local charities and community groups looking for a helping hand" },
-              { num: "03 · WHAT'S NEXT", h: "Set yourself up", p: "Part-time work, summer internships, graduate schemes — and the people, employers and partners that turn three years of study into a head start." },
+              { num: "01 · AUTOMATE", h: "Take on the busywork", p: "Agents handle the repetitive, multi-step tasks that clog your workflows — triage, data entry, drafting, lookups, reconciliation — end to end, not just a single prompt." },
+              { num: "02 · CONNECT", h: "Work across your stack", p: "The system reaches into the tools and data your business already runs on, so work moves between systems without a person copying it across by hand." },
+              { num: "03 · DECIDE", h: "Surface the right call", p: "It brings the relevant context to your people at the moment of decision — a recommendation and the reasoning behind it — so they act faster, and stay in charge." },
             ].map((p) => (
               <div key={p.num} style={{ background: "var(--bg)", padding: "36px 32px 40px" }}>
                 <div className="mono" style={{ fontSize: "0.7rem", letterSpacing: "0.1em", color: "var(--reaction)", marginBottom: 28 }}>
@@ -286,13 +256,13 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* FOR UNIVERSITIES */}
-      <section style={{ padding: "100px 0", borderTop: "1px solid var(--rule)" }} id="for-universities">
+      {/* USE CASES (repurposed from For Universities) */}
+      <section style={{ padding: "100px 0", borderTop: "1px solid var(--rule)" }} id="use-cases">
         <div className="container">
           <header style={{ textAlign: "center", marginBottom: 56 }}>
             <div style={{ display: "block", width: 32, height: 1, background: "var(--reaction)", margin: "0 auto 18px" }} />
             <div className="mono" style={{ fontSize: "0.7rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 24 }}>
-              For universities
+              Use cases
             </div>
             <h2
               style={{
@@ -304,17 +274,17 @@ export default function HomePage() {
                 color: "var(--text)",
               }}
             >
-              Data your student experience team can't <em style={{ color: "var(--reaction)" }}>currently</em> capture.
+              Built for the work your teams actually <em style={{ color: "var(--reaction)" }}>do</em>.
             </h2>
           </header>
 
           <div>
             <div>
               {[
-                { num: "01", h: "Peer connection data, ready for TEF", p: "Evidence of belonging, peer-led learning, and sense of community — formatted for Teaching Excellence Framework narrative submissions and ready when you need it." },
-                { num: "02", h: "Engagement gaps, visible", p: "Real-time data on which cohorts are connecting — broken down by demographic so your Access & Participation Plan has the proof points it needs." },
-                { num: "03", h: "Belonging to outcomes", p: "Integrate with your student records to track which peer-connection patterns actually improve second-year continuation rates." },
-                { num: "04", h: "Career engagement to graduate outcomes", p: "Track which cohorts are engaging with internships, part-time roles, and graduate schemes through Reaction. Direct evidence for the TEF Student Outcomes pillar, and useful context for your Graduate Outcomes survey results." },
+                { num: "01", h: "Operations & admin", p: "Automate intake, scheduling, document handling and the repetitive flows that slow teams down — with a person approving anything that matters before it goes out." },
+                { num: "02", h: "Finance & compliance", p: "Agents that reconcile, check work against your rules, and flag exceptions — every step logged for a full audit trail, all on infrastructure you control." },
+                { num: "03", h: "Customer & client operations", p: "Triage incoming requests, draft responses, and pull the right account context together, so your team resolves more without losing the human touch." },
+                { num: "04", h: "Knowledge & research", p: "Turn your internal documents and data into a system your people can actually query — answers grounded in your own material, kept entirely in-house." },
               ].map((row, i, arr) => (
                 <div
                   key={row.num}
@@ -389,7 +359,7 @@ export default function HomePage() {
                 margin: "28px auto 0",
               }}
             >
-              The thinking behind Reaction runs on systems we host and control — not piped out to third-party AI clouds. Curated by us, updated by us, kept where your students&rsquo; data belongs.
+              The thinking behind Reaction runs on systems we host and control — not piped out to third-party AI clouds. Curated by us, updated by us, kept where your business&rsquo;s data belongs.
             </p>
           </header>
 
@@ -441,7 +411,7 @@ export default function HomePage() {
                 Locally hosted multi-agentic systems
               </h3>
               <p style={{ fontSize: "0.92rem", lineHeight: 1.6, color: "#b7b0d6", margin: 0 }}>
-                Specialised agents working together on infrastructure you control — inside your institution&rsquo;s boundary, not handed to an outside vendor. The intelligence lives where your data already does.
+                Specialised agents working together on infrastructure you control — inside your organisation&rsquo;s boundary, not handed to an outside vendor. The intelligence lives where your data already does.
               </p>
             </div>
 
@@ -519,7 +489,7 @@ export default function HomePage() {
                 Data that never leaves
               </h3>
               <p style={{ fontSize: "0.92rem", lineHeight: 1.6, color: "#b7b0d6", margin: 0 }}>
-                Because the system is hosted and maintained by us, student data stays in a controlled environment — aligned with UK data-residency and GDPR expectations, with no third-party model quietly training on it.
+                Because the system is hosted and maintained by us, your data stays in a controlled environment — aligned with UK data-residency and GDPR expectations, with no third-party model quietly training on it.
               </p>
             </div>
           </div>
@@ -538,7 +508,7 @@ export default function HomePage() {
                 The usual way
               </div>
               {[
-                "Prompts and student data sent to third-party AI clouds",
+                "Prompts and business data sent to third-party AI clouds",
                 "Models shift underneath you, without warning",
                 "Governance and uptime you don't control",
               ].map((line) => (
@@ -555,7 +525,7 @@ export default function HomePage() {
               {[
                 "Runs on infrastructure we host and curate",
                 "Models and knowledge maintained, and versioned, by us",
-                "Student data stays inside your environment",
+                "Your data stays inside your environment",
               ].map((line) => (
                 <div key={line} style={{ display: "flex", gap: 12, alignItems: "baseline", padding: "8px 0", color: "#e8e4f3", fontSize: "0.92rem", lineHeight: 1.5 }}>
                   <span aria-hidden="true" style={{ color: "var(--action)", flexShrink: 0 }}>+</span>
@@ -568,13 +538,13 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* FOR EMPLOYERS */}
-      <section style={{ padding: "100px 0", borderTop: "1px solid var(--rule)" }} id="for-employers">
+      {/* HOW WE WORK (repurposed from For Employers) */}
+      <section style={{ padding: "100px 0", borderTop: "1px solid var(--rule)" }} id="how-we-work">
         <div className="container">
           <header style={{ textAlign: "center", marginBottom: 56 }}>
             <div style={{ display: "block", width: 32, height: 1, background: "var(--reaction)", margin: "0 auto 18px" }} />
             <div className="mono" style={{ fontSize: "0.7rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 24 }}>
-              For employers
+              How we work
             </div>
             <h2
               style={{
@@ -586,17 +556,17 @@ export default function HomePage() {
                 color: "var(--text)",
               }}
             >
-              The talent pipeline already <em style={{ color: "var(--reaction)" }}>lives</em> on campus.
+              Built around your business, owned by <em style={{ color: "var(--reaction)" }}>you</em>.
             </h2>
           </header>
 
           <div>
             <div>
               {[
-                { num: "01", h: "Reach the universities you choose", p: "Internships, placement years, graduate schemes, part-time roles, all shared directly to our student opportunity boards - advertise to one university, or many, with our tailored posting feature" },
-                { num: "02", h: "Applications, your way", p: "Local businesses can review applications inside Reaction, with each applicant's cover letter and CV in one place. Large employer? link your own application portal directly to posts  — students get routed to your existing application flow, no migration needed." },
-                { num: "03", h: "Local business? local discounts", p: "If you're a local business, you'll receive a discount when advertising opportunities at local universities. Visibility metrics on every post: views, applicants, response rates. See which posts are live, and which are still waiting for the right Reaction." },
-                { num: "04", h: "Craft a presence with the next cohort", p: "Every post is an impression with engaged, employment-curious students at the universities you care about. Build employer brand recognition years before students start job-hunting." },
+                { num: "01", h: "We build it around your workflows", p: "Discovery first. We map how your business actually works — the tasks, the tools, the handoffs — before a line of code, so the system fits your operation rather than the other way round." },
+                { num: "02", h: "Hosted and maintained by us", p: "We stand it up on infrastructure you control, then keep the models and knowledge current — so you get a system that stays sharp without an in-house AI team to run it." },
+                { num: "03", h: "Your people, trained", p: "We train your staff to work alongside the system with confidence — because augmented intelligence only pays off when the people using it trust it and know how." },
+                { num: "04", h: "Yours, not rented", p: "No per-seat subscriptions feeding a third party, no data leaving your walls. The system lives inside your business and answers to you." },
               ].map((row, i, arr) => (
                 <div
                   key={row.num}
@@ -652,11 +622,11 @@ export default function HomePage() {
             }}
           >
             Bring <span className="reaction-mark">Reaction</span> to your{" "}
-            <em style={{ color: "var(--reaction)" }}>students</em>.
+            <em style={{ color: "var(--reaction)" }}>business</em>.
           </h2>
           <p style={{ maxWidth: "52ch", margin: "0 auto 44px", color: "var(--text-soft)", fontSize: "1.05rem" }}>
-            We're working with universities and students' unions to put Reaction in the hands of the students who need
-            it. If you'd like to see how it works in practice — get in touch.
+            We build locally hosted multi-agentic systems for businesses that want AI on their own terms —
+            augmenting their people, inside their own walls. If you'd like to see what that looks like for your workflows, get in touch.
           </p>
           <div style={{ display: "inline-flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
             <Link href="/demo" className="btn btn-primary btn-large">

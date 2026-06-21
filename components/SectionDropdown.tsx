@@ -4,10 +4,10 @@ import { useState, useEffect, useRef } from "react";
 
 const SECTIONS = [
   { id: "top", label: "Overview" },
-  { id: "what", label: "What we do" },
-  { id: "for-universities", label: "For Universities" },
+  { id: "what", label: "What it does" },
+  { id: "use-cases", label: "Use cases" },
   { id: "approach", label: "Our approach" },
-  { id: "for-employers", label: "For Employers" },
+  { id: "how-we-work", label: "How we work" },
   { id: "demo", label: "Book a demo" },
 ];
 
