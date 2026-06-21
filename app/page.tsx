@@ -79,7 +79,7 @@ export default function HomePage() {
               margin: "0 0 44px",
             }}
           >
-            Your business takes <span style={{ color: "var(--action)" }}>action</span>. Our systems are the <span style={{ color: "var(--reaction)" }}>Reaction</span> — taking on the busywork and augmenting your people's judgment, on infrastructure you own.
+            Your business takes <span style={{ color: "var(--action)" }}>action</span>. Our systems are the <span style={{ color: "var(--reaction)" }}>Reaction</span> — taking on the busywork and augmenting the tools and workflows your team relies on, on infrastructure you own.
           </p>
 
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
@@ -138,7 +138,7 @@ export default function HomePage() {
                 {
                   num: "03",
                   h: "AI that replaces, not augments",
-                  p: "Most tools are sold as a way to cut people out — instead of making the people you already have measurably better at their jobs.",
+                  p: "Most tools are sold as a way to replace your team — instead of making the tools and workflows they already rely on measurably better.",
                 },
               ].map((row, i, arr) => (
                 <div
@@ -230,7 +230,7 @@ export default function HomePage() {
             {[
               { num: "01 · AUTOMATE", h: "Take on the busywork", p: "Agents handle the repetitive, multi-step tasks that clog your workflows — triage, data entry, drafting, lookups, reconciliation — end to end, not just a single prompt." },
               { num: "02 · CONNECT", h: "Work across your stack", p: "The system reaches into the tools and data your business already runs on, so work moves between systems without a person copying it across by hand." },
-              { num: "03 · DECIDE", h: "Surface the right call", p: "It brings the relevant context to your people at the moment of decision — a recommendation and the reasoning behind it — so they act faster, and stay in charge." },
+              { num: "03 · DECIDE", h: "Surface the right call", p: "It brings the relevant context to your team at the moment of decision — a recommendation and the reasoning behind it — so they act faster, and stay in charge." },
             ].map((p) => (
               <div key={p.num} style={{ background: "var(--bg)", padding: "36px 32px 40px" }}>
                 <div className="mono" style={{ fontSize: "0.7rem", letterSpacing: "0.1em", color: "var(--reaction)", marginBottom: 28 }}>
@@ -284,7 +284,7 @@ export default function HomePage() {
                 { num: "01", h: "Operations & admin", p: "Automate intake, scheduling, document handling and the repetitive flows that slow teams down — with a person approving anything that matters before it goes out." },
                 { num: "02", h: "Finance & compliance", p: "Agents that reconcile, check work against your rules, and flag exceptions — every step logged for a full audit trail, all on infrastructure you control." },
                 { num: "03", h: "Customer & client operations", p: "Triage incoming requests, draft responses, and pull the right account context together, so your team resolves more without losing the human touch." },
-                { num: "04", h: "Knowledge & research", p: "Turn your internal documents and data into a system your people can actually query — answers grounded in your own material, kept entirely in-house." },
+                { num: "04", h: "Knowledge & research", p: "Turn your internal documents and data into a system your team can actually query — answers grounded in your own material, kept entirely in-house." },
               ].map((row, i, arr) => (
                 <div
                   key={row.num}
@@ -451,7 +451,7 @@ export default function HomePage() {
                 Augmented over artificial
               </h3>
               <p style={{ fontSize: "0.92rem", lineHeight: 1.6, color: "#b7b0d6", margin: 0 }}>
-                We design AI to sharpen human judgment, not replace it — and we train your staff to work alongside it with confidence. People stay in the loop, and in charge.
+                We build AI that augments the tools and workflows your team works with — never replacing the team itself — and we train your employees to use it with confidence. They stay in the loop, and in charge.
               </p>
             </div>
 
@@ -565,7 +565,7 @@ export default function HomePage() {
               {[
                 { num: "01", h: "We build it around your workflows", p: "Discovery first. We map how your business actually works — the tasks, the tools, the handoffs — before a line of code, so the system fits your operation rather than the other way round." },
                 { num: "02", h: "Hosted and maintained by us", p: "We stand it up on infrastructure you control, then keep the models and knowledge current — so you get a system that stays sharp without an in-house AI team to run it." },
-                { num: "03", h: "Your people, trained", p: "We train your staff to work alongside the system with confidence — because augmented intelligence only pays off when the people using it trust it and know how." },
+                { num: "03", h: "Your team, trained", p: "We train your employees to work alongside the system with confidence — because augmented intelligence only pays off when the team members using it trust it and know how." },
                 { num: "04", h: "Yours, not rented", p: "No per-seat subscriptions feeding a third party, no data leaving your walls. The system lives inside your business and answers to you." },
               ].map((row, i, arr) => (
                 <div
@@ -626,7 +626,7 @@ export default function HomePage() {
           </h2>
           <p style={{ maxWidth: "52ch", margin: "0 auto 44px", color: "var(--text-soft)", fontSize: "1.05rem" }}>
             We build locally hosted multi-agentic systems for businesses that want AI on their own terms —
-            augmenting their people, inside their own walls. If you'd like to see what that looks like for your workflows, get in touch.
+            augmenting the tools and workflows their teams use, inside their own walls. If you'd like to see what that looks like for your workflows, get in touch.
           </p>
           <div style={{ display: "inline-flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
             <Link href="/demo" className="btn btn-primary btn-large">
