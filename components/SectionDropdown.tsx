@@ -6,7 +6,7 @@ const SECTIONS = [
   { id: "top", label: "Overview" },
   { id: "what", label: "What we do" },
   { id: "for-universities", label: "For Universities" },
-  { id: "built-in-tandem", label: "Developers" },
+  { id: "approach", label: "Our approach" },
   { id: "for-employers", label: "For Employers" },
   { id: "demo", label: "Book a demo" },
 ];

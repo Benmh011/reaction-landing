@@ -3,37 +3,45 @@
  * it's needed later. The site forces data-theme="light" via layout.tsx. */
 :root,
 [data-theme="light"] {
-  /* Surfaces — pearl grey palette with subtle blue undertone */
-  --bg:           #e1e4e8;
-  --bg-surface:   #d4d8dd;
-  --bg-elevated:  #ebedf0;
+  /* Surfaces — cool porcelain with a faint violet undertone (not cream, not flat grey) */
+  --bg:           #ecebf1;
+  --bg-surface:   #dedce8;
+  --bg-elevated:  #f4f3f8;
 
-  /* Text — warm-cool ink for headlines, cooled muted greys for captions */
-  --text:         #181410;
-  --text-soft:    #4a443c;
-  --text-muted:   #6e7178;
+  /* Text — ink with a violet whisper for headlines, cooled greys for captions */
+  --text:         #17131f;
+  --text-soft:    #494456;
+  --text-muted:   #716c7e;
 
-  /* Accents — slate blue brand replaces previous red */
-  --reaction:      #4d6f99;
-  --reaction-deep: #1a2238;
-  --accent:        #4d6f99;
-  --accent-warm:   #6189b8;
+  /* Brand — "Reaction": a deep, considered ink-violet, charged by an "action" spark.
+     Every action has an equal and opposite Reaction — amber (action) sits near-opposite
+     violet (reaction) on the colour wheel, so the palette itself carries the thesis. */
+  --reaction:      #4b3dcb;   /* vivid indigo-violet — the brand cool */
+  --reaction-deep: #181230;   /* deep ink-violet — dark-section foundation */
+  --reaction-soft: #9d90f2;   /* lighter violet for accents on dark surfaces */
+  --accent:        #4b3dcb;
+  --accent-warm:   #6a5ce0;
+
+  /* Action — the warm spark. Used sparingly: the "action" word, the live dot,
+     a single charged accent on dark. Never as small body text on light. */
+  --action:        #f4a22c;   /* marigold / amber */
+  --action-deep:   #d9851a;
 
   /* Lines */
-  --rule:        #c8ccd0;
-  --rule-strong: #aab0b6;
+  --rule:        #d0cedc;
+  --rule-strong: #b6b2c6;
 
   /* Effects */
   --grain-opacity: 0.04;
-  --shadow-cta:    0 1px 2px rgba(24, 20, 16, 0.10), 0 4px 16px rgba(24, 20, 16, 0.10);
+  --shadow-cta:    0 1px 2px rgba(24, 18, 48, 0.10), 0 6px 20px rgba(24, 18, 48, 0.13);
 
-  /* Status colours — kept distinct from brand blue */
+  /* Status colours — kept distinct from brand */
   --success: #15803d;
   --warning: #b45309;
   --danger:  #b91c1c;
 
   /* Form input */
-  --input-bg: #ebedf0;
+  --input-bg: #f4f3f8;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -181,7 +189,7 @@ section { position: relative; z-index: 2; }
 .btn-outlined:hover:not(:disabled) {
   background: color-mix(in srgb, var(--reaction) 8%, transparent);
   transform: translateY(-1px);
-  box-shadow: 0 1px 2px rgba(77, 111, 153, 0.10), 0 6px 18px rgba(77, 111, 153, 0.14);
+  box-shadow: 0 1px 2px rgba(75, 61, 203, 0.12), 0 6px 18px rgba(75, 61, 203, 0.16);
 }
 .btn-outlined .arrow { transition: transform 0.25s ease; }
 .btn-outlined:hover:not(:disabled) .arrow { transform: translateX(3px); }
