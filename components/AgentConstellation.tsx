@@ -25,7 +25,7 @@ const BLUE_SOFT = 0x7ea9f2;
 // Node layout: hand-placed inside the boundary so the composition is stable
 // and art-directed rather than random on every visit. [x, y, z, active?]
 const NODES: [number, number, number, boolean][] = [
-  [-3.3, 0.7, 0.3, true],
+  [-3.3, 0.7, 0.3, false],
   [-1.1, 1.15, -0.7, false],
   [1.6, 0.9, 0.5, false],
   [3.5, 0.15, -0.4, true],
@@ -37,9 +37,9 @@ const NODES: [number, number, number, boolean][] = [
   [-2.3, -1.05, -0.8, false],
   [1.4, 0.1, -1.0, false],
   [-0.2, 0.4, 1.1, false],
-  [4.6, 1.0, -0.2, false],
+  [4.6, 1.0, -0.2, true],
   [-4.5, 0.15, 0.5, false],
-  [2.9, -0.2, -0.9, true],
+  [2.9, -0.2, -0.9, false],
   [-0.9, -1.15, 0.2, false],
 ];
 
