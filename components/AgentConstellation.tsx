@@ -3,27 +3,29 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * AgentConstellation — the LMAS "contained agent cluster" motif, evolved into a
- * living 3D object. A slowly rotating constellation of agent nodes breathing
- * inside a dashed wireframe boundary (the "walls"); 3 amber nodes pulse as
- * active agents, violet outline nodes idle, and data pulses travel the links.
+ * AgentConstellation v3 — the LMAS agent field, free-flowing.
  *
- * Engineering notes:
- * - three.js is dynamically imported inside useEffect → zero SSR involvement,
- *   zero cost until the component mounts.
- * - devicePixelRatio capped at 1.5; render loop pauses when the canvas is
- *   offscreen or the tab is hidden.
- * - prefers-reduced-motion: renders one composed still frame, no loop.
- * - Mobile (<768px) or no WebGL → static SVG fallback (the original motif).
- * - Decorative: aria-hidden; pointer-events: none (parallax reads window mouse).
+ * Design decisions (validated against composition renders):
+ * - No boundary box: the field floats openly in a deep vignette.
+ * - Glass-gloss idle agents: MeshPhysicalMaterial (clearcoat) + a PMREM
+ *   RoomEnvironment for real reflections — the specular life the flat
+ *   wireframes lacked.
+ * - Amber actives are emissive with soft sprite halos, arranged on a rising
+ *   diagonal kept clear of the headline and the section fold.
+ * - Exponential fog + a slow dust layer give genuine depth: far agents dim
+ *   into the navy, dust parallaxes at a different rate to the field.
+ *
+ * Engineering: dynamic three import (zero SSR), DPR capped 1.5, loop pauses
+ * offscreen/tab-hidden, reduced-motion renders one still frame, mobile and
+ * no-WebGL fall back to the static SVG motif. Decorative; aria-hidden.
  */
 
-const AMBER = 0xf4a22c;
-const BLUE = 0x3b78e8;
+const BLUE_GLASS = 0x1a3f8a;
 const BLUE_SOFT = 0x7ea9f2;
+const AMBER = 0xf4a22c;
+const FOG_NAVY = 0x071731;
 
-// Node layout: hand-placed inside the boundary so the composition is stable
-// and art-directed rather than random on every visit. [x, y, z, active?]
+// Hand-placed field. [x, y, z, active] — actives on a rising diagonal.
 const NODES: [number, number, number, boolean][] = [
   [-3.3, 0.7, 0.3, false],
   [-1.1, 1.15, -0.7, false],
@@ -31,7 +33,7 @@ const NODES: [number, number, number, boolean][] = [
   [3.5, 0.15, -0.4, true],
   [-3.8, -0.55, -0.5, false],
   [-1.6, -0.15, 0.8, false],
-  [0.35, -0.75, -0.2, true],
+  [0.35, -0.45, -0.2, true],
   [2.45, -0.9, 0.6, false],
   [4.0, -0.3, 0.9, false],
   [-2.3, -1.05, -0.8, false],
@@ -43,7 +45,6 @@ const NODES: [number, number, number, boolean][] = [
   [-0.9, -1.15, 0.2, false],
 ];
 
-// Connections between node indices — a sparse mesh, mirrors the 2D motif.
 const LINKS: [number, number][] = [
   [0, 1], [1, 2], [2, 3], [0, 5], [5, 6], [6, 7], [7, 3],
   [4, 5], [4, 9], [9, 6], [2, 10], [10, 6], [11, 5], [11, 2], [8, 3], [8, 7],
@@ -51,7 +52,6 @@ const LINKS: [number, number][] = [
 ];
 
 function StaticFallback() {
-  // The original 2D motif, scaled up — shown on mobile / no-WebGL / errors.
   return (
     <svg
       viewBox="0 0 168 88"
@@ -60,15 +60,14 @@ function StaticFallback() {
       fill="none"
       aria-hidden="true"
       focusable="false"
-      style={{ display: "block", opacity: 0.35, maxWidth: 720 }}
+      style={{ display: "block", opacity: 0.3, maxWidth: 720 }}
       preserveAspectRatio="xMidYMid meet"
     >
-      <rect x="1.5" y="1.5" width="165" height="85" rx="12" stroke="var(--reaction-soft)" strokeOpacity="0.4" strokeDasharray="5 5" />
-      <path d="M48 32 L92 26 M92 26 L122 54 M48 32 L70 64 M70 64 L122 54" stroke="var(--reaction-soft)" strokeOpacity="0.32" />
+      <path d="M48 32 L92 26 M92 26 L122 54 M48 32 L70 64 M70 64 L122 54" stroke="var(--reaction-soft)" strokeOpacity="0.4" />
       <circle cx="48" cy="32" r="8" fill="var(--action)" />
-      <circle cx="92" cy="26" r="6.5" stroke="#c9c3e8" strokeWidth="1.6" />
+      <circle cx="92" cy="26" r="6.5" stroke="#c6d7ef" strokeWidth="1.6" />
       <circle cx="122" cy="54" r="8" fill="var(--action)" />
-      <circle cx="70" cy="64" r="6.5" stroke="#c9c3e8" strokeWidth="1.6" />
+      <circle cx="70" cy="64" r="6.5" stroke="#c6d7ef" strokeWidth="1.6" />
     </svg>
   );
 }
@@ -80,8 +79,6 @@ export default function AgentConstellation() {
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-
-    // Mobile → static motif (per brief: graceful fallback, keep the page fast).
     if (window.innerWidth < 768) {
       setFallback(true);
       return;
@@ -94,15 +91,16 @@ export default function AgentConstellation() {
 
     (async () => {
       let THREE: typeof import("three");
+      let RoomEnvironment: typeof import("three/examples/jsm/environments/RoomEnvironment.js").RoomEnvironment;
       try {
         THREE = await import("three");
+        ({ RoomEnvironment } = await import("three/examples/jsm/environments/RoomEnvironment.js"));
       } catch {
         setFallback(true);
         return;
       }
       if (disposed || !hostRef.current) return;
 
-      // WebGL support check
       let renderer: import("three").WebGLRenderer;
       try {
         renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "low-power" });
@@ -112,49 +110,66 @@ export default function AgentConstellation() {
       }
 
       const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
       renderer.setClearColor(0x000000, 0);
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.05;
       host.appendChild(renderer.domElement);
       renderer.domElement.style.display = "block";
 
       const scene = new THREE.Scene();
+      scene.fog = new THREE.FogExp2(FOG_NAVY, 0.05);
+
+      // Environment: the reflections that make gloss read as glass
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+      pmrem.dispose();
+
       const camera = new THREE.PerspectiveCamera(44, 1, 0.1, 60);
       camera.position.set(0, 0.15, 9.6);
+
+      // Soft directional shape + cool/warm hemisphere fill
+      scene.add(new THREE.HemisphereLight(0x7ea9f2, 0x081b3d, 0.55));
+      const key = new THREE.DirectionalLight(0xdbe8ff, 1.1);
+      key.position.set(-4, 5, 6);
+      scene.add(key);
 
       const group = new THREE.Group();
       scene.add(group);
       group.rotation.set(0.12, -0.22, 0);
 
-      // ── The walls: dashed wireframe boundary ──
-      const boundaryGeom = new THREE.BoxGeometry(10.4, 4.4, 3.4);
-      const edges = new THREE.EdgesGeometry(boundaryGeom);
-      const boundaryMat = new THREE.LineDashedMaterial({
-        color: BLUE_SOFT,
-        transparent: true,
-        opacity: 0.38,
-        dashSize: 0.14,
-        gapSize: 0.11,
-      });
-      const boundary = new THREE.LineSegments(edges, boundaryMat);
-      boundary.computeLineDistances();
-      group.add(boundary);
-
-      // ── Glow sprite texture (radial gradient, generated — no assets) ──
+      // ── Glow sprite (generated radial) ──
       const glowCanvas = document.createElement("canvas");
       glowCanvas.width = glowCanvas.height = 128;
       const gctx = glowCanvas.getContext("2d");
       if (gctx) {
         const grad = gctx.createRadialGradient(64, 64, 4, 64, 64, 64);
-        grad.addColorStop(0, "rgba(244,162,44,0.85)");
-        grad.addColorStop(0.35, "rgba(244,162,44,0.28)");
+        grad.addColorStop(0, "rgba(244,162,44,0.8)");
+        grad.addColorStop(0.35, "rgba(244,162,44,0.25)");
         grad.addColorStop(1, "rgba(244,162,44,0)");
         gctx.fillStyle = grad;
         gctx.fillRect(0, 0, 128, 128);
       }
       const glowTex = new THREE.CanvasTexture(glowCanvas);
 
-      // ── Agent nodes ──
+      // ── Materials ──
+      const glassMat = new THREE.MeshPhysicalMaterial({
+        color: BLUE_GLASS,
+        metalness: 0.05,
+        roughness: 0.14,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.08,
+        envMapIntensity: 1.35,
+      });
+      const activeMat = new THREE.MeshStandardMaterial({
+        color: AMBER,
+        emissive: AMBER,
+        emissiveIntensity: 0.75,
+        roughness: 0.3,
+        metalness: 0.1,
+      });
+
+      // ── Agent nodes (varied radii for an organic field) ──
       type NodeEntry = {
         mesh: import("three").Mesh;
         glow: import("three").Sprite | null;
@@ -164,20 +179,20 @@ export default function AgentConstellation() {
         speed: number;
       };
       const nodeEntries: NodeEntry[] = [];
-      const activeGeom = new THREE.SphereGeometry(0.16, 20, 16);
-      const idleGeom = new THREE.SphereGeometry(0.13, 10, 7);
-      const activeMat = new THREE.MeshBasicMaterial({ color: AMBER });
-      const idleMat = new THREE.MeshBasicMaterial({ color: BLUE_SOFT, wireframe: true, transparent: true, opacity: 0.85 });
+      const geoms: import("three").BufferGeometry[] = [];
 
-      for (const [x, y, z, active] of NODES) {
-        const mesh = new THREE.Mesh(active ? activeGeom : idleGeom, active ? activeMat : idleMat);
+      NODES.forEach(([x, y, z, active], i) => {
+        const r = active ? 0.18 : 0.11 + (i % 5) * 0.02;
+        const geom = new THREE.SphereGeometry(r, 32, 24);
+        geoms.push(geom);
+        const mesh = new THREE.Mesh(geom, active ? activeMat : glassMat);
         mesh.position.set(x, y, z);
         group.add(mesh);
         let glow: import("three").Sprite | null = null;
         if (active) {
-          const smat = new THREE.SpriteMaterial({ map: glowTex, transparent: true, depthWrite: false, opacity: 0.9 });
+          const smat = new THREE.SpriteMaterial({ map: glowTex, transparent: true, depthWrite: false, opacity: 0.85 });
           glow = new THREE.Sprite(smat);
-          glow.scale.setScalar(1.1);
+          glow.scale.setScalar(1.15);
           glow.position.copy(mesh.position);
           group.add(glow);
         }
@@ -187,12 +202,12 @@ export default function AgentConstellation() {
           base: new THREE.Vector3(x, y, z),
           active,
           phase: Math.random() * Math.PI * 2,
-          speed: 0.6 + Math.random() * 0.5,
+          speed: 0.55 + Math.random() * 0.5,
         });
-      }
+      });
 
       // ── Links ──
-      const linkMat = new THREE.LineBasicMaterial({ color: BLUE, transparent: true, opacity: 0.28 });
+      const linkMat = new THREE.LineBasicMaterial({ color: BLUE_SOFT, transparent: true, opacity: 0.2 });
       const linkLines: { line: import("three").Line; a: number; b: number }[] = [];
       for (const [a, b] of LINKS) {
         const geom = new THREE.BufferGeometry().setFromPoints([nodeEntries[a].base, nodeEntries[b].base]);
@@ -201,16 +216,31 @@ export default function AgentConstellation() {
         linkLines.push({ line, a, b });
       }
 
-      // ── Data pulses travelling the links ──
+      // ── Data pulses ──
       const pulseGeom = new THREE.SphereGeometry(0.05, 8, 6);
       const pulseMat = new THREE.MeshBasicMaterial({ color: AMBER, transparent: true, opacity: 0.95 });
       type Pulse = { mesh: import("three").Mesh; link: number; t: number; speed: number };
       const pulses: Pulse[] = [];
       for (let i = 0; i < 4; i++) {
-        const mesh = new THREE.Mesh(pulseGeom, pulseMat);
+        const mesh = new THREE.Mesh(pulseGeom, pulseMat.clone());
         group.add(mesh);
         pulses.push({ mesh, link: Math.floor(Math.random() * LINKS.length), t: Math.random(), speed: 0.25 + Math.random() * 0.3 });
       }
+
+      // ── Depth dust: a wider, slower particle layer ──
+      const dustCount = 110;
+      const dustPos = new Float32Array(dustCount * 3);
+      for (let i = 0; i < dustCount; i++) {
+        dustPos[i * 3] = (Math.random() - 0.5) * 15;
+        dustPos[i * 3 + 1] = (Math.random() - 0.5) * 7;
+        dustPos[i * 3 + 2] = (Math.random() - 0.5) * 7;
+      }
+      const dustGeom = new THREE.BufferGeometry();
+      dustGeom.setAttribute("position", new THREE.BufferAttribute(dustPos, 3));
+      const dustMat = new THREE.PointsMaterial({ color: BLUE_SOFT, size: 0.035, transparent: true, opacity: 0.4, depthWrite: false });
+      const dust = new THREE.Points(dustGeom, dustMat);
+      scene.add(dust);
+      dust.rotation.copy(group.rotation);
 
       // ── Sizing ──
       const resize = () => {
@@ -224,43 +254,42 @@ export default function AgentConstellation() {
       const ro = new ResizeObserver(resize);
       ro.observe(host);
 
-      // ── Cursor parallax (window-level; canvas keeps pointer-events none) ──
+      // ── Cursor parallax ──
       let targetRX = group.rotation.x;
       let targetRY = group.rotation.y;
       const onMouse = (e: MouseEvent) => {
         const nx = (e.clientX / window.innerWidth) * 2 - 1;
         const ny = (e.clientY / window.innerHeight) * 2 - 1;
         targetRY = -0.22 + nx * 0.1;
-        targetRX = 0.14 + ny * 0.08;
+        targetRX = 0.12 + ny * 0.07;
       };
       if (!reduceMotion) window.addEventListener("mousemove", onMouse, { passive: true });
 
-      // ── Animation ──
       const clock = new THREE.Clock();
       const tmpA = new THREE.Vector3();
       const tmpB = new THREE.Vector3();
 
       const frame = () => {
         const t = clock.getElapsedTime();
-
-        // slow autonomous rotation + eased parallax
         targetRY += 0.00045;
         group.rotation.y += (targetRY - group.rotation.y) * 0.05;
         group.rotation.x += (targetRX - group.rotation.x) * 0.05;
+        // dust parallaxes at 60% of the field's motion — depth separation
+        dust.rotation.y += (targetRY * 0.6 - dust.rotation.y) * 0.04;
+        dust.rotation.x += (targetRX * 0.6 - dust.rotation.x) * 0.04;
 
-        // nodes breathe and drift
         for (const n of nodeEntries) {
-          const s = 1 + (n.active ? 0.16 : 0.07) * Math.sin(t * n.speed + n.phase);
+          const s = 1 + (n.active ? 0.14 : 0.06) * Math.sin(t * n.speed + n.phase);
           n.mesh.scale.setScalar(s);
           n.mesh.position.copy(n.base);
           n.mesh.position.y += Math.sin(t * 0.5 + n.phase) * 0.06;
+          n.mesh.rotation.y = t * 0.15 + n.phase; // slow spin catches the env reflections
           if (n.glow) {
             n.glow.position.copy(n.mesh.position);
-            n.glow.scale.setScalar(1.0 + 0.35 * (0.5 + 0.5 * Math.sin(t * n.speed + n.phase)));
+            n.glow.scale.setScalar(1.05 + 0.3 * (0.5 + 0.5 * Math.sin(t * n.speed + n.phase)));
           }
         }
 
-        // links follow their endpoints
         for (const l of linkLines) {
           const pos = l.line.geometry.getAttribute("position");
           const pa = nodeEntries[l.a].mesh.position;
@@ -270,7 +299,6 @@ export default function AgentConstellation() {
           pos.needsUpdate = true;
         }
 
-        // pulses travel; on arrival, hop to a new link
         for (const p of pulses) {
           p.t += p.speed * 0.016;
           if (p.t >= 1) {
@@ -281,7 +309,7 @@ export default function AgentConstellation() {
           tmpA.copy(nodeEntries[a].mesh.position);
           tmpB.copy(nodeEntries[b].mesh.position);
           p.mesh.position.lerpVectors(tmpA, tmpB, p.t);
-          (p.mesh.material as import("three").MeshBasicMaterial).opacity = 0.55 + 0.4 * Math.sin(Math.PI * p.t);
+          (p.mesh.material as import("three").MeshBasicMaterial).opacity = 0.5 + 0.45 * Math.sin(Math.PI * p.t);
         }
 
         renderer.render(scene, camera);
@@ -292,7 +320,6 @@ export default function AgentConstellation() {
         frame();
         raf = requestAnimationFrame(loop);
       };
-
       const start = () => {
         if (running || reduceMotion) return;
         running = true;
@@ -304,7 +331,6 @@ export default function AgentConstellation() {
         cancelAnimationFrame(raf);
       };
 
-      // Reduced motion: one composed still frame; otherwise run when visible.
       if (reduceMotion) {
         frame();
       } else {
@@ -315,7 +341,6 @@ export default function AgentConstellation() {
         io.observe(host);
         const onVis = () => (document.visibilityState === "hidden" ? stop() : start());
         document.addEventListener("visibilitychange", onVis);
-
         cleanup = () => {
           io.disconnect();
           document.removeEventListener("visibilitychange", onVis);
@@ -327,18 +352,19 @@ export default function AgentConstellation() {
         cleanup?.();
         window.removeEventListener("mousemove", onMouse);
         ro.disconnect();
+        scene.environment?.dispose();
         renderer.dispose();
-        boundaryGeom.dispose();
-        edges.dispose();
-        activeGeom.dispose();
-        idleGeom.dispose();
+        for (const g of geoms) g.dispose();
         pulseGeom.dispose();
+        dustGeom.dispose();
         glowTex.dispose();
+        glassMat.dispose();
+        activeMat.dispose();
+        linkMat.dispose();
+        dustMat.dispose();
         for (const l of linkLines) l.line.geometry.dispose();
         if (renderer.domElement.parentElement === host) host.removeChild(renderer.domElement);
       };
-
-      // Stash for the outer cleanup
       (host as HTMLDivElement & { __rxDispose?: () => void }).__rxDispose = disposeAll;
     })();
 
@@ -359,7 +385,6 @@ export default function AgentConstellation() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: fallback ? 28 : 0,
       }}
     >
       {fallback ? <StaticFallback /> : <div ref={hostRef} style={{ position: "absolute", inset: 0 }} />}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import SiteNav from "@/components/SiteNav";
 import AgentConstellation from "@/components/AgentConstellation";
+import AugmentedCore from "@/components/AugmentedCore";
 import RevealFx from "@/components/RevealFx";
 import SiteFooter from "@/components/SiteFooter";
 
@@ -26,6 +27,17 @@ export default function HomePage() {
         style={{ position: "relative", padding: "150px 0 130px", background: "var(--reaction-deep)", overflow: "hidden" }}
         id="top"
       >
+        {/* Layer −1: deep vignette — dark edges give the field its depth,
+            and stop the background wash that was flattening the text blues */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "radial-gradient(95% 130% at 68% 40%, #10306a 0%, #071731 46%, #040d1e 100%)",
+          }}
+        />
+
         {/* Layer 0: the constellation, edge to edge */}
         <div data-hero-visual aria-hidden="true" style={{ position: "absolute", inset: 0 }}>
           <AgentConstellation />
@@ -39,14 +51,14 @@ export default function HomePage() {
             inset: 0,
             pointerEvents: "none",
             background:
-              "linear-gradient(90deg, rgba(8,27,61,0.92) 0%, rgba(8,27,61,0.72) 38%, rgba(8,27,61,0.28) 62%, rgba(8,27,61,0.06) 100%), linear-gradient(180deg, rgba(8,27,61,0.35) 0%, rgba(8,27,61,0) 22%, rgba(8,27,61,0) 72%, rgba(8,27,61,0.5) 100%)",
+              "linear-gradient(90deg, rgba(4,13,30,0.88) 0%, rgba(4,13,30,0.66) 38%, rgba(4,13,30,0.22) 62%, rgba(4,13,30,0.04) 100%), linear-gradient(180deg, rgba(4,13,30,0.35) 0%, rgba(4,13,30,0) 20%, rgba(4,13,30,0) 64%, rgba(4,13,30,0.92) 100%)",
           }}
         />
 
         {/* Layer 2: the copy */}
         <div className="container" style={{ position: "relative", zIndex: 2 }}>
           <div style={{ maxWidth: 760 }}>
-          <div className="page-eyebrow rx-enter" style={{ marginBottom: 32, fontWeight: 600, color: "#9db7e4", animationDelay: "60ms" }}>
+          <div className="page-eyebrow rx-enter" style={{ marginBottom: 32, fontWeight: 600, color: "#a6c0ea", animationDelay: "60ms" }}>
             <span
               style={{
                 width: 6,
@@ -74,7 +86,7 @@ export default function HomePage() {
             }}
           >
             Every <em style={{ color: "var(--action)" }}>action</em> has an equal and opposite{" "}
-            <em style={{ color: "var(--reaction-soft)" }}>Reaction</em>.
+            <em style={{ color: "#a9ccff", textShadow: "0 0 36px rgba(120,170,255,0.55)" }}>Reaction</em>.
           </h1>
 
           <div
@@ -95,7 +107,7 @@ export default function HomePage() {
               letterSpacing: "-0.015em",
               maxWidth: "32ch",
               margin: "0 0 22px",
-              color: "#dbe6f5",
+              color: "#e4edf9",
               animationDelay: "300ms",
             }}
           >
@@ -114,7 +126,7 @@ export default function HomePage() {
               animationDelay: "380ms",
             }}
           >
-            We help your business have the right <span style={{ color: "var(--reaction-soft)" }}>reaction</span> to AI, empowering employers and employees with the tools they need to succeed.
+            We help your business have the right <span style={{ color: "#a9ccff" }}>reaction</span> to AI, empowering employers and employees with the tools they need to succeed.
           </p>
 
           <div className="rx-enter" style={{ display: "flex", gap: 14, flexWrap: "wrap", animationDelay: "460ms" }}>
@@ -146,19 +158,19 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* THE PROBLEM */}
+      {/* THE PROBLEM — light marble: a deliberate hard cut out of the deep hero */}
       <section
-        className="dark-drift"
         style={{
           padding: "100px 0",
-          background: "var(--reaction-deep)",
+          background: "var(--bg)",
+          borderBottom: "1px solid var(--rule)",
         }}
       >
         <div className="container">
 
           <header style={{ textAlign: "center", marginBottom: 56 }}>
-            <div style={{ display: "block", width: 32, height: 1, background: "var(--bg)", margin: "0 auto 18px" }} />
-            <div className="mono" style={{ fontSize: "0.7rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--bg)", marginBottom: 24 }}>
+            <div style={{ display: "block", width: 32, height: 1, background: "var(--action)", margin: "0 auto 18px" }} />
+            <div className="mono" style={{ fontSize: "0.7rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 24 }}>
               The problem
             </div>
             <h3
@@ -166,12 +178,12 @@ export default function HomePage() {
                 ...display,
                 fontSize: "clamp(2rem, 4vw, 3rem)",
                 lineHeight: 1.15,
-                color: "var(--bg)",
+                color: "var(--text)",
                 margin: "0 auto",
                 maxWidth: "22ch",
               }}
             >
-              Built as a <span className="reaction-mark" style={{ color: "var(--bg)" }}>Reaction</span> to how AI is usually sold to business.
+              Built as a <span className="reaction-mark" style={{ color: "var(--reaction)" }}>Reaction</span> to how AI is usually sold to business.
             </h3>
           </header>
 
@@ -201,11 +213,11 @@ export default function HomePage() {
                     gridTemplateColumns: "48px 1fr",
                     gap: 32,
                     padding: "36px 0",
-                    borderTop: "1px solid rgba(245,246,248,0.22)",
-                    borderBottom: i === arr.length - 1 ? "1px solid rgba(245,246,248,0.22)" : "none",
+                    borderTop: "1px solid var(--rule)",
+                    borderBottom: i === arr.length - 1 ? "1px solid var(--rule)" : "none",
                   }}
                 >
-                  <div className="mono" style={{ color: "var(--action)", fontSize: "0.7rem", letterSpacing: "0.1em", paddingTop: 10 }}>
+                  <div className="mono" style={{ color: "var(--action-deep)", fontSize: "0.7rem", letterSpacing: "0.1em", paddingTop: 10 }}>
                     {row.num}
                   </div>
                   <div>
@@ -218,12 +230,12 @@ export default function HomePage() {
                         letterSpacing: "-0.015em",
                         lineHeight: 1.15,
                         margin: "0 0 12px",
-                        color: "var(--bg)",
+                        color: "var(--text)",
                       }}
                     >
                       {row.h}
                     </h4>
-                    <p style={{ fontSize: "0.95rem", lineHeight: 1.55, color: "rgba(245,246,248,0.82)", margin: 0 }}>
+                    <p style={{ fontSize: "0.95rem", lineHeight: 1.55, color: "var(--text-soft)", margin: 0 }}>
                       {row.p}
                     </p>
                   </div>
@@ -467,8 +479,9 @@ export default function HomePage() {
               </p>
             </div>
 
-            {/* Augmented, not artificial — two inputs (human + machine) converging into one */}
+            {/* Augmented, not artificial — the flagship 3D: inputs converge into the core */}
             <div
+              data-core-card
               style={{
                 display: "flex",
                 flexDirection: "column",
@@ -483,13 +496,10 @@ export default function HomePage() {
               <div className="mono" style={{ fontSize: "0.7rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--reaction-soft)", marginBottom: 22 }}>
                 Augmented · not artificial
               </div>
-              <svg width="100%" height="88" viewBox="0 0 168 88" fill="none" aria-hidden="true" focusable="false" style={{ display: "block", marginBottom: 20 }}>
-                <circle cx="30" cy="26" r="6.5" stroke="#c6d7ef" strokeWidth="1.6" />
-                <circle cx="30" cy="62" r="6.5" stroke="#c6d7ef" strokeWidth="1.6" />
-                <path d="M39 28 L98 42 M39 60 L98 46" stroke="var(--reaction-soft)" strokeOpacity="0.45" />
-                <path d="M91 37 L103 44 L91 51" stroke="var(--reaction-soft)" strokeOpacity="0.65" strokeLinecap="round" strokeLinejoin="round" />
-                <circle cx="116" cy="44" r="9" fill="var(--action)" />
-              </svg>
+              {/* The flagship: augmented core in real depth (hover to interact) */}
+              <div style={{ position: "relative", height: 224, margin: "-6px 0 20px" }}>
+                <AugmentedCore />
+              </div>
               <h3
                 style={{
                   fontFamily: "'Newsreader', Georgia, serif",
