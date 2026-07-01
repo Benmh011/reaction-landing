@@ -20,10 +20,10 @@ import { useEffect, useRef, useState } from "react";
  * no-WebGL fall back to the static SVG motif. Decorative; aria-hidden.
  */
 
-const BLUE_GLASS = 0x1a3f8a;
-const BLUE_SOFT = 0x7ea9f2;
-const AMBER = 0xf4a22c;
-const FOG_NAVY = 0x071731;
+
+const BRONZE = 0xb4966e;
+const EMBER = 0xf07a3d;
+const FOG_DEEP = 0x14100c;
 
 // Hand-placed field. [x, y, z, active] — actives on a rising diagonal.
 const NODES: [number, number, number, boolean][] = [
@@ -65,11 +65,68 @@ function StaticFallback() {
     >
       <path d="M48 32 L92 26 M92 26 L122 54 M48 32 L70 64 M70 64 L122 54" stroke="var(--reaction-soft)" strokeOpacity="0.4" />
       <circle cx="48" cy="32" r="8" fill="var(--action)" />
-      <circle cx="92" cy="26" r="6.5" stroke="#c6d7ef" strokeWidth="1.6" />
+      <circle cx="92" cy="26" r="6.5" stroke="#d8ccb6" strokeWidth="1.6" />
       <circle cx="122" cy="54" r="8" fill="var(--action)" />
-      <circle cx="70" cy="64" r="6.5" stroke="#c6d7ef" strokeWidth="1.6" />
+      <circle cx="70" cy="64" r="6.5" stroke="#d8ccb6" strokeWidth="1.6" />
     </svg>
   );
+}
+
+// Procedural stone: fractal value noise warped into marble veining, baked to a
+// canvas once and reused as albedo variation, bump relief, and roughness map.
+function makeStoneTextures(THREE: typeof import("three")) {
+  const size = 256;
+  const mk = (n: number) => Array.from({ length: n * n }, () => Math.random());
+  const grids = [8, 16, 32, 64].map((n) => ({ n, g: mk(n) }));
+  const sample = (grid: { n: number; g: number[] }, x: number, y: number) => {
+    const fx = (x / size) * grid.n;
+    const fy = (y / size) * grid.n;
+    const x0 = Math.floor(fx) % grid.n;
+    const y0 = Math.floor(fy) % grid.n;
+    const x1 = (x0 + 1) % grid.n;
+    const y1 = (y0 + 1) % grid.n;
+    const tx = fx - Math.floor(fx);
+    const ty = fy - Math.floor(fy);
+    const sx = tx * tx * (3 - 2 * tx);
+    const sy = ty * ty * (3 - 2 * ty);
+    const v00 = grid.g[y0 * grid.n + x0];
+    const v10 = grid.g[y0 * grid.n + x1];
+    const v01 = grid.g[y1 * grid.n + x0];
+    const v11 = grid.g[y1 * grid.n + x1];
+    return (v00 * (1 - sx) + v10 * sx) * (1 - sy) + (v01 * (1 - sx) + v11 * sx) * sy;
+  };
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  const img = ctx.createImageData(size, size);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      let v = 0;
+      let amp = 1;
+      let tot = 0;
+      for (const g of grids) {
+        v += sample(g, x, y) * amp;
+        tot += amp;
+        amp *= 0.55;
+      }
+      v /= tot;
+      // marble veining: sine field displaced by the turbulence
+      const vein = 0.5 + 0.5 * Math.sin((x / size) * Math.PI * 4 + v * 7);
+      const shade = 0.62 * v + 0.38 * Math.pow(vein, 3);
+      const c = Math.floor(92 + shade * 163);
+      const i = (y * size + x) * 4;
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = c;
+      img.data[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  const albedo = new THREE.CanvasTexture(canvas);
+  albedo.wrapS = albedo.wrapT = THREE.RepeatWrapping;
+  albedo.colorSpace = THREE.SRGBColorSpace;
+  const relief = new THREE.CanvasTexture(canvas);
+  relief.wrapS = relief.wrapT = THREE.RepeatWrapping;
+  return { albedo, relief };
 }
 
 export default function AgentConstellation() {
@@ -118,7 +175,7 @@ export default function AgentConstellation() {
       renderer.domElement.style.display = "block";
 
       const scene = new THREE.Scene();
-      scene.fog = new THREE.FogExp2(FOG_NAVY, 0.05);
+      scene.fog = new THREE.FogExp2(FOG_DEEP, 0.05);
 
       // Environment: the reflections that make gloss read as glass
       const pmrem = new THREE.PMREMGenerator(renderer);
@@ -129,8 +186,8 @@ export default function AgentConstellation() {
       camera.position.set(0, 0.15, 9.6);
 
       // Soft directional shape + cool/warm hemisphere fill
-      scene.add(new THREE.HemisphereLight(0x7ea9f2, 0x081b3d, 0.55));
-      const key = new THREE.DirectionalLight(0xdbe8ff, 1.1);
+      scene.add(new THREE.HemisphereLight(0xd8c4a8, 0x14100c, 0.55));
+      const key = new THREE.DirectionalLight(0xffe8d0, 1.1);
       key.position.set(-4, 5, 6);
       scene.add(key);
 
@@ -144,29 +201,36 @@ export default function AgentConstellation() {
       const gctx = glowCanvas.getContext("2d");
       if (gctx) {
         const grad = gctx.createRadialGradient(64, 64, 4, 64, 64, 64);
-        grad.addColorStop(0, "rgba(244,162,44,0.8)");
-        grad.addColorStop(0.35, "rgba(244,162,44,0.25)");
-        grad.addColorStop(1, "rgba(244,162,44,0)");
+        grad.addColorStop(0, "rgba(240,122,61,0.8)");
+        grad.addColorStop(0.35, "rgba(240,122,61,0.25)");
+        grad.addColorStop(1, "rgba(240,122,61,0)");
         gctx.fillStyle = grad;
         gctx.fillRect(0, 0, 128, 128);
       }
       const glowTex = new THREE.CanvasTexture(glowCanvas);
 
       // ── Materials ──
+      const stone = makeStoneTextures(THREE);
       const glassMat = new THREE.MeshPhysicalMaterial({
-        color: BLUE_GLASS,
-        metalness: 0.05,
-        roughness: 0.14,
-        clearcoat: 1.0,
-        clearcoatRoughness: 0.08,
-        envMapIntensity: 1.35,
+        color: 0x7d7264, // basalt (albedo map multiplies it down) // brightened: the stone albedo map multiplies it back down
+        map: stone?.albedo ?? null,
+        bumpMap: stone?.relief ?? null,
+        bumpScale: 0.55,
+        roughnessMap: stone?.relief ?? null,
+        roughness: 0.85,
+        metalness: 0.0,
+        clearcoat: 0.14,          // honed, not polished
+        clearcoatRoughness: 0.45,
+        envMapIntensity: 0.9,
       });
       const activeMat = new THREE.MeshStandardMaterial({
-        color: AMBER,
-        emissive: AMBER,
-        emissiveIntensity: 0.75,
-        roughness: 0.3,
-        metalness: 0.1,
+        color: EMBER,
+        emissive: EMBER,
+        emissiveIntensity: 0.7,
+        bumpMap: stone?.relief ?? null,
+        bumpScale: 0.35,
+        roughness: 0.5,
+        metalness: 0.05,
       });
 
       // ── Agent nodes (varied radii for an organic field) ──
@@ -207,7 +271,7 @@ export default function AgentConstellation() {
       });
 
       // ── Links ──
-      const linkMat = new THREE.LineBasicMaterial({ color: BLUE_SOFT, transparent: true, opacity: 0.2 });
+      const linkMat = new THREE.LineBasicMaterial({ color: BRONZE, transparent: true, opacity: 0.26 });
       const linkLines: { line: import("three").Line; a: number; b: number }[] = [];
       for (const [a, b] of LINKS) {
         const geom = new THREE.BufferGeometry().setFromPoints([nodeEntries[a].base, nodeEntries[b].base]);
@@ -218,7 +282,7 @@ export default function AgentConstellation() {
 
       // ── Data pulses ──
       const pulseGeom = new THREE.SphereGeometry(0.05, 8, 6);
-      const pulseMat = new THREE.MeshBasicMaterial({ color: AMBER, transparent: true, opacity: 0.95 });
+      const pulseMat = new THREE.MeshBasicMaterial({ color: EMBER, transparent: true, opacity: 0.95 });
       type Pulse = { mesh: import("three").Mesh; link: number; t: number; speed: number };
       const pulses: Pulse[] = [];
       for (let i = 0; i < 4; i++) {
@@ -237,7 +301,7 @@ export default function AgentConstellation() {
       }
       const dustGeom = new THREE.BufferGeometry();
       dustGeom.setAttribute("position", new THREE.BufferAttribute(dustPos, 3));
-      const dustMat = new THREE.PointsMaterial({ color: BLUE_SOFT, size: 0.035, transparent: true, opacity: 0.4, depthWrite: false });
+      const dustMat = new THREE.PointsMaterial({ color: BRONZE, size: 0.035, transparent: true, opacity: 0.4, depthWrite: false });
       const dust = new THREE.Points(dustGeom, dustMat);
       scene.add(dust);
       dust.rotation.copy(group.rotation);
@@ -358,6 +422,8 @@ export default function AgentConstellation() {
         pulseGeom.dispose();
         dustGeom.dispose();
         glowTex.dispose();
+        stone?.albedo.dispose();
+        stone?.relief.dispose();
         glassMat.dispose();
         activeMat.dispose();
         linkMat.dispose();

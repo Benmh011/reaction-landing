@@ -34,7 +34,7 @@ export default function HomePage() {
           style={{
             position: "absolute",
             inset: 0,
-            background: "radial-gradient(95% 130% at 68% 40%, #10306a 0%, #071731 46%, #040d1e 100%)",
+            background: "radial-gradient(95% 130% at 68% 40%, #3a2a1c 0%, #14100c 46%, #0a0908 100%)",
           }}
         />
 
@@ -51,14 +51,14 @@ export default function HomePage() {
             inset: 0,
             pointerEvents: "none",
             background:
-              "linear-gradient(90deg, rgba(4,13,30,0.88) 0%, rgba(4,13,30,0.66) 38%, rgba(4,13,30,0.22) 62%, rgba(4,13,30,0.04) 100%), linear-gradient(180deg, rgba(4,13,30,0.35) 0%, rgba(4,13,30,0) 20%, rgba(4,13,30,0) 64%, rgba(4,13,30,0.92) 100%)",
+              "linear-gradient(90deg, rgba(8,7,6,0.88) 0%, rgba(8,7,6,0.66) 38%, rgba(8,7,6,0.22) 62%, rgba(8,7,6,0.04) 100%), linear-gradient(180deg, rgba(8,7,6,0.35) 0%, rgba(8,7,6,0) 20%, rgba(8,7,6,0) 64%, rgba(8,7,6,0.92) 100%)",
           }}
         />
 
         {/* Layer 2: the copy */}
         <div className="container" style={{ position: "relative", zIndex: 2 }}>
           <div style={{ maxWidth: 760 }}>
-          <div className="page-eyebrow rx-enter" style={{ marginBottom: 32, fontWeight: 600, color: "#a6c0ea", animationDelay: "60ms" }}>
+          <div className="page-eyebrow rx-enter" style={{ marginBottom: 32, fontWeight: 600, color: "#cbb9a2", animationDelay: "60ms" }}>
             <span
               style={{
                 width: 6,
@@ -80,18 +80,18 @@ export default function HomePage() {
               lineHeight: 0.98,
               maxWidth: "18ch",
               margin: "0 0 32px",
-              color: "#f2f6fc",
+              color: "#f7f4ef",
               animationDelay: "140ms",
-              textShadow: "0 2px 24px rgba(4,12,28,0.45)",
+              textShadow: "0 2px 24px rgba(0,0,0,0.5)",
             }}
           >
             Every <em style={{ color: "var(--action)" }}>action</em> has an equal and opposite{" "}
-            <em style={{ color: "#a9ccff", textShadow: "0 0 36px rgba(120,170,255,0.55)" }}>Reaction</em>.
+            <em style={{ color: "#ff9a66", textShadow: "0 0 36px rgba(255,140,80,0.45)" }}>Reaction</em>.
           </h1>
 
           <div
             className="mono rx-enter"
-            style={{ fontSize: "0.78rem", letterSpacing: "0.06em", color: "rgba(245,246,248,0.55)", marginBottom: 44, animationDelay: "220ms" }}
+            style={{ fontSize: "0.78rem", letterSpacing: "0.06em", color: "rgba(247,244,239,0.55)", marginBottom: 44, animationDelay: "220ms" }}
           >
             — Sir Isaac Newton, 1687
           </div>
@@ -107,7 +107,7 @@ export default function HomePage() {
               letterSpacing: "-0.015em",
               maxWidth: "32ch",
               margin: "0 0 22px",
-              color: "#e4edf9",
+              color: "#efe9df",
               animationDelay: "300ms",
             }}
           >
@@ -121,12 +121,12 @@ export default function HomePage() {
               fontSize: "clamp(1.05rem, 1.45vw, 1.15rem)",
               lineHeight: 1.6,
               maxWidth: "56ch",
-              color: "rgba(219,230,245,0.85)",
+              color: "rgba(240,235,226,0.85)",
               margin: "0 0 44px",
               animationDelay: "380ms",
             }}
           >
-            We help your business have the right <span style={{ color: "#a9ccff" }}>reaction</span> to AI, empowering employers and employees with the tools they need to succeed.
+            We help your business have the right <span style={{ color: "#ff9a66" }}>reaction</span> to AI, empowering employers and employees with the tools they need to succeed.
           </p>
 
           <div className="rx-enter" style={{ display: "flex", gap: 14, flexWrap: "wrap", animationDelay: "460ms" }}>
@@ -150,7 +150,7 @@ export default function HomePage() {
               fontSize: "0.62rem",
               letterSpacing: "0.16em",
               textTransform: "uppercase",
-              color: "rgba(126,169,242,0.7)",
+              color: "rgba(212,178,138,0.75)",
             }}
           >
             LMAS · live inside your walls
@@ -402,7 +402,7 @@ export default function HomePage() {
                 ...display,
                 fontSize: "clamp(2rem, 4vw, 3rem)",
                 lineHeight: 1.13,
-                color: "#f2f6fc",
+                color: "#f7f4ef",
                 margin: "0 auto",
                 maxWidth: "20ch",
               }}
@@ -416,7 +416,7 @@ export default function HomePage() {
                 fontVariationSettings: '"opsz" 36, "SOFT" 0, "WONK" 0',
                 fontSize: "1.15rem",
                 lineHeight: 1.55,
-                color: "#a9bdde",
+                color: "#c4b8a4",
                 maxWidth: "56ch",
                 margin: "28px auto 0",
               }}
@@ -441,10 +441,10 @@ export default function HomePage() {
               style={{
                 display: "flex",
                 flexDirection: "column",
-                background: "rgba(242,246,252,0.04)",
+                background: "rgba(247,244,239,0.04)",
                 backdropFilter: "blur(8px)",
-                boxShadow: "inset 0 1px 0 rgba(242,246,252,0.08)",
-                border: "1px solid rgba(242,246,252,0.14)",
+                boxShadow: "inset 0 1px 0 rgba(247,244,239,0.08)",
+                border: "1px solid rgba(247,244,239,0.14)",
                 borderRadius: 14,
                 padding: "28px 26px",
               }}
@@ -456,9 +456,9 @@ export default function HomePage() {
                 <rect x="1.5" y="1.5" width="165" height="85" rx="12" stroke="var(--reaction-soft)" strokeOpacity="0.4" strokeDasharray="5 5" />
                 <path d="M48 32 L92 26 M92 26 L122 54 M48 32 L70 64 M70 64 L122 54" stroke="var(--reaction-soft)" strokeOpacity="0.32" />
                 <circle cx="48" cy="32" r="8" fill="var(--action)" />
-                <circle cx="92" cy="26" r="6.5" stroke="#c6d7ef" strokeWidth="1.6" />
+                <circle cx="92" cy="26" r="6.5" stroke="#d8ccb6" strokeWidth="1.6" />
                 <circle cx="122" cy="54" r="8" fill="var(--action)" />
-                <circle cx="70" cy="64" r="6.5" stroke="#c6d7ef" strokeWidth="1.6" />
+                <circle cx="70" cy="64" r="6.5" stroke="#d8ccb6" strokeWidth="1.6" />
               </svg>
               <h3
                 style={{
@@ -469,12 +469,12 @@ export default function HomePage() {
                   letterSpacing: "-0.015em",
                   lineHeight: 1.18,
                   margin: "0 0 12px",
-                  color: "#f2f6fc",
+                  color: "#f7f4ef",
                 }}
               >
                 Locally hosted multi-agentic systems
               </h3>
-              <p style={{ fontSize: "0.92rem", lineHeight: 1.6, color: "#a9bdde", margin: 0 }}>
+              <p style={{ fontSize: "0.92rem", lineHeight: 1.6, color: "#c4b8a4", margin: 0 }}>
                 Specialised agents working together on infrastructure you control — inside your organisation&rsquo;s boundary, not handed to an outside vendor. The intelligence lives where your data already does.
               </p>
             </div>
@@ -485,10 +485,10 @@ export default function HomePage() {
               style={{
                 display: "flex",
                 flexDirection: "column",
-                background: "rgba(242,246,252,0.04)",
+                background: "rgba(247,244,239,0.04)",
                 backdropFilter: "blur(8px)",
-                boxShadow: "inset 0 1px 0 rgba(242,246,252,0.08)",
-                border: "1px solid rgba(242,246,252,0.14)",
+                boxShadow: "inset 0 1px 0 rgba(247,244,239,0.08)",
+                border: "1px solid rgba(247,244,239,0.14)",
                 borderRadius: 14,
                 padding: "28px 26px",
               }}
@@ -509,12 +509,12 @@ export default function HomePage() {
                   letterSpacing: "-0.015em",
                   lineHeight: 1.18,
                   margin: "0 0 12px",
-                  color: "#f2f6fc",
+                  color: "#f7f4ef",
                 }}
               >
                 Augmented over artificial
               </h3>
-              <p style={{ fontSize: "0.92rem", lineHeight: 1.6, color: "#a9bdde", margin: 0 }}>
+              <p style={{ fontSize: "0.92rem", lineHeight: 1.6, color: "#c4b8a4", margin: 0 }}>
                 We build AI that augments the tools and workflows your team works with — never replacing the team itself — and we train your employees to use it with confidence. They stay in the loop, and in charge.
               </p>
             </div>
@@ -524,10 +524,10 @@ export default function HomePage() {
               style={{
                 display: "flex",
                 flexDirection: "column",
-                background: "rgba(242,246,252,0.04)",
+                background: "rgba(247,244,239,0.04)",
                 backdropFilter: "blur(8px)",
-                boxShadow: "inset 0 1px 0 rgba(242,246,252,0.08)",
-                border: "1px solid rgba(242,246,252,0.14)",
+                boxShadow: "inset 0 1px 0 rgba(247,244,239,0.08)",
+                border: "1px solid rgba(247,244,239,0.14)",
                 borderRadius: 14,
                 padding: "28px 26px",
               }}
@@ -549,12 +549,12 @@ export default function HomePage() {
                   letterSpacing: "-0.015em",
                   lineHeight: 1.18,
                   margin: "0 0 12px",
-                  color: "#f2f6fc",
+                  color: "#f7f4ef",
                 }}
               >
                 Data that never leaves
               </h3>
-              <p style={{ fontSize: "0.92rem", lineHeight: 1.6, color: "#a9bdde", margin: 0 }}>
+              <p style={{ fontSize: "0.92rem", lineHeight: 1.6, color: "#c4b8a4", margin: 0 }}>
                 Because the system is hosted and maintained by us, your data stays in a controlled environment — aligned with UK data-residency and GDPR expectations, with no third-party model quietly training on it.
               </p>
             </div>
@@ -569,8 +569,8 @@ export default function HomePage() {
               gap: 20,
             }}
           >
-            <div style={{ background: "rgba(242,246,252,0.03)", border: "1px solid rgba(242,246,252,0.10)", borderRadius: 14, padding: "26px 26px" }}>
-              <div className="mono" style={{ fontSize: "0.68rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "#8291ad", marginBottom: 16 }}>
+            <div style={{ background: "rgba(247,244,239,0.03)", border: "1px solid rgba(247,244,239,0.10)", borderRadius: 14, padding: "26px 26px" }}>
+              <div className="mono" style={{ fontSize: "0.68rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "#99907e", marginBottom: 16 }}>
                 The usual way
               </div>
               {[
@@ -578,13 +578,13 @@ export default function HomePage() {
                 "Models shift underneath you, without warning",
                 "Governance and uptime you don't control",
               ].map((line) => (
-                <div key={line} style={{ display: "flex", gap: 12, alignItems: "baseline", padding: "8px 0", color: "#7c8ba6", fontSize: "0.92rem", lineHeight: 1.5 }}>
-                  <span aria-hidden="true" style={{ color: "#55648a", flexShrink: 0 }}>—</span>
+                <div key={line} style={{ display: "flex", gap: 12, alignItems: "baseline", padding: "8px 0", color: "#93897a", fontSize: "0.92rem", lineHeight: 1.5 }}>
+                  <span aria-hidden="true" style={{ color: "#6b5f4c", flexShrink: 0 }}>—</span>
                   <span>{line}</span>
                 </div>
               ))}
             </div>
-            <div style={{ background: "rgba(244,162,44,0.06)", border: "1px solid rgba(244,162,44,0.34)", borderRadius: 14, padding: "26px 26px" }}>
+            <div style={{ background: "rgba(232,98,47,0.07)", border: "1px solid rgba(232,98,47,0.4)", borderRadius: 14, padding: "26px 26px" }}>
               <div className="mono" style={{ fontSize: "0.68rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--action)", marginBottom: 16 }}>
                 The Reaction way
               </div>
@@ -593,7 +593,7 @@ export default function HomePage() {
                 "Models and knowledge maintained, and versioned, by us",
                 "Your data stays inside your environment",
               ].map((line) => (
-                <div key={line} style={{ display: "flex", gap: 12, alignItems: "baseline", padding: "8px 0", color: "#e3ecf8", fontSize: "0.92rem", lineHeight: 1.5 }}>
+                <div key={line} style={{ display: "flex", gap: 12, alignItems: "baseline", padding: "8px 0", color: "#efe8db", fontSize: "0.92rem", lineHeight: 1.5 }}>
                   <span aria-hidden="true" style={{ color: "var(--action)", flexShrink: 0 }}>+</span>
                   <span>{line}</span>
                 </div>

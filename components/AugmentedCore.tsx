@@ -18,20 +18,77 @@ import { useEffect, useRef, useState } from "react";
  * reduced-motion still frame, static SVG fallback when WebGL is unavailable.
  */
 
-const BLUE_GLASS = 0x1a3f8a;
-const BLUE_SOFT = 0x7ea9f2;
-const AMBER = 0xf4a22c;
-const FOG_NAVY = 0x071731;
+
+const BRONZE = 0xb4966e;
+const EMBER = 0xf07a3d;
+const FOG_DEEP = 0x14100c;
 
 function StaticFallback() {
   return (
     <svg width="100%" height="100%" viewBox="0 0 168 88" fill="none" aria-hidden="true" focusable="false" preserveAspectRatio="xMidYMid meet" style={{ display: "block" }}>
-      <circle cx="30" cy="26" r="6.5" stroke="#c6d7ef" strokeWidth="1.6" />
-      <circle cx="30" cy="62" r="6.5" stroke="#c6d7ef" strokeWidth="1.6" />
+      <circle cx="30" cy="26" r="6.5" stroke="#d8ccb6" strokeWidth="1.6" />
+      <circle cx="30" cy="62" r="6.5" stroke="#d8ccb6" strokeWidth="1.6" />
       <path d="M39 28 L98 42 M39 60 L98 46" stroke="var(--reaction-soft)" strokeOpacity="0.45" />
       <circle cx="116" cy="44" r="9" fill="var(--action)" />
     </svg>
   );
+}
+
+// Procedural stone: fractal value noise warped into marble veining, baked to a
+// canvas once and reused as albedo variation, bump relief, and roughness map.
+function makeStoneTextures(THREE: typeof import("three")) {
+  const size = 256;
+  const mk = (n: number) => Array.from({ length: n * n }, () => Math.random());
+  const grids = [8, 16, 32, 64].map((n) => ({ n, g: mk(n) }));
+  const sample = (grid: { n: number; g: number[] }, x: number, y: number) => {
+    const fx = (x / size) * grid.n;
+    const fy = (y / size) * grid.n;
+    const x0 = Math.floor(fx) % grid.n;
+    const y0 = Math.floor(fy) % grid.n;
+    const x1 = (x0 + 1) % grid.n;
+    const y1 = (y0 + 1) % grid.n;
+    const tx = fx - Math.floor(fx);
+    const ty = fy - Math.floor(fy);
+    const sx = tx * tx * (3 - 2 * tx);
+    const sy = ty * ty * (3 - 2 * ty);
+    const v00 = grid.g[y0 * grid.n + x0];
+    const v10 = grid.g[y0 * grid.n + x1];
+    const v01 = grid.g[y1 * grid.n + x0];
+    const v11 = grid.g[y1 * grid.n + x1];
+    return (v00 * (1 - sx) + v10 * sx) * (1 - sy) + (v01 * (1 - sx) + v11 * sx) * sy;
+  };
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  const img = ctx.createImageData(size, size);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      let v = 0;
+      let amp = 1;
+      let tot = 0;
+      for (const g of grids) {
+        v += sample(g, x, y) * amp;
+        tot += amp;
+        amp *= 0.55;
+      }
+      v /= tot;
+      // marble veining: sine field displaced by the turbulence
+      const vein = 0.5 + 0.5 * Math.sin((x / size) * Math.PI * 4 + v * 7);
+      const shade = 0.62 * v + 0.38 * Math.pow(vein, 3);
+      const c = Math.floor(92 + shade * 163);
+      const i = (y * size + x) * 4;
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = c;
+      img.data[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  const albedo = new THREE.CanvasTexture(canvas);
+  albedo.wrapS = albedo.wrapT = THREE.RepeatWrapping;
+  albedo.colorSpace = THREE.SRGBColorSpace;
+  const relief = new THREE.CanvasTexture(canvas);
+  relief.wrapS = relief.wrapT = THREE.RepeatWrapping;
+  return { albedo, relief };
 }
 
 export default function AugmentedCore() {
@@ -76,7 +133,7 @@ export default function AugmentedCore() {
       renderer.domElement.style.display = "block";
 
       const scene = new THREE.Scene();
-      scene.fog = new THREE.FogExp2(FOG_NAVY, 0.04);
+      scene.fog = new THREE.FogExp2(FOG_DEEP, 0.04);
       const pmrem = new THREE.PMREMGenerator(renderer);
       scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
       pmrem.dispose();
@@ -84,8 +141,8 @@ export default function AugmentedCore() {
       const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 40);
       camera.position.set(0, 0.1, 6.2);
 
-      scene.add(new THREE.HemisphereLight(0x7ea9f2, 0x081b3d, 0.5));
-      const key = new THREE.DirectionalLight(0xdbe8ff, 1.0);
+      scene.add(new THREE.HemisphereLight(0xd8c4a8, 0x14100c, 0.5));
+      const key = new THREE.DirectionalLight(0xffe8d0, 1.0);
       key.position.set(-3, 4, 5);
       scene.add(key);
 
@@ -93,13 +150,18 @@ export default function AugmentedCore() {
       scene.add(group);
 
       // ── Two glass inputs ──
+      const stone = makeStoneTextures(THREE);
       const glassMat = new THREE.MeshPhysicalMaterial({
-        color: BLUE_GLASS,
-        metalness: 0.05,
-        roughness: 0.12,
-        clearcoat: 1.0,
-        clearcoatRoughness: 0.08,
-        envMapIntensity: 1.4,
+        color: 0x7d7264, // basalt (albedo map multiplies it down)
+        map: stone?.albedo ?? null,
+        bumpMap: stone?.relief ?? null,
+        bumpScale: 0.55,
+        roughnessMap: stone?.relief ?? null,
+        roughness: 0.85,
+        metalness: 0.0,
+        clearcoat: 0.14,
+        clearcoatRoughness: 0.45,
+        envMapIntensity: 0.9,
       });
       const inputGeom = new THREE.SphereGeometry(0.42, 40, 28);
       const inputA = new THREE.Mesh(inputGeom, glassMat);
@@ -110,11 +172,13 @@ export default function AugmentedCore() {
 
       // ── The radiant core ──
       const coreMat = new THREE.MeshStandardMaterial({
-        color: AMBER,
-        emissive: AMBER,
-        emissiveIntensity: 0.8,
-        roughness: 0.28,
-        metalness: 0.1,
+        color: EMBER,
+        emissive: EMBER,
+        emissiveIntensity: 0.75,
+        bumpMap: stone?.relief ?? null,
+        bumpScale: 0.35,
+        roughness: 0.5,
+        metalness: 0.05,
       });
       const coreGeom = new THREE.SphereGeometry(0.55, 48, 32);
       const core = new THREE.Mesh(coreGeom, coreMat);
@@ -126,9 +190,9 @@ export default function AugmentedCore() {
       const gctx = glowCanvas.getContext("2d");
       if (gctx) {
         const grad = gctx.createRadialGradient(64, 64, 6, 64, 64, 64);
-        grad.addColorStop(0, "rgba(244,162,44,0.85)");
-        grad.addColorStop(0.4, "rgba(244,162,44,0.22)");
-        grad.addColorStop(1, "rgba(244,162,44,0)");
+        grad.addColorStop(0, "rgba(240,122,61,0.85)");
+        grad.addColorStop(0.4, "rgba(240,122,61,0.22)");
+        grad.addColorStop(1, "rgba(240,122,61,0)");
         gctx.fillStyle = grad;
         gctx.fillRect(0, 0, 128, 128);
       }
@@ -140,7 +204,7 @@ export default function AugmentedCore() {
 
       // ── Orbit ring, precessing around the core ──
       const ringGeom = new THREE.TorusGeometry(0.92, 0.012, 12, 96);
-      const ringMat = new THREE.MeshBasicMaterial({ color: BLUE_SOFT, transparent: true, opacity: 0.55 });
+      const ringMat = new THREE.MeshBasicMaterial({ color: BRONZE, transparent: true, opacity: 0.55 });
       const ring = new THREE.Mesh(ringGeom, ringMat);
       ring.position.copy(core.position);
       ring.rotation.x = Math.PI / 2.4;
@@ -158,7 +222,7 @@ export default function AugmentedCore() {
         core.position.clone(),
       );
 
-      const streamMat = new THREE.LineBasicMaterial({ color: BLUE_SOFT, transparent: true, opacity: 0.18 });
+      const streamMat = new THREE.LineBasicMaterial({ color: BRONZE, transparent: true, opacity: 0.18 });
       const streamGeoms: import("three").BufferGeometry[] = [];
       for (const c of [curveA, curveB]) {
         const g = new THREE.BufferGeometry().setFromPoints(c.getPoints(48));
@@ -166,8 +230,8 @@ export default function AugmentedCore() {
         group.add(new THREE.Line(g, streamMat));
       }
 
-      const COLOR_A = new THREE.Color(BLUE_SOFT);
-      const COLOR_B = new THREE.Color(AMBER);
+      const COLOR_A = new THREE.Color(BRONZE);
+      const COLOR_B = new THREE.Color(EMBER);
       type Particle = { mesh: import("three").Mesh; curve: import("three").QuadraticBezierCurve3; t: number; speed: number };
       const particles: Particle[] = [];
       const partGeom = new THREE.SphereGeometry(0.035, 8, 6);
@@ -297,6 +361,8 @@ export default function AugmentedCore() {
         partGeom.dispose();
         for (const g of streamGeoms) g.dispose();
         glowTex.dispose();
+        stone?.albedo.dispose();
+        stone?.relief.dispose();
         glassMat.dispose();
         coreMat.dispose();
         ringMat.dispose();
