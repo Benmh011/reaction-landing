@@ -7,9 +7,9 @@ import { ImageResponse } from 'next/og';
  * by Next.js. Also reused as the Twitter card image (see metadata in layout.tsx).
  *
  * Brand:
- *  - Background: #14100c (obsidian)
- *  - Ember accent: #ff9a66 on dark
- *  - Bone text: #f7f4ef
+ *  - Background: #f6f2e8 (paper)
+ *  - Vermilion accent: #c93a17
+ *  - Ink text: #1a1713
  *  - Display: Newsreader italic
  *  - Body: Inter
  */
@@ -67,8 +67,8 @@ export default async function Image() {
           flexDirection: 'column',
           justifyContent: 'space-between',
           padding: '72px 80px',
-          background: '#14100c',
-          color: '#f7f4ef',
+          background: '#f6f2e8',
+          color: '#1a1713',
           fontFamily: 'Inter',
           position: 'relative',
         }}
@@ -83,7 +83,7 @@ export default async function Image() {
             height: '420px',
             borderRadius: '50%',
             background:
-              'radial-gradient(circle at center, rgba(232, 98, 47, 0.35) 0%, rgba(232, 98, 47, 0) 70%)',
+              'radial-gradient(circle at center, rgba(201, 58, 23, 0.16) 0%, rgba(201, 58, 23, 0) 70%)',
           }}
         />
 
@@ -98,7 +98,7 @@ export default async function Image() {
             fontSize: 28,
             letterSpacing: '0.18em',
             textTransform: 'uppercase',
-            color: '#ff9a66',
+            color: '#c93a17',
           }}
         >
           <span
@@ -107,7 +107,7 @@ export default async function Image() {
               width: '14px',
               height: '14px',
               borderRadius: '50%',
-              background: '#ff9a66',
+              background: '#c93a17',
             }}
           />
           Reaction
@@ -130,7 +130,7 @@ export default async function Image() {
               fontSize: 76,
               lineHeight: 1.05,
               letterSpacing: '-0.02em',
-              color: '#f7f4ef',
+              color: '#1a1713',
             }}
           >
             Every action has an equal and opposite Reaction.
@@ -141,7 +141,7 @@ export default async function Image() {
               fontWeight: 400,
               fontSize: 30,
               lineHeight: 1.35,
-              color: '#c4b8a4',
+              color: '#5c554a',
               maxWidth: '820px',
             }}
           >
@@ -158,7 +158,7 @@ export default async function Image() {
             fontFamily: 'Inter',
             fontWeight: 400,
             fontSize: 22,
-            color: '#8a7c66',
+            color: '#8a8274',
           }}
         >
           <span>reaction.org.uk</span>

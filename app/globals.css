@@ -4,32 +4,32 @@
 :root,
 [data-theme="light"] {
   /* Surfaces — marble white: cool, luminous, faintly veined grey-blue */
-  --bg:           #f4f1ea;
-  --bg-surface:   #e7e2d6;
-  --bg-elevated:  #fbf9f4;
+  --bg:           #f7f4ec;
+  --bg-surface:   #ece7da;
+  --bg-elevated:  #fdfbf6;
 
   /* Text — lab-ink navy for headlines, cooled slate for body */
-  --text:         #17130d;
-  --text-soft:    #4a4438;
-  --text-muted:   #7a7264;
+  --text:         #1a1713;
+  --text-soft:    #4c463c;
+  --text-muted:   #7a7266;
 
   /* Brand — "Reaction": scientific blue. Precise, cold, credible — the colour
      of instrumentation and deep water. Charged by the amber "action" spark
      (Newton's thesis intact: warm action, cool considered Reaction). */
-  --reaction:      #b8431a;   /* deep ember — brand accent on light */
-  --reaction-deep: #14100c;   /* obsidian — dark-section foundation */
-  --reaction-soft: #ff9a66;   /* light ember for accents on dark surfaces */
-  --accent:        #b8431a;
-  --accent-warm:   #e8622f;
+  --reaction:      #c93a17;   /* vermilion — the single accent; the red bird */
+  --reaction-deep: #14110d;   /* ink — dark surfaces (footer, app chrome) */
+  --reaction-soft: #e8896c;   /* soft vermilion on dark surfaces */
+  --accent:        #c93a17;
+  --accent-warm:   #d95a35;
 
   /* Action — the warm spark. Sparingly: the "action" word, live dots,
      one charged accent per dark section. */
-  --action:        #e8622f;
-  --action-deep:   #b8431a;
+  --action:        #c93a17;
+  --action-deep:   #a02f11;
 
   /* Lines */
-  --rule:        #ddd6c8;
-  --rule-strong: #c2b9a6;
+  --rule:        #e2dccd;
+  --rule-strong: #c8c0ad;
 
   /* Effects */
   --grain-opacity: 0.04;
@@ -189,7 +189,7 @@ section { position: relative; z-index: 2; }
 .btn-outlined:hover:not(:disabled) {
   background: color-mix(in srgb, var(--reaction) 8%, transparent);
   transform: translateY(-1px);
-  box-shadow: 0 1px 2px rgba(184, 67, 26, 0.14), 0 6px 18px rgba(184, 67, 26, 0.18);
+  box-shadow: 0 1px 2px rgba(201, 58, 23, 0.14), 0 6px 18px rgba(201, 58, 23, 0.18);
 }
 .btn-outlined .arrow { transition: transform 0.25s ease; }
 .btn-outlined:hover:not(:disabled) .arrow { transform: translateX(3px); }
@@ -362,151 +362,29 @@ section { position: relative; z-index: 2; }
   }
 }
 
-/* ─────────────────────────────────────────────────────────────
-   FABLE PASS — gloss, depth & motion choreography
-   Layered refinements only: tokens, fonts, and copy untouched.
-   ───────────────────────────────────────────────────────────── */
-
-/* Panels: soft violet-tinted depth + a faint top inner highlight */
-.panel {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    0 1px 2px rgba(20, 14, 8, 0.06),
-    0 14px 34px -18px rgba(20, 14, 8, 0.20);
-  transition: box-shadow 0.3s ease, transform 0.3s ease;
-}
-.panel:hover {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    0 2px 4px rgba(20, 14, 8, 0.07),
-    0 22px 44px -18px rgba(20, 14, 8, 0.26);
-}
-
-/* Buttons: calm micro-motion */
-.btn:hover:not(:disabled) { transform: translateY(-1px); }
-.btn:active:not(:disabled) { transform: translateY(0); }
-
-/* Footer links: underline that draws in */
-.foot-links a {
-  background-image: linear-gradient(currentColor, currentColor);
-  background-size: 0% 1px;
-  background-repeat: no-repeat;
-  background-position: 0 100%;
-  transition: color 0.2s, background-size 0.25s ease;
-}
-.foot-links a:hover { background-size: 100% 1px; }
-
-/* The approach vault: a slow ambient violet drift behind the dark section */
-#approach, .dark-drift { position: relative; overflow: hidden; }
-#approach::before, .dark-drift::before {
-  content: "";
-  position: absolute;
-  inset: -30%;
-  background:
-    radial-gradient(38% 30% at 24% 22%, rgba(232, 98, 47, 0.16), transparent 70%),
-    radial-gradient(30% 26% at 78% 74%, rgba(196, 168, 128, 0.10), transparent 70%),
-    radial-gradient(18% 16% at 66% 18%, rgba(240, 122, 61, 0.10), transparent 70%);
-  animation: rxDrift 22s ease-in-out infinite alternate;
-  pointer-events: none;
-}
-#approach .container, .dark-drift .container { position: relative; z-index: 1; }
-@keyframes rxDrift {
-  from { transform: translate3d(-2.5%, -2%, 0) scale(1); }
-  to   { transform: translate3d(2.5%, 2%, 0) scale(1.06); }
-}
-
-/* Scroll-reveal choreography (added by RevealFx only to below-fold sections,
-   only when JS is running — content is never hidden without it) */
-.rx-reveal .rx-reveal-item {
-  opacity: 0;
-  transform: translateY(22px);
-  transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1), transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
-  transition-delay: inherit;
-}
-.rx-reveal.rx-in .rx-reveal-item {
-  opacity: 1;
-  transform: none;
-}
-
-/* Hero grid: collapse on smaller screens; chamber becomes a compact band */
-@media (max-width: 960px) {
-  .hero-grid { grid-template-columns: 1fr !important; gap: 36px !important; }
-  .hero-chamber { min-height: 300px !important; }
-}
-
-/* Reduced motion: kill the drift and reveal transforms outright */
-@media (prefers-reduced-motion: reduce) {
-  #approach::before, .dark-drift::before { animation: none; }
-  .rx-reveal .rx-reveal-item { opacity: 1 !important; transform: none !important; transition: none !important; }
-  .btn:hover:not(:disabled) { transform: none; }
-}
-
 
 /* ─────────────────────────────────────────────────────────────
-   FABLE PASS II — full-bleed hero, entrance choreography, depth
+   INK ON PAPER — the rebuilt landing surface. Kept deliberately small.
    ───────────────────────────────────────────────────────────── */
 
-/* Entrance: hero text fades up on load (staggered via inline delays) */
-.rx-enter {
+/* Entrance: hero text settles onto the paper */
+.ink-enter {
   opacity: 0;
-  transform: translateY(26px);
-  animation: rxEnter 0.95s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  transform: translateY(18px);
+  animation: inkEnter 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
-@keyframes rxEnter {
+@keyframes inkEnter {
   to { opacity: 1; transform: none; }
 }
 
-/* Hero buttons — light-on-dark variants */
-.btn-hero-primary {
-  background: #f4f1ea;
-  color: #17130d;
-  border: 1px solid rgba(247, 244, 239, 0.2);
-  box-shadow: 0 2px 6px rgba(4, 3, 2, 0.5), 0 14px 34px -12px rgba(4, 3, 2, 0.65);
-}
-.btn-hero-primary:hover:not(:disabled) {
-  background: #ffffff;
-  box-shadow: 0 4px 10px rgba(4, 3, 2, 0.55), 0 20px 44px -12px rgba(4, 3, 2, 0.7);
-}
-.btn-hero-primary .arrow { transition: transform 0.25s ease; }
-.btn-hero-primary:hover:not(:disabled) .arrow { transform: translateX(3px); }
-.btn-hero-ghost {
-  background: rgba(247, 244, 239, 0.04);
-  color: #f7f4ef;
-  border: 1px solid rgba(247, 244, 239, 0.32);
-  backdrop-filter: blur(4px);
-}
-.btn-hero-ghost:hover:not(:disabled) {
-  border-color: rgba(247, 244, 239, 0.6);
-  background: rgba(247, 244, 239, 0.09);
-}
+/* Selection in vermilion — a small signature */
+::selection { background: rgba(201, 58, 23, 0.16); }
 
-/* Floating cards — depth-from-background for stats & info boxes */
-.card-float {
-  background: var(--bg-elevated);
-  border: 1px solid var(--rule);
-  border-radius: 16px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.7),
-    0 1px 2px rgba(20, 14, 8, 0.06),
-    0 18px 40px -20px rgba(20, 14, 8, 0.24);
-  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s ease, border-color 0.3s ease;
-}
-.card-float:hover {
-  transform: translateY(-4px);
-  border-color: var(--rule-strong);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.7),
-    0 2px 4px rgba(20, 14, 8, 0.07),
-    0 30px 60px -22px rgba(20, 14, 8, 0.34);
-}
-
-/* Hero scrim + mobile sizing */
-.hero-full { isolation: isolate; }
-@media (max-width: 960px) {
-  .hero-full { padding: 110px 0 90px !important; }
+/* Laws: numeral column folds above the prose on small screens */
+@media (max-width: 860px) {
+  .law-grid { grid-template-columns: 1fr !important; gap: 22px !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rx-enter { animation: none; opacity: 1; transform: none; }
-  .card-float:hover { transform: none; }
+  .ink-enter { animation: none; opacity: 1; transform: none; }
 }
