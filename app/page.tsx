@@ -1,15 +1,15 @@
 import Link from "next/link";
 import SiteNav from "@/components/SiteNav";
 import SiteFooter from "@/components/SiteFooter";
-import Murmuration from "@/components/Murmuration";
+import InkBloom from "@/components/InkBloom";
 
 /**
  * Reaction — ink on paper.
  *
  * The page is a short manifesto: three laws of motion for business AI,
- * after Newton. Above them, a living murmuration — hundreds of autonomous
- * agents flocking as one — that scatters from the cursor. Your action,
- * its Reaction. That interaction is the pitch; the laws are the argument.
+ * after Newton. Above them, ink blooms slowly through water — dense at the
+ * core, dissolving at the edges — and stirs, lightly, when the cursor moves
+ * through it. Nothing announced; the laws make the argument.
  */
 
 const serif = {
@@ -69,25 +69,11 @@ export default function HomePage() {
         id="top"
       >
         <div style={{ position: "absolute", inset: 0 }}>
-          <Murmuration />
+          <InkBloom />
         </div>
 
         <div className="container" style={{ position: "relative", zIndex: 2, padding: "180px 0 96px" }}>
           <div style={{ maxWidth: 780 }}>
-            <div
-              className="mono ink-enter"
-              style={{
-                fontSize: "0.7rem",
-                letterSpacing: "0.18em",
-                textTransform: "uppercase",
-                color: "var(--reaction)",
-                marginBottom: 18,
-                animationDelay: "80ms",
-              }}
-            >
-              Move your cursor — the flock reacts
-            </div>
-
             <h1
               className="ink-enter"
               style={{
@@ -98,7 +84,7 @@ export default function HomePage() {
                 lineHeight: 0.98,
                 color: "var(--text)",
                 margin: "0 0 30px",
-                animationDelay: "160ms",
+                animationDelay: "80ms",
               }}
             >
               Intelligence, in formation<span style={{ color: "var(--reaction)" }}>.</span>
@@ -112,7 +98,7 @@ export default function HomePage() {
                 color: "var(--text-soft)",
                 maxWidth: "56ch",
                 margin: "0 0 40px",
-                animationDelay: "260ms",
+                animationDelay: "180ms",
               }}
             >
               Reaction builds locally hosted multi-agentic systems: hundreds of small,
@@ -120,7 +106,7 @@ export default function HomePage() {
               workflows, in service of your team.
             </p>
 
-            <div className="ink-enter" style={{ display: "flex", gap: 14, flexWrap: "wrap", animationDelay: "360ms" }}>
+            <div className="ink-enter" style={{ display: "flex", gap: 14, flexWrap: "wrap", animationDelay: "280ms" }}>
               <Link href="/demo" className="btn btn-primary btn-large">
                 Set things in motion
                 <span className="arrow" aria-hidden="true">→</span>
@@ -144,7 +130,7 @@ export default function HomePage() {
               color: "var(--text-muted)",
             }}
           >
-            fig. 1 — a multi-agentic system, at work
+            fig. 1 — a Reaction, in suspension
           </div>
         </div>
       </section>
