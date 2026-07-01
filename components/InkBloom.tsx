@@ -7,8 +7,9 @@ import { useEffect, useRef, useState } from "react";
  *
  * A slow volumetric plume: a few hundred soft billows that spawn near a
  * wandering core, expand as they age, swirl on a gentle flow field, and
- * trail off into tendrils before dissolving back into the paper. A faint
- * vermilion smoulder lives deep in the core. The cursor stirs the water —
+ * trail off into tendrils before dissolving back into the paper — every
+ * billow born either deep emerald or a lighter, still-deep blue, the two
+ * pigments mingling where the cloud is dense. The cursor stirs the water —
  * lightly. Nothing is announced; you find it.
  *
  * Rendering: one InstancedMesh of camera-facing quads (the camera never
@@ -23,13 +24,19 @@ import { useEffect, useRef, useState } from "react";
  */
 
 const PAPER = { r: 247 / 255, g: 244 / 255, b: 236 / 255 };
-const INKS = [
-  [0x14 / 255, 0x11 / 255, 0x0d / 255],
-  [0x2a / 255, 0x24 / 255, 0x1c / 255],
-  [0x45 / 255, 0x3c / 255, 0x30 / 255],
+// Two pigments share the water: deep emerald and a lighter — still deep — blue.
+const EMERALDS = [
+  [0x0a / 255, 0x47 / 255, 0x32 / 255],
+  [0x0d / 255, 0x5a / 255, 0x40 / 255],
+  [0x11 / 255, 0x68 / 255, 0x4b / 255],
 ] as const;
-const LIGHT_FRONT = [0xe6 / 255, 0xe0 / 255, 0xd0 / 255] as const;
-const VERMILION_DEEP = [0x7a / 255, 0x2c / 255, 0x16 / 255] as const;
+const BLUES = [
+  [0x1d / 255, 0x57 / 255, 0x94 / 255],
+  [0x25 / 255, 0x65 / 255, 0xaa / 255],
+  [0x2e / 255, 0x73 / 255, 0xba / 255],
+] as const;
+const LIGHT_FRONT = [0xd6 / 255, 0xe2 / 255, 0xde / 255] as const; // pale sea-glass billow fronts
+const DEEP_CORE = [0x07 / 255, 0x38 / 255, 0x2a / 255] as const;   // the darkest heart
 
 function StaticFallback() {
   return (
@@ -38,13 +45,13 @@ function StaticFallback() {
         <filter id="inkblur"><feGaussianBlur stdDeviation="2.4" /></filter>
       </defs>
       <g filter="url(#inkblur)">
-        <ellipse cx="63" cy="26" rx="14" ry="10" fill="#1a1713" opacity="0.55" />
-        <ellipse cx="72" cy="21" rx="9" ry="7" fill="#2a241c" opacity="0.5" />
-        <ellipse cx="55" cy="21" rx="8" ry="6" fill="#1a1713" opacity="0.45" />
-        <ellipse cx="66" cy="30" rx="6" ry="4" fill="#7a2c16" opacity="0.35" />
-        <ellipse cx="80" cy="33" rx="5" ry="3.4" fill="#1a1713" opacity="0.35" />
-        <ellipse cx="87" cy="40" rx="3.4" ry="2.2" fill="#1a1713" opacity="0.28" />
-        <ellipse cx="92" cy="46" rx="2.2" ry="1.5" fill="#1a1713" opacity="0.2" />
+        <ellipse cx="63" cy="26" rx="14" ry="10" fill="#1d5794" opacity="0.5" />
+        <ellipse cx="72" cy="21" rx="9" ry="7" fill="#0d5a40" opacity="0.5" />
+        <ellipse cx="55" cy="21" rx="8" ry="6" fill="#2565aa" opacity="0.45" />
+        <ellipse cx="66" cy="30" rx="6" ry="4" fill="#11684b" opacity="0.4" />
+        <ellipse cx="80" cy="33" rx="5" ry="3.4" fill="#1d5794" opacity="0.35" />
+        <ellipse cx="87" cy="40" rx="3.4" ry="2.2" fill="#0d5a40" opacity="0.28" />
+        <ellipse cx="92" cy="46" rx="2.2" ry="1.5" fill="#2565aa" opacity="0.2" />
       </g>
     </svg>
   );
@@ -155,10 +162,10 @@ export default function InkBloom() {
         // a rare vermilion smoulder, only born deep in the core
         const roll = Math.random();
         let col: readonly number[];
-        if (roll < 0.72) col = INKS[Math.floor(Math.random() * INKS.length)];
-        else if (roll < 0.9) col = INKS[0];
+        if (roll < 0.45) col = EMERALDS[Math.floor(Math.random() * EMERALDS.length)];
+        else if (roll < 0.9) col = BLUES[Math.floor(Math.random() * BLUES.length)];
         else if (roll < 0.97 || r > 0.4) col = LIGHT_FRONT;
-        else col = VERMILION_DEEP;
+        else col = DEEP_CORE;
         colR[i] = col[0]; colG[i] = col[1]; colB[i] = col[2];
       };
       const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5);
