@@ -19,12 +19,34 @@ export default function HomePage() {
       <RevealFx />
       <SiteNav />
 
-      {/* HERO */}
-      <section style={{ padding: "110px 0 90px", overflow: "hidden" }} id="top">
-        <div className="container">
-          <div className="hero-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.15fr) minmax(0, 0.85fr)", gap: 48, alignItems: "center" }}>
-          <div>
-          <div className="page-eyebrow" style={{ marginBottom: 32, fontWeight: 600, color: "var(--text-soft)" }}>
+      {/* HERO — full-bleed: the living constellation IS the background.
+          Text sits on a scrim layer above it; entrance is staggered fade-up. */}
+      <section
+        className="hero-full"
+        style={{ position: "relative", padding: "150px 0 130px", background: "var(--reaction-deep)", overflow: "hidden" }}
+        id="top"
+      >
+        {/* Layer 0: the constellation, edge to edge */}
+        <div data-hero-visual aria-hidden="true" style={{ position: "absolute", inset: 0 }}>
+          <AgentConstellation />
+        </div>
+
+        {/* Layer 1: legibility scrim — dense over the copy, open on the right */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            inset: 0,
+            pointerEvents: "none",
+            background:
+              "linear-gradient(90deg, rgba(8,27,61,0.92) 0%, rgba(8,27,61,0.72) 38%, rgba(8,27,61,0.28) 62%, rgba(8,27,61,0.06) 100%), linear-gradient(180deg, rgba(8,27,61,0.35) 0%, rgba(8,27,61,0) 22%, rgba(8,27,61,0) 72%, rgba(8,27,61,0.5) 100%)",
+          }}
+        />
+
+        {/* Layer 2: the copy */}
+        <div className="container" style={{ position: "relative", zIndex: 2 }}>
+          <div style={{ maxWidth: 760 }}>
+          <div className="page-eyebrow rx-enter" style={{ marginBottom: 32, fontWeight: 600, color: "#9db7e4", animationDelay: "60ms" }}>
             <span
               style={{
                 width: 6,
@@ -39,27 +61,31 @@ export default function HomePage() {
           </div>
 
           <h1
+            className="rx-enter"
             style={{
               ...display,
               fontSize: "clamp(2.4rem, 6.5vw, 5.4rem)",
               lineHeight: 0.98,
               maxWidth: "18ch",
               margin: "0 0 32px",
-              color: "var(--text)",
+              color: "#f2f6fc",
+              animationDelay: "140ms",
+              textShadow: "0 2px 24px rgba(4,12,28,0.45)",
             }}
           >
             Every <em style={{ color: "var(--action)" }}>action</em> has an equal and opposite{" "}
-            <em style={{ color: "var(--reaction)" }}>Reaction</em>.
+            <em style={{ color: "var(--reaction-soft)" }}>Reaction</em>.
           </h1>
 
           <div
-            className="mono"
-            style={{ fontSize: "0.78rem", letterSpacing: "0.06em", color: "var(--text-muted)", marginBottom: 44 }}
+            className="mono rx-enter"
+            style={{ fontSize: "0.78rem", letterSpacing: "0.06em", color: "rgba(245,246,248,0.55)", marginBottom: 44, animationDelay: "220ms" }}
           >
             — Sir Isaac Newton, 1687
           </div>
 
           <p
+            className="rx-enter"
             style={{
               fontFamily: "'Newsreader', Georgia, serif",
               fontWeight: 500,
@@ -69,6 +95,8 @@ export default function HomePage() {
               letterSpacing: "-0.015em",
               maxWidth: "32ch",
               margin: "0 0 22px",
+              color: "#dbe6f5",
+              animationDelay: "300ms",
             }}
           >
             Locally hosted multi-agentic systems that augment how your
@@ -76,69 +104,51 @@ export default function HomePage() {
           </p>
 
           <p
+            className="rx-enter"
             style={{
               fontSize: "clamp(1.05rem, 1.45vw, 1.15rem)",
               lineHeight: 1.6,
               maxWidth: "56ch",
-              color: "var(--text-soft)",
+              color: "rgba(219,230,245,0.85)",
               margin: "0 0 44px",
+              animationDelay: "380ms",
             }}
           >
-            We help your business have the right <span style={{ color: "var(--reaction)" }}>reaction</span> to AI, empowering employers and employees with the tools they need to succeed.
+            We help your business have the right <span style={{ color: "var(--reaction-soft)" }}>reaction</span> to AI, empowering employers and employees with the tools they need to succeed.
           </p>
 
-          <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-            <Link href="/demo" className="btn btn-primary btn-large">
+          <div className="rx-enter" style={{ display: "flex", gap: 14, flexWrap: "wrap", animationDelay: "460ms" }}>
+            <Link href="/demo" className="btn btn-hero-primary btn-large">
               Book a demo
               <span className="arrow" aria-hidden="true">→</span>
             </Link>
-            <Link href="#what" className="btn btn-ghost btn-large">
+            <Link href="#what" className="btn btn-hero-ghost btn-large">
               What we do
             </Link>
           </div>
           </div>
 
-          {/* The chamber: a deep ink-violet vault holding the living agent
-              constellation — the LMAS motif, alive. Decorative (aria-hidden). */}
           <div
-            data-hero-visual
-            className="hero-chamber"
+            className="mono"
+            aria-hidden="true"
             style={{
-              position: "relative",
-              alignSelf: "stretch",
-              minHeight: 480,
-              borderRadius: 20,
-              background:
-                "radial-gradient(120% 90% at 70% 20%, #221a44 0%, var(--reaction-deep) 55%)",
-              border: "1px solid rgba(157,144,242,0.22)",
-              boxShadow:
-                "0 24px 60px -24px rgba(24,18,48,0.45), inset 0 1px 0 rgba(245,243,251,0.07)",
-              overflow: "hidden",
+              position: "absolute",
+              right: 24,
+              bottom: -76,
+              fontSize: "0.62rem",
+              letterSpacing: "0.16em",
+              textTransform: "uppercase",
+              color: "rgba(126,169,242,0.7)",
             }}
           >
-            <AgentConstellation />
-            <div
-              className="mono"
-              aria-hidden="true"
-              style={{
-                position: "absolute",
-                left: 20,
-                bottom: 16,
-                fontSize: "0.62rem",
-                letterSpacing: "0.16em",
-                textTransform: "uppercase",
-                color: "rgba(157,144,242,0.75)",
-              }}
-            >
-              LMAS · live inside your walls
-            </div>
-          </div>
+            LMAS · live inside your walls
           </div>
         </div>
       </section>
 
       {/* THE PROBLEM */}
       <section
+        className="dark-drift"
         style={{
           padding: "100px 0",
           background: "var(--reaction-deep)",
@@ -191,8 +201,8 @@ export default function HomePage() {
                     gridTemplateColumns: "48px 1fr",
                     gap: 32,
                     padding: "36px 0",
-                    borderTop: "1px solid rgba(236,235,241,0.22)",
-                    borderBottom: i === arr.length - 1 ? "1px solid rgba(236,235,241,0.22)" : "none",
+                    borderTop: "1px solid rgba(245,246,248,0.22)",
+                    borderBottom: i === arr.length - 1 ? "1px solid rgba(245,246,248,0.22)" : "none",
                   }}
                 >
                   <div className="mono" style={{ color: "var(--action)", fontSize: "0.7rem", letterSpacing: "0.1em", paddingTop: 10 }}>
@@ -213,7 +223,7 @@ export default function HomePage() {
                     >
                       {row.h}
                     </h4>
-                    <p style={{ fontSize: "0.95rem", lineHeight: 1.55, color: "rgba(236,235,241,0.82)", margin: 0 }}>
+                    <p style={{ fontSize: "0.95rem", lineHeight: 1.55, color: "rgba(245,246,248,0.82)", margin: 0 }}>
                       {row.p}
                     </p>
                   </div>
@@ -262,9 +272,7 @@ export default function HomePage() {
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(3, 1fr)",
-              gap: 1,
-              background: "var(--rule-strong)",
-              border: "1px solid var(--rule-strong)",
+              gap: 20,
               borderRadius: 16,
               overflow: "hidden",
             }}
@@ -275,7 +283,7 @@ export default function HomePage() {
               { num: "02 · CONNECT", h: "Work across your stack", p: "The system reaches into the tools and data your business already runs on, so work moves between systems without a person copying it across by hand." },
               { num: "03 · DECIDE", h: "Surface the right call", p: "It brings the relevant context to your team at the moment of decision — a recommendation and the reasoning behind it — so they act faster, and stay in charge." },
             ].map((p) => (
-              <div key={p.num} style={{ background: "var(--bg)", padding: "36px 32px 40px" }}>
+              <div key={p.num} className="card-float" style={{ padding: "36px 32px 40px" }}>
                 <div className="mono" style={{ fontSize: "0.7rem", letterSpacing: "0.1em", color: "var(--reaction)", marginBottom: 28 }}>
                   {p.num}
                 </div>
@@ -322,22 +330,21 @@ export default function HomePage() {
           </header>
 
           <div>
-            <div>
+            <div className="an-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
               {[
                 { num: "01", h: "Operations & admin", p: "Automate intake, scheduling, document handling and the repetitive flows that slow teams down — with a person approving anything that matters before it goes out." },
                 { num: "02", h: "Finance & compliance", p: "Agents that reconcile, check work against your rules, and flag exceptions — every step logged for a full audit trail, all on infrastructure you control." },
                 { num: "03", h: "Customer & client operations", p: "Triage incoming requests, draft responses, and pull the right account context together, so your team resolves more without losing the human touch." },
                 { num: "04", h: "Knowledge & research", p: "Turn your internal documents and data into a system your team can actually query — answers grounded in your own material, kept entirely in-house." },
-              ].map((row, i, arr) => (
+              ].map((row) => (
                 <div
                   key={row.num}
+                  className="card-float"
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "48px 1fr",
-                    gap: 32,
-                    padding: "36px 0",
-                    borderTop: "1px solid var(--rule)",
-                    borderBottom: i === arr.length - 1 ? "1px solid var(--rule)" : "none",
+                    gridTemplateColumns: "44px 1fr",
+                    gap: 24,
+                    padding: "30px 28px",
                   }}
                 >
                   <div className="mono" style={{ color: "var(--reaction)", fontSize: "0.7rem", letterSpacing: "0.1em", paddingTop: 10 }}>
@@ -383,7 +390,7 @@ export default function HomePage() {
                 ...display,
                 fontSize: "clamp(2rem, 4vw, 3rem)",
                 lineHeight: 1.13,
-                color: "#f5f3fb",
+                color: "#f2f6fc",
                 margin: "0 auto",
                 maxWidth: "20ch",
               }}
@@ -397,7 +404,7 @@ export default function HomePage() {
                 fontVariationSettings: '"opsz" 36, "SOFT" 0, "WONK" 0',
                 fontSize: "1.15rem",
                 lineHeight: 1.55,
-                color: "#b7b0d6",
+                color: "#a9bdde",
                 maxWidth: "56ch",
                 margin: "28px auto 0",
               }}
@@ -422,10 +429,10 @@ export default function HomePage() {
               style={{
                 display: "flex",
                 flexDirection: "column",
-                background: "rgba(245,243,251,0.04)",
+                background: "rgba(242,246,252,0.04)",
                 backdropFilter: "blur(8px)",
-                boxShadow: "inset 0 1px 0 rgba(245,243,251,0.08)",
-                border: "1px solid rgba(245,243,251,0.14)",
+                boxShadow: "inset 0 1px 0 rgba(242,246,252,0.08)",
+                border: "1px solid rgba(242,246,252,0.14)",
                 borderRadius: 14,
                 padding: "28px 26px",
               }}
@@ -437,9 +444,9 @@ export default function HomePage() {
                 <rect x="1.5" y="1.5" width="165" height="85" rx="12" stroke="var(--reaction-soft)" strokeOpacity="0.4" strokeDasharray="5 5" />
                 <path d="M48 32 L92 26 M92 26 L122 54 M48 32 L70 64 M70 64 L122 54" stroke="var(--reaction-soft)" strokeOpacity="0.32" />
                 <circle cx="48" cy="32" r="8" fill="var(--action)" />
-                <circle cx="92" cy="26" r="6.5" stroke="#c9c3e8" strokeWidth="1.6" />
+                <circle cx="92" cy="26" r="6.5" stroke="#c6d7ef" strokeWidth="1.6" />
                 <circle cx="122" cy="54" r="8" fill="var(--action)" />
-                <circle cx="70" cy="64" r="6.5" stroke="#c9c3e8" strokeWidth="1.6" />
+                <circle cx="70" cy="64" r="6.5" stroke="#c6d7ef" strokeWidth="1.6" />
               </svg>
               <h3
                 style={{
@@ -450,12 +457,12 @@ export default function HomePage() {
                   letterSpacing: "-0.015em",
                   lineHeight: 1.18,
                   margin: "0 0 12px",
-                  color: "#f5f3fb",
+                  color: "#f2f6fc",
                 }}
               >
                 Locally hosted multi-agentic systems
               </h3>
-              <p style={{ fontSize: "0.92rem", lineHeight: 1.6, color: "#b7b0d6", margin: 0 }}>
+              <p style={{ fontSize: "0.92rem", lineHeight: 1.6, color: "#a9bdde", margin: 0 }}>
                 Specialised agents working together on infrastructure you control — inside your organisation&rsquo;s boundary, not handed to an outside vendor. The intelligence lives where your data already does.
               </p>
             </div>
@@ -465,10 +472,10 @@ export default function HomePage() {
               style={{
                 display: "flex",
                 flexDirection: "column",
-                background: "rgba(245,243,251,0.04)",
+                background: "rgba(242,246,252,0.04)",
                 backdropFilter: "blur(8px)",
-                boxShadow: "inset 0 1px 0 rgba(245,243,251,0.08)",
-                border: "1px solid rgba(245,243,251,0.14)",
+                boxShadow: "inset 0 1px 0 rgba(242,246,252,0.08)",
+                border: "1px solid rgba(242,246,252,0.14)",
                 borderRadius: 14,
                 padding: "28px 26px",
               }}
@@ -477,8 +484,8 @@ export default function HomePage() {
                 Augmented · not artificial
               </div>
               <svg width="100%" height="88" viewBox="0 0 168 88" fill="none" aria-hidden="true" focusable="false" style={{ display: "block", marginBottom: 20 }}>
-                <circle cx="30" cy="26" r="6.5" stroke="#c9c3e8" strokeWidth="1.6" />
-                <circle cx="30" cy="62" r="6.5" stroke="#c9c3e8" strokeWidth="1.6" />
+                <circle cx="30" cy="26" r="6.5" stroke="#c6d7ef" strokeWidth="1.6" />
+                <circle cx="30" cy="62" r="6.5" stroke="#c6d7ef" strokeWidth="1.6" />
                 <path d="M39 28 L98 42 M39 60 L98 46" stroke="var(--reaction-soft)" strokeOpacity="0.45" />
                 <path d="M91 37 L103 44 L91 51" stroke="var(--reaction-soft)" strokeOpacity="0.65" strokeLinecap="round" strokeLinejoin="round" />
                 <circle cx="116" cy="44" r="9" fill="var(--action)" />
@@ -492,12 +499,12 @@ export default function HomePage() {
                   letterSpacing: "-0.015em",
                   lineHeight: 1.18,
                   margin: "0 0 12px",
-                  color: "#f5f3fb",
+                  color: "#f2f6fc",
                 }}
               >
                 Augmented over artificial
               </h3>
-              <p style={{ fontSize: "0.92rem", lineHeight: 1.6, color: "#b7b0d6", margin: 0 }}>
+              <p style={{ fontSize: "0.92rem", lineHeight: 1.6, color: "#a9bdde", margin: 0 }}>
                 We build AI that augments the tools and workflows your team works with — never replacing the team itself — and we train your employees to use it with confidence. They stay in the loop, and in charge.
               </p>
             </div>
@@ -507,10 +514,10 @@ export default function HomePage() {
               style={{
                 display: "flex",
                 flexDirection: "column",
-                background: "rgba(245,243,251,0.04)",
+                background: "rgba(242,246,252,0.04)",
                 backdropFilter: "blur(8px)",
-                boxShadow: "inset 0 1px 0 rgba(245,243,251,0.08)",
-                border: "1px solid rgba(245,243,251,0.14)",
+                boxShadow: "inset 0 1px 0 rgba(242,246,252,0.08)",
+                border: "1px solid rgba(242,246,252,0.14)",
                 borderRadius: 14,
                 padding: "28px 26px",
               }}
@@ -532,12 +539,12 @@ export default function HomePage() {
                   letterSpacing: "-0.015em",
                   lineHeight: 1.18,
                   margin: "0 0 12px",
-                  color: "#f5f3fb",
+                  color: "#f2f6fc",
                 }}
               >
                 Data that never leaves
               </h3>
-              <p style={{ fontSize: "0.92rem", lineHeight: 1.6, color: "#b7b0d6", margin: 0 }}>
+              <p style={{ fontSize: "0.92rem", lineHeight: 1.6, color: "#a9bdde", margin: 0 }}>
                 Because the system is hosted and maintained by us, your data stays in a controlled environment — aligned with UK data-residency and GDPR expectations, with no third-party model quietly training on it.
               </p>
             </div>
@@ -552,8 +559,8 @@ export default function HomePage() {
               gap: 20,
             }}
           >
-            <div style={{ background: "rgba(245,243,251,0.03)", border: "1px solid rgba(245,243,251,0.10)", borderRadius: 14, padding: "26px 26px" }}>
-              <div className="mono" style={{ fontSize: "0.68rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "#8b86a0", marginBottom: 16 }}>
+            <div style={{ background: "rgba(242,246,252,0.03)", border: "1px solid rgba(242,246,252,0.10)", borderRadius: 14, padding: "26px 26px" }}>
+              <div className="mono" style={{ fontSize: "0.68rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "#8291ad", marginBottom: 16 }}>
                 The usual way
               </div>
               {[
@@ -561,8 +568,8 @@ export default function HomePage() {
                 "Models shift underneath you, without warning",
                 "Governance and uptime you don't control",
               ].map((line) => (
-                <div key={line} style={{ display: "flex", gap: 12, alignItems: "baseline", padding: "8px 0", color: "#837e96", fontSize: "0.92rem", lineHeight: 1.5 }}>
-                  <span aria-hidden="true" style={{ color: "#5d5872", flexShrink: 0 }}>—</span>
+                <div key={line} style={{ display: "flex", gap: 12, alignItems: "baseline", padding: "8px 0", color: "#7c8ba6", fontSize: "0.92rem", lineHeight: 1.5 }}>
+                  <span aria-hidden="true" style={{ color: "#55648a", flexShrink: 0 }}>—</span>
                   <span>{line}</span>
                 </div>
               ))}
@@ -576,7 +583,7 @@ export default function HomePage() {
                 "Models and knowledge maintained, and versioned, by us",
                 "Your data stays inside your environment",
               ].map((line) => (
-                <div key={line} style={{ display: "flex", gap: 12, alignItems: "baseline", padding: "8px 0", color: "#e8e4f3", fontSize: "0.92rem", lineHeight: 1.5 }}>
+                <div key={line} style={{ display: "flex", gap: 12, alignItems: "baseline", padding: "8px 0", color: "#e3ecf8", fontSize: "0.92rem", lineHeight: 1.5 }}>
                   <span aria-hidden="true" style={{ color: "var(--action)", flexShrink: 0 }}>+</span>
                   <span>{line}</span>
                 </div>
@@ -610,22 +617,21 @@ export default function HomePage() {
           </header>
 
           <div>
-            <div>
+            <div className="an-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
               {[
                 { num: "01", h: "We build it around your workflows", p: "Discovery first. We map how your business actually works — the tasks, the tools, the handoffs — before a line of code, so the system fits your operation rather than the other way round." },
                 { num: "02", h: "Hosted and maintained by us", p: "We stand it up on infrastructure you control, then keep the models and knowledge current — so you get a system that stays sharp without an in-house AI team to run it." },
                 { num: "03", h: "Your team, trained", p: "We train your employees to work alongside the system with confidence — because augmented intelligence only pays off when the team members using it trust it and know how." },
                 { num: "04", h: "Yours, not rented", p: "No per-seat subscriptions feeding a third party, no data leaving your walls. The system lives inside your business and answers to you." },
-              ].map((row, i, arr) => (
+              ].map((row) => (
                 <div
                   key={row.num}
+                  className="card-float"
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "48px 1fr",
-                    gap: 32,
-                    padding: "36px 0",
-                    borderTop: "1px solid var(--rule)",
-                    borderBottom: i === arr.length - 1 ? "1px solid var(--rule)" : "none",
+                    gridTemplateColumns: "44px 1fr",
+                    gap: 24,
+                    padding: "30px 28px",
                   }}
                 >
                   <div className="mono" style={{ color: "var(--reaction)", fontSize: "0.7rem", letterSpacing: "0.1em", paddingTop: 10 }}>

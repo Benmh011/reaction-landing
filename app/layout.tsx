@@ -7,23 +7,23 @@ import SiteAnalytics from "@/components/SiteAnalytics";
 export const metadata: Metadata = {
   metadataBase: new URL("https://reaction.org.uk"),
   title: {
-    default: "Reaction · University software for student connection",
+    default: "Reaction · Locally hosted multi-agentic systems for business",
     template: "%s · Reaction",
   },
   description:
-    "University software connecting students on and off campus. Reaction helps universities and students' unions improve engagement, wellbeing, and employability — supporting TEF, Graduate Outcomes, and Access & Participation Plan delivery.",
+    "Reaction builds locally hosted multi-agentic systems (LMAS) for businesses — augmenting the tools and workflows your team relies on, with your data kept on infrastructure you control. Augmented intelligence over artificial intelligence.",
   applicationName: "Reaction",
   keywords: [
-    "university software",
-    "student engagement platform",
-    "student experience platform",
-    "students union software",
-    "student wellbeing",
-    "student retention",
-    "TEF",
-    "Graduate Outcomes",
-    "Access and Participation Plan",
-    "student employability",
+    "locally hosted AI",
+    "multi-agent systems",
+    "LMAS",
+    "augmented intelligence",
+    "AI agents for business",
+    "on-premise AI",
+    "private AI infrastructure",
+    "AI data security",
+    "workflow automation",
+    "AI employee training",
   ],
   authors: [{ name: "Reaction" }],
   creator: "Reaction",
@@ -34,15 +34,15 @@ export const metadata: Metadata = {
     locale: "en_GB",
     url: "https://reaction.org.uk",
     siteName: "Reaction",
-    title: "Reaction · University software for student connection",
+    title: "Reaction · Locally hosted multi-agentic systems for business",
     description:
-      "University software connecting students on and off campus. Every action has an equal and opposite Reaction.",
+      "AI that augments the tools and workflows your team relies on — on infrastructure you control. Every action has an equal and opposite Reaction.",
     // Image auto-attached from app/opengraph-image.tsx
   },
   twitter: {
     card: "summary_large_image",
-    title: "Reaction · University software for student connection",
-    description: "University software connecting students on and off campus.",
+    title: "Reaction · Locally hosted multi-agentic systems for business",
+    description: "Locally hosted multi-agentic systems — augmented intelligence for business.",
   },
   robots: {
     index: true,
@@ -70,7 +70,7 @@ const organizationSchema = {
   "@type": "Organization",
   name: "Reaction",
   url: "https://reaction.org.uk",
-  description: "University software connecting students on and off campus.",
+  description: "Locally hosted multi-agentic systems for business — augmented intelligence over artificial intelligence.",
   email: "info@reaction.org.uk",
   founder: {
     "@type": "Person",
@@ -81,10 +81,11 @@ const organizationSchema = {
     name: "United Kingdom",
   },
   knowsAbout: [
-    "Student engagement",
-    "Student wellbeing",
-    "Student employability",
-    "Higher education",
+    "Multi-agent AI systems",
+    "Locally hosted AI infrastructure",
+    "Workflow automation",
+    "AI data security",
+    "Employee AI training",
   ],
 };
 

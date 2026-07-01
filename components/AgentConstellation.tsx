@@ -19,30 +19,35 @@ import { useEffect, useRef, useState } from "react";
  */
 
 const AMBER = 0xf4a22c;
-const VIOLET = 0x4b3dcb;
-const VIOLET_SOFT = 0x9d90f2;
+const BLUE = 0x3b78e8;
+const BLUE_SOFT = 0x7ea9f2;
 
 // Node layout: hand-placed inside the boundary so the composition is stable
 // and art-directed rather than random on every visit. [x, y, z, active?]
 const NODES: [number, number, number, boolean][] = [
-  [-1.9, 0.7, 0.3, true],
-  [-0.6, 1.05, -0.7, false],
-  [0.9, 0.85, 0.5, false],
-  [2.0, 0.15, -0.4, true],
-  [-2.2, -0.5, -0.5, false],
-  [-0.9, -0.15, 0.8, false],
-  [0.2, -0.7, -0.2, true],
-  [1.4, -0.85, 0.6, false],
-  [2.3, -0.3, 0.9, false],
-  [-1.3, -1.0, -0.8, false],
-  [0.8, 0.1, -1.0, false],
-  [-0.1, 0.35, 1.1, false],
+  [-3.3, 0.7, 0.3, true],
+  [-1.1, 1.15, -0.7, false],
+  [1.6, 0.9, 0.5, false],
+  [3.5, 0.15, -0.4, true],
+  [-3.8, -0.55, -0.5, false],
+  [-1.6, -0.15, 0.8, false],
+  [0.35, -0.75, -0.2, true],
+  [2.45, -0.9, 0.6, false],
+  [4.0, -0.3, 0.9, false],
+  [-2.3, -1.05, -0.8, false],
+  [1.4, 0.1, -1.0, false],
+  [-0.2, 0.4, 1.1, false],
+  [4.6, 1.0, -0.2, false],
+  [-4.5, 0.15, 0.5, false],
+  [2.9, -0.2, -0.9, true],
+  [-0.9, -1.15, 0.2, false],
 ];
 
 // Connections between node indices — a sparse mesh, mirrors the 2D motif.
 const LINKS: [number, number][] = [
   [0, 1], [1, 2], [2, 3], [0, 5], [5, 6], [6, 7], [7, 3],
   [4, 5], [4, 9], [9, 6], [2, 10], [10, 6], [11, 5], [11, 2], [8, 3], [8, 7],
+  [12, 3], [12, 8], [13, 0], [13, 4], [14, 7], [14, 10], [15, 9], [15, 6], [12, 14],
 ];
 
 function StaticFallback() {
@@ -55,7 +60,7 @@ function StaticFallback() {
       fill="none"
       aria-hidden="true"
       focusable="false"
-      style={{ display: "block", opacity: 0.9 }}
+      style={{ display: "block", opacity: 0.35, maxWidth: 720 }}
       preserveAspectRatio="xMidYMid meet"
     >
       <rect x="1.5" y="1.5" width="165" height="85" rx="12" stroke="var(--reaction-soft)" strokeOpacity="0.4" strokeDasharray="5 5" />
@@ -114,18 +119,18 @@ export default function AgentConstellation() {
       renderer.domElement.style.display = "block";
 
       const scene = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 60);
-      camera.position.set(0, 0.2, 8.6);
+      const camera = new THREE.PerspectiveCamera(44, 1, 0.1, 60);
+      camera.position.set(0, 0.15, 9.6);
 
       const group = new THREE.Group();
       scene.add(group);
-      group.rotation.set(0.14, -0.35, 0);
+      group.rotation.set(0.12, -0.22, 0);
 
       // ── The walls: dashed wireframe boundary ──
-      const boundaryGeom = new THREE.BoxGeometry(5.7, 3.4, 3.2);
+      const boundaryGeom = new THREE.BoxGeometry(10.4, 4.4, 3.4);
       const edges = new THREE.EdgesGeometry(boundaryGeom);
       const boundaryMat = new THREE.LineDashedMaterial({
-        color: VIOLET_SOFT,
+        color: BLUE_SOFT,
         transparent: true,
         opacity: 0.38,
         dashSize: 0.14,
@@ -162,7 +167,7 @@ export default function AgentConstellation() {
       const activeGeom = new THREE.SphereGeometry(0.16, 20, 16);
       const idleGeom = new THREE.SphereGeometry(0.13, 10, 7);
       const activeMat = new THREE.MeshBasicMaterial({ color: AMBER });
-      const idleMat = new THREE.MeshBasicMaterial({ color: VIOLET_SOFT, wireframe: true, transparent: true, opacity: 0.85 });
+      const idleMat = new THREE.MeshBasicMaterial({ color: BLUE_SOFT, wireframe: true, transparent: true, opacity: 0.85 });
 
       for (const [x, y, z, active] of NODES) {
         const mesh = new THREE.Mesh(active ? activeGeom : idleGeom, active ? activeMat : idleMat);
@@ -187,7 +192,7 @@ export default function AgentConstellation() {
       }
 
       // ── Links ──
-      const linkMat = new THREE.LineBasicMaterial({ color: VIOLET, transparent: true, opacity: 0.28 });
+      const linkMat = new THREE.LineBasicMaterial({ color: BLUE, transparent: true, opacity: 0.28 });
       const linkLines: { line: import("three").Line; a: number; b: number }[] = [];
       for (const [a, b] of LINKS) {
         const geom = new THREE.BufferGeometry().setFromPoints([nodeEntries[a].base, nodeEntries[b].base]);
@@ -201,7 +206,7 @@ export default function AgentConstellation() {
       const pulseMat = new THREE.MeshBasicMaterial({ color: AMBER, transparent: true, opacity: 0.95 });
       type Pulse = { mesh: import("three").Mesh; link: number; t: number; speed: number };
       const pulses: Pulse[] = [];
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 4; i++) {
         const mesh = new THREE.Mesh(pulseGeom, pulseMat);
         group.add(mesh);
         pulses.push({ mesh, link: Math.floor(Math.random() * LINKS.length), t: Math.random(), speed: 0.25 + Math.random() * 0.3 });
@@ -225,7 +230,7 @@ export default function AgentConstellation() {
       const onMouse = (e: MouseEvent) => {
         const nx = (e.clientX / window.innerWidth) * 2 - 1;
         const ny = (e.clientY / window.innerHeight) * 2 - 1;
-        targetRY = -0.35 + nx * 0.12;
+        targetRY = -0.22 + nx * 0.1;
         targetRX = 0.14 + ny * 0.08;
       };
       if (!reduceMotion) window.addEventListener("mousemove", onMouse, { passive: true });

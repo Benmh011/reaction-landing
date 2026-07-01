@@ -3,37 +3,37 @@
  * it's needed later. The site forces data-theme="light" via layout.tsx. */
 :root,
 [data-theme="light"] {
-  /* Surfaces — cool porcelain with a faint violet undertone (not cream, not flat grey) */
-  --bg:           #ecebf1;
-  --bg-surface:   #dedce8;
-  --bg-elevated:  #f4f3f8;
+  /* Surfaces — marble white: cool, luminous, faintly veined grey-blue */
+  --bg:           #f5f6f8;
+  --bg-surface:   #e6e8ee;
+  --bg-elevated:  #fcfcfd;
 
-  /* Text — ink with a violet whisper for headlines, cooled greys for captions */
-  --text:         #17131f;
-  --text-soft:    #494456;
-  --text-muted:   #716c7e;
+  /* Text — lab-ink navy for headlines, cooled slate for body */
+  --text:         #0c1424;
+  --text-soft:    #3d4658;
+  --text-muted:   #67718a;
 
-  /* Brand — "Reaction": a deep, considered ink-violet, charged by an "action" spark.
-     Every action has an equal and opposite Reaction — amber (action) sits near-opposite
-     violet (reaction) on the colour wheel, so the palette itself carries the thesis. */
-  --reaction:      #4b3dcb;   /* vivid indigo-violet — the brand cool */
-  --reaction-deep: #181230;   /* deep ink-violet — dark-section foundation */
-  --reaction-soft: #9d90f2;   /* lighter violet for accents on dark surfaces */
-  --accent:        #4b3dcb;
-  --accent-warm:   #6a5ce0;
+  /* Brand — "Reaction": scientific blue. Precise, cold, credible — the colour
+     of instrumentation and deep water. Charged by the amber "action" spark
+     (Newton's thesis intact: warm action, cool considered Reaction). */
+  --reaction:      #0d5dd7;   /* scientific blue */
+  --reaction-deep: #081b3d;   /* deep lab-navy — dark-section foundation */
+  --reaction-soft: #7ea9f2;   /* light blue for accents on dark surfaces */
+  --accent:        #0d5dd7;
+  --accent-warm:   #3b7ce4;
 
-  /* Action — the warm spark. Used sparingly: the "action" word, the live dot,
-     a single charged accent on dark. Never as small body text on light. */
-  --action:        #f4a22c;   /* marigold / amber */
+  /* Action — the warm spark. Sparingly: the "action" word, live dots,
+     one charged accent per dark section. */
+  --action:        #f4a22c;
   --action-deep:   #d9851a;
 
   /* Lines */
-  --rule:        #d0cedc;
-  --rule-strong: #b6b2c6;
+  --rule:        #d5d9e2;
+  --rule-strong: #b8bfce;
 
   /* Effects */
   --grain-opacity: 0.04;
-  --shadow-cta:    0 1px 2px rgba(24, 18, 48, 0.10), 0 6px 20px rgba(24, 18, 48, 0.13);
+  --shadow-cta:    0 1px 2px rgba(8, 27, 61, 0.10), 0 6px 20px rgba(8, 27, 61, 0.14);
 
   /* Status colours — kept distinct from brand */
   --success: #15803d;
@@ -41,7 +41,7 @@
   --danger:  #b91c1c;
 
   /* Form input */
-  --input-bg: #f4f3f8;
+  --input-bg: #fcfcfd;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -189,7 +189,7 @@ section { position: relative; z-index: 2; }
 .btn-outlined:hover:not(:disabled) {
   background: color-mix(in srgb, var(--reaction) 8%, transparent);
   transform: translateY(-1px);
-  box-shadow: 0 1px 2px rgba(75, 61, 203, 0.12), 0 6px 18px rgba(75, 61, 203, 0.16);
+  box-shadow: 0 1px 2px rgba(13, 93, 215, 0.12), 0 6px 18px rgba(13, 93, 215, 0.16);
 }
 .btn-outlined .arrow { transition: transform 0.25s ease; }
 .btn-outlined:hover:not(:disabled) .arrow { transform: translateX(3px); }
@@ -371,15 +371,15 @@ section { position: relative; z-index: 2; }
 .panel {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    0 1px 2px rgba(24, 18, 48, 0.05),
-    0 14px 34px -18px rgba(24, 18, 48, 0.18);
+    0 1px 2px rgba(8, 27, 61, 0.05),
+    0 14px 34px -18px rgba(8, 27, 61, 0.18);
   transition: box-shadow 0.3s ease, transform 0.3s ease;
 }
 .panel:hover {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    0 2px 4px rgba(24, 18, 48, 0.06),
-    0 22px 44px -18px rgba(24, 18, 48, 0.24);
+    0 2px 4px rgba(8, 27, 61, 0.06),
+    0 22px 44px -18px rgba(8, 27, 61, 0.24);
 }
 
 /* Buttons: calm micro-motion */
@@ -397,19 +397,19 @@ section { position: relative; z-index: 2; }
 .foot-links a:hover { background-size: 100% 1px; }
 
 /* The approach vault: a slow ambient violet drift behind the dark section */
-#approach { position: relative; overflow: hidden; }
-#approach::before {
+#approach, .dark-drift { position: relative; overflow: hidden; }
+#approach::before, .dark-drift::before {
   content: "";
   position: absolute;
   inset: -30%;
   background:
-    radial-gradient(38% 30% at 24% 22%, rgba(75, 61, 203, 0.32), transparent 70%),
-    radial-gradient(30% 26% at 78% 74%, rgba(157, 144, 242, 0.14), transparent 70%),
-    radial-gradient(18% 16% at 66% 18%, rgba(244, 162, 44, 0.08), transparent 70%);
+    radial-gradient(38% 30% at 24% 22%, rgba(13, 93, 215, 0.30), transparent 70%),
+    radial-gradient(30% 26% at 78% 74%, rgba(126, 169, 242, 0.14), transparent 70%),
+    radial-gradient(18% 16% at 66% 18%, rgba(244, 162, 44, 0.09), transparent 70%);
   animation: rxDrift 22s ease-in-out infinite alternate;
   pointer-events: none;
 }
-#approach .container { position: relative; z-index: 1; }
+#approach .container, .dark-drift .container { position: relative; z-index: 1; }
 @keyframes rxDrift {
   from { transform: translate3d(-2.5%, -2%, 0) scale(1); }
   to   { transform: translate3d(2.5%, 2%, 0) scale(1.06); }
@@ -436,7 +436,77 @@ section { position: relative; z-index: 2; }
 
 /* Reduced motion: kill the drift and reveal transforms outright */
 @media (prefers-reduced-motion: reduce) {
-  #approach::before { animation: none; }
+  #approach::before, .dark-drift::before { animation: none; }
   .rx-reveal .rx-reveal-item { opacity: 1 !important; transform: none !important; transition: none !important; }
   .btn:hover:not(:disabled) { transform: none; }
+}
+
+
+/* ─────────────────────────────────────────────────────────────
+   FABLE PASS II — full-bleed hero, entrance choreography, depth
+   ───────────────────────────────────────────────────────────── */
+
+/* Entrance: hero text fades up on load (staggered via inline delays) */
+.rx-enter {
+  opacity: 0;
+  transform: translateY(26px);
+  animation: rxEnter 0.95s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes rxEnter {
+  to { opacity: 1; transform: none; }
+}
+
+/* Hero buttons — light-on-dark variants */
+.btn-hero-primary {
+  background: #f5f6f8;
+  color: #0c1424;
+  border: 1px solid rgba(245, 246, 248, 0.2);
+  box-shadow: 0 2px 6px rgba(4, 12, 28, 0.4), 0 14px 34px -12px rgba(4, 12, 28, 0.55);
+}
+.btn-hero-primary:hover:not(:disabled) {
+  background: #ffffff;
+  box-shadow: 0 4px 10px rgba(4, 12, 28, 0.45), 0 20px 44px -12px rgba(4, 12, 28, 0.6);
+}
+.btn-hero-primary .arrow { transition: transform 0.25s ease; }
+.btn-hero-primary:hover:not(:disabled) .arrow { transform: translateX(3px); }
+.btn-hero-ghost {
+  background: rgba(245, 246, 248, 0.04);
+  color: #f2f6fc;
+  border: 1px solid rgba(245, 246, 248, 0.32);
+  backdrop-filter: blur(4px);
+}
+.btn-hero-ghost:hover:not(:disabled) {
+  border-color: rgba(245, 246, 248, 0.6);
+  background: rgba(245, 246, 248, 0.09);
+}
+
+/* Floating cards — depth-from-background for stats & info boxes */
+.card-float {
+  background: var(--bg-elevated);
+  border: 1px solid var(--rule);
+  border-radius: 16px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 1px 2px rgba(8, 27, 61, 0.05),
+    0 18px 40px -20px rgba(8, 27, 61, 0.22);
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s ease, border-color 0.3s ease;
+}
+.card-float:hover {
+  transform: translateY(-4px);
+  border-color: var(--rule-strong);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 2px 4px rgba(8, 27, 61, 0.06),
+    0 30px 60px -22px rgba(8, 27, 61, 0.32);
+}
+
+/* Hero scrim + mobile sizing */
+.hero-full { isolation: isolate; }
+@media (max-width: 960px) {
+  .hero-full { padding: 110px 0 90px !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rx-enter { animation: none; opacity: 1; transform: none; }
+  .card-float:hover { transform: none; }
 }
