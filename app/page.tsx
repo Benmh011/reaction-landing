@@ -1,5 +1,7 @@
 import Link from "next/link";
 import SiteNav from "@/components/SiteNav";
+import AgentConstellation from "@/components/AgentConstellation";
+import RevealFx from "@/components/RevealFx";
 import SiteFooter from "@/components/SiteFooter";
 
 // Inline-style helper so we can reuse the design tokens without spinning up Tailwind
@@ -14,11 +16,14 @@ const display = {
 export default function HomePage() {
   return (
     <>
+      <RevealFx />
       <SiteNav />
 
       {/* HERO */}
-      <section style={{ padding: "120px 0 100px" }} id="top">
+      <section style={{ padding: "110px 0 90px", overflow: "hidden" }} id="top">
         <div className="container">
+          <div className="hero-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.15fr) minmax(0, 0.85fr)", gap: 48, alignItems: "center" }}>
+          <div>
           <div className="page-eyebrow" style={{ marginBottom: 32, fontWeight: 600, color: "var(--text-soft)" }}>
             <span
               style={{
@@ -79,7 +84,7 @@ export default function HomePage() {
               margin: "0 0 44px",
             }}
           >
-            Your business takes <span style={{ color: "var(--action)" }}>action</span>. Our systems are the <span style={{ color: "var(--reaction)" }}>Reaction</span> — taking on the busywork and augmenting the tools and workflows your team relies on, on infrastructure you own.
+            We help your business have the right <span style={{ color: "var(--reaction)" }}>reaction</span> to AI, empowering employers and employees with the tools they need to succeed.
           </p>
 
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
@@ -90,6 +95,44 @@ export default function HomePage() {
             <Link href="#what" className="btn btn-ghost btn-large">
               What we do
             </Link>
+          </div>
+          </div>
+
+          {/* The chamber: a deep ink-violet vault holding the living agent
+              constellation — the LMAS motif, alive. Decorative (aria-hidden). */}
+          <div
+            data-hero-visual
+            className="hero-chamber"
+            style={{
+              position: "relative",
+              alignSelf: "stretch",
+              minHeight: 480,
+              borderRadius: 20,
+              background:
+                "radial-gradient(120% 90% at 70% 20%, #221a44 0%, var(--reaction-deep) 55%)",
+              border: "1px solid rgba(157,144,242,0.22)",
+              boxShadow:
+                "0 24px 60px -24px rgba(24,18,48,0.45), inset 0 1px 0 rgba(245,243,251,0.07)",
+              overflow: "hidden",
+            }}
+          >
+            <AgentConstellation />
+            <div
+              className="mono"
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                left: 20,
+                bottom: 16,
+                fontSize: "0.62rem",
+                letterSpacing: "0.16em",
+                textTransform: "uppercase",
+                color: "rgba(157,144,242,0.75)",
+              }}
+            >
+              LMAS · live inside your walls
+            </div>
+          </div>
           </div>
         </div>
       </section>
@@ -380,6 +423,8 @@ export default function HomePage() {
                 display: "flex",
                 flexDirection: "column",
                 background: "rgba(245,243,251,0.04)",
+                backdropFilter: "blur(8px)",
+                boxShadow: "inset 0 1px 0 rgba(245,243,251,0.08)",
                 border: "1px solid rgba(245,243,251,0.14)",
                 borderRadius: 14,
                 padding: "28px 26px",
@@ -421,6 +466,8 @@ export default function HomePage() {
                 display: "flex",
                 flexDirection: "column",
                 background: "rgba(245,243,251,0.04)",
+                backdropFilter: "blur(8px)",
+                boxShadow: "inset 0 1px 0 rgba(245,243,251,0.08)",
                 border: "1px solid rgba(245,243,251,0.14)",
                 borderRadius: 14,
                 padding: "28px 26px",
@@ -461,6 +508,8 @@ export default function HomePage() {
                 display: "flex",
                 flexDirection: "column",
                 background: "rgba(245,243,251,0.04)",
+                backdropFilter: "blur(8px)",
+                boxShadow: "inset 0 1px 0 rgba(245,243,251,0.08)",
                 border: "1px solid rgba(245,243,251,0.14)",
                 borderRadius: 14,
                 padding: "28px 26px",

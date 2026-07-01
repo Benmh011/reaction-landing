@@ -272,3 +272,49 @@ model PilotOutcome {
   @@index([postId])
   @@index([createdAt])
 }
+
+// ─────────────── ANALYTICS (first-party) ───────────────
+// Powers the /analytics dashboard. Written by the client beacon
+// (components/SiteAnalytics.tsx) via POST /api/track. Tables created with raw
+// SQL (db/analytics.sql) — do NOT run prisma migrate / db push on this project.
+
+model PageView {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  path      String
+  referrer  String?
+  sessionId String   // anonymous first-party visitor id (per-browser)
+  country   String?
+  device    String?  // "mobile" | "tablet" | "desktop"
+
+  @@index([createdAt])
+  @@index([sessionId])
+  @@index([path])
+}
+
+// One row per visit to a demo surface (/portal, /demo-app/*). durationMs is
+// finalised by a beacon fired when the visitor leaves the demo.
+model DemoSession {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  slug       String
+  sessionId  String
+  userId     String?
+  durationMs Int      @default(0)
+
+  @@index([createdAt])
+  @@index([slug])
+}
+
+// Business / agent metrics for deployed client systems. Fed by client agent
+// pipelines or the admin. Dashboard shows the latest value per (client, metric).
+model AgentMetric {
+  id         String   @id @default(cuid())
+  capturedAt DateTime @default(now())
+  client     String
+  metric     String   // e.g. "tasks_automated", "hours_saved", "agent_runs"
+  value      Float
+  unit       String?
+
+  @@index([client, metric, capturedAt])
+}

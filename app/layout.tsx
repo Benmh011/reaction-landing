@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { Analytics } from "@vercel/analytics/next";
+import SiteAnalytics from "@/components/SiteAnalytics";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://reaction.org.uk"),
@@ -108,6 +109,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             Data appears in the project's Analytics tab in the Vercel dashboard.
             No personal data collected; no consent banner required. */}
         <Analytics />
+        {/* First-party analytics beacon — feeds the in-app /analytics dashboard
+            (page views + demo time-on-page). Cookieless; fail-soft. */}
+        <SiteAnalytics />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
