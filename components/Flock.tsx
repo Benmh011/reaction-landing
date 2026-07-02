@@ -3,20 +3,20 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * Flock, third movement — the insignia.
+ * Flock, fourth movement — the insignia, properly flown.
  *
- * Three captains only: vermilion, blue, emerald. Each launches from the
- * coloured tittle of its own lowercase i in the headline, flies a curved
- * approach across the paper, and docks into a fixed formation in the open
- * sky right of the headline: three darts side-on, noses to the right, tail
- * points to the left, stacked with a slight overlap. A mark, assembled in
- * front of you. Once docked they hold station: a faint hover, a breath of
- * banking, nothing more.
+ * Three captains: vermilion, blue, emerald. Each is invisible until its
+ * moment, then grows out of the coloured tittle of its own lowercase i and
+ * flies the drill: straight up off the letter, arcing round to the LEFT,
+ * then swinging back to approach its station from the left, flying
+ * rightward — so the nose is already pointing the way it will dock, and the
+ * pose blends in smoothly instead of snapping. The station: a layered pile
+ * (red foremost, blue and green tails protruding behind) sitting in line
+ * with the hero's buttons, a comfortable distance right of the "Our ethos"
+ * button — measured live from the DOM so it tracks the real layout.
  *
- * Captains tow their colour in flight; the trail reels in as they dock.
- * The dots stay behind as the headline's permanent tittles. The emblem
- * repositions itself responsively. Reduced motion renders the finished
- * insignia; no WebGL falls back to a static SVG of it.
+ * Trails stream in flight and reel in on docking. Once formed, the mark
+ * breathes as one. Reduced motion renders the finished insignia.
  */
 
 const CAPTAINS = [
@@ -25,12 +25,15 @@ const CAPTAINS = [
   { pad: "green", color: 0x0d5a40 },
 ];
 const N = 3;
-const LAUNCH_AT = 1.7; // dots fade in ~1.15s; wheels-up shortly after
+const LAUNCH_AT = 1.7; //  dots fade ≈1.15s; wheels-up after
+const STAGGER = 0.14; //   captains leave their letters in sequence
 const TRAIL_LEN = 26;
-const FLY_K = 0.17; // dart scale in flight
-const DOCK_K = 0.26; // grows slightly on station
-const LAYER_DX = 0.12; // emblem layering: each dart shifted tailward behind the one in front
-const LAYER_DZ = 0.02; //  … and a hair deeper, so red always renders foremost
+const FLY_K = 0.17;
+const DOCK_K = 0.26;
+const LAYER_DX = 0.12; //  emblem layering: tails protrude behind red
+const LAYER_DZ = 0.02;
+const ANCHOR_GAP_PX = 72; // clear air between the ethos button and the mark
+const CRUISE = 1.8;
 const PAPER = { r: 247 / 255, g: 244 / 255, b: 236 / 255 };
 
 function StaticFallback() {
@@ -79,6 +82,28 @@ export default function Flock() {
       camera.position.set(0, 0, 8.4);
 
       let halfH = 3.56, halfW = 6.8;
+
+      const ndc = new THREE.Vector3();
+      const unproject = (px: number, py: number, out: import("three").Vector3) => {
+        const rect = host.getBoundingClientRect();
+        const nx = ((px - rect.left) / rect.width) * 2 - 1;
+        const ny = -(((py - rect.top) / rect.height) * 2 - 1);
+        ndc.set(nx, ny, 0.5).unproject(camera);
+        const dir = ndc.sub(camera.position).normalize();
+        const t = -camera.position.z / dir.z;
+        out.copy(camera.position).addScaledVector(dir, t);
+      };
+
+      // ── The station anchor: right of the "Our ethos" button, on its line ──
+      const anchor = new THREE.Vector3(2.6, -0.9, 0); // fallback
+      const measureAnchor = () => {
+        const el = host.closest("section")?.querySelector("[data-flock-anchor]");
+        if (!el) return;
+        const r = (el as HTMLElement).getBoundingClientRect();
+        unproject(r.right + ANCHOR_GAP_PX, r.top + r.height / 2, anchor);
+        anchor.z = 0;
+      };
+
       const resize = () => {
         const r = host.getBoundingClientRect();
         const w = Math.max(1, r.width), h = Math.max(1, r.height);
@@ -88,22 +113,18 @@ export default function Flock() {
         camera.updateProjectionMatrix();
         halfH = camera.position.z * Math.tan((camera.fov * Math.PI) / 360);
         halfW = halfH * camera.aspect;
+        measureAnchor();
       };
       resize();
       const ro = new ResizeObserver(resize);
       ro.observe(host);
 
-      // The emblem's station, recomputed live so it tracks the viewport.
       const slot = (i: number, out: import("three").Vector3) => {
-        const x = Math.min(halfW * 0.5, halfW - 1.4);
-        const y = halfH * 0.34;
-        // A layered pile, not a column: red foremost, blue and green shifted
-        // tailward (left) behind it so their twin tail points protrude.
-        out.set(x - i * LAYER_DX, y, -i * LAYER_DZ);
+        out.set(anchor.x + (2 - i) * 0 - i * LAYER_DX, anchor.y, -i * LAYER_DZ);
         return out;
       };
 
-      // Darts
+      // ── Darts ──
       const geo = new THREE.BufferGeometry();
       geo.setAttribute(
         "position",
@@ -123,16 +144,18 @@ export default function Flock() {
       if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
       scene.add(mesh);
 
-      // State
+      // ── State ──
       const pos = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
       const vel = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+      const activeAt = [0, 1, 2].map((i) => LAUNCH_AT + i * STAGGER);
+      const airborne = [false, false, false];
       const docked = [false, false, false];
       const dockBlend = [0, 0, 0];
-      const waypoints = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
-      const wpDone = [false, false, false];
-      let launched = false;
+      const legIdx = [0, 0, 0];
+      const routes: import("three").Vector3[][] = [[], [], []];
+      let padsMeasured = false;
 
-      // Trails
+      // ── Trails ──
       const trails = CAPTAINS.map((c) => {
         const positions = new Float32Array(TRAIL_LEN * 3);
         const colors = new Float32Array(TRAIL_LEN * 3);
@@ -153,18 +176,11 @@ export default function Flock() {
         return { line, positions };
       });
 
-      // Launch pads: the headline's coloured tittles
-      const ndc = new THREE.Vector3();
-      const unproject = (px: number, py: number, out: import("three").Vector3) => {
-        const rect = host.getBoundingClientRect();
-        const nx = ((px - rect.left) / rect.width) * 2 - 1;
-        const ny = -(((py - rect.top) / rect.height) * 2 - 1);
-        ndc.set(nx, ny, 0.5).unproject(camera);
-        const dir = ndc.sub(camera.position).normalize();
-        const t = -camera.position.z / dir.z;
-        out.copy(camera.position).addScaledVector(dir, t);
-      };
-      const launch = () => {
+      // ── Launch: measure pads, lay out each captain's route ──
+      //  dot → straight up → arc out LEFT → swing to left-of-station → dock,
+      //  approaching rightward so the nose already matches the final pose.
+      const measureAndRoute = () => {
+        measureAnchor();
         const tmp = new THREE.Vector3();
         CAPTAINS.forEach((c, i) => {
           const el = host.closest("section")?.querySelector(`[data-captain="${c.pad}"]`);
@@ -172,31 +188,27 @@ export default function Flock() {
             const d = (el as HTMLElement).getBoundingClientRect();
             unproject(d.left + d.width / 2, d.top + d.height / 2, pos[i]);
           } else {
-            pos[i].set(-halfW * 0.35 + i * 0.8, -halfH * 0.3, 0);
+            pos[i].set(-halfW * 0.35 + i * 0.8, halfH * 0.1, 0);
           }
-          pos[i].z = -i * LAYER_DZ; // depth order fixed for life: red in front
-          vel[i].set(0.4 + i * 0.15, 1.5, 0);
+          pos[i].z = -i * LAYER_DZ; // depth order fixed for life
           slot(i, tmp);
-          waypoints[i]
-            .copy(pos[i])
-            .lerp(tmp, 0.45)
-            .add(new THREE.Vector3(0, (i % 2 === 0 ? 1 : -0.6) * (1.1 + i * 0.25), 0));
-          trails[i].line.visible = true;
-          for (let k = 0; k < TRAIL_LEN; k++) {
-            trails[i].positions[k * 3] = pos[i].x;
-            trails[i].positions[k * 3 + 1] = pos[i].y;
-            trails[i].positions[k * 3 + 2] = 0;
-          }
+          routes[i] = [
+            new THREE.Vector3(pos[i].x + 0.15, pos[i].y + 1.35 + i * 0.28, pos[i].z), // straight up
+            new THREE.Vector3(pos[i].x - 1.9 - i * 0.4, pos[i].y + 2.1 + i * 0.3, pos[i].z), // arc out left
+            new THREE.Vector3(tmp.x - 2.7 - i * 0.35, tmp.y + 0.75 + i * 0.22, pos[i].z), // swing above-left of station
+            new THREE.Vector3(tmp.x - 1.3, tmp.y + 0.05, pos[i].z), // final approach line, flying right
+          ];
+          legIdx[i] = 0;
         });
-        launched = true;
+        padsMeasured = true;
       };
 
-      // Simulation
+      // ── Simulation ──
       const tmpT = new THREE.Vector3();
       const desired = new THREE.Vector3();
       const m4 = new THREE.Matrix4();
       const q = new THREE.Quaternion();
-      const qDock = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -Math.PI / 2); // nose -> +x
+      const qDock = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -Math.PI / 2);
       const qShim = new THREE.Quaternion();
       const qBank = new THREE.Quaternion();
       const up = new THREE.Vector3(0, 1, 0);
@@ -205,19 +217,35 @@ export default function Flock() {
 
       const step = (dt: number, t: number) => {
         for (let i = 0; i < N; i++) {
+          if (t < activeAt[i]) continue;
+          if (!airborne[i]) {
+            airborne[i] = true;
+            vel[i].set(0.05, 1.3, 0); // straight up off the letter
+            trails[i].line.visible = true;
+            for (let k = 0; k < TRAIL_LEN; k++) {
+              trails[i].positions[k * 3] = pos[i].x;
+              trails[i].positions[k * 3 + 1] = pos[i].y;
+              trails[i].positions[k * 3 + 2] = pos[i].z;
+            }
+          }
           slot(i, tmpT);
           if (!docked[i]) {
-            const goal = wpDone[i] ? tmpT : waypoints[i];
+            const route = routes[i];
+            const onFinal = legIdx[i] >= route.length;
+            const goal = onFinal ? tmpT : route[legIdx[i]];
             desired.copy(goal).sub(pos[i]);
             const d = desired.length();
-            if (!wpDone[i] && d < 0.9) wpDone[i] = true;
-            const speed = wpDone[i] ? Math.min(1.7, d * 1.5 + 0.12) : 1.7;
+            if (!onFinal && d < 0.55) legIdx[i]++;
+            const speed = onFinal ? Math.min(CRUISE, d * 1.6 + 0.06) : CRUISE;
             if (d > 1e-4) desired.multiplyScalar(speed / d);
             desired.sub(vel[i]);
-            vel[i].addScaledVector(desired, Math.min(1, dt * 2.4));
+            vel[i].addScaledVector(desired, Math.min(1, dt * 2.6));
             pos[i].addScaledVector(vel[i], dt);
-            if (wpDone[i] && pos[i].distanceTo(tmpT) < 0.09 && vel[i].length() < 0.55) {
-              docked[i] = true;
+            // pose + scale blend in smoothly on the final approach
+            if (onFinal) {
+              const dd = pos[i].distanceTo(tmpT);
+              dockBlend[i] = Math.max(dockBlend[i], Math.min(1, 1 - dd / 1.4));
+              if (dd < 0.05 && vel[i].length() < 0.4) docked[i] = true;
             }
             const p = trails[i].positions;
             for (let k = TRAIL_LEN - 1; k > 0; k--) {
@@ -228,12 +256,12 @@ export default function Flock() {
             p[0] = pos[i].x; p[1] = pos[i].y; p[2] = pos[i].z;
             trails[i].line.geometry.getAttribute("position").needsUpdate = true;
           } else {
-            dockBlend[i] = Math.min(1, dockBlend[i] + dt * 2.2);
-            tmpT.y += Math.sin(t * 0.9) * 0.016; // the whole insignia breathes as one
+            dockBlend[i] = Math.min(1, dockBlend[i] + dt * 2);
+            tmpT.y += Math.sin(t * 0.9) * 0.016; // the mark breathes as one
             pos[i].lerp(tmpT, Math.min(1, dt * 5));
             vel[i].set(1, 0, 0);
-            const p = trails[i].positions;
             if (trails[i].line.visible) {
+              const p = trails[i].positions;
               let maxD = 0;
               for (let k = 0; k < TRAIL_LEN; k++) {
                 p[k * 3] += (pos[i].x - p[k * 3]) * Math.min(1, dt * 4);
@@ -250,6 +278,8 @@ export default function Flock() {
 
       const writeInstances = (t: number) => {
         for (let i = 0; i < N; i++) {
+          // invisible until its moment, then grows out of the dot
+          const born = Math.min(1, Math.max(0, (t - activeAt[i]) / 0.3));
           dv.copy(vel[i]);
           if (dv.lengthSq() < 1e-6) dv.set(1, 0, 0);
           dv.normalize();
@@ -257,7 +287,7 @@ export default function Flock() {
           qBank.setFromAxisAngle(zA, Math.sin(t * 1.1 + i * 1.7) * 0.02);
           qShim.copy(qDock).multiply(qBank);
           q.slerp(qShim, dockBlend[i]);
-          const s = FLY_K + (DOCK_K - FLY_K) * dockBlend[i];
+          const s = (FLY_K + (DOCK_K - FLY_K) * dockBlend[i]) * born;
           m4.compose(pos[i], q, new THREE.Vector3(s, s, s));
           mesh.setMatrixAt(i, m4);
         }
@@ -270,8 +300,8 @@ export default function Flock() {
         if (!running) return;
         const dt = Math.min(clock.getDelta(), 0.033);
         simT += dt;
-        if (!launched && simT >= LAUNCH_AT) launch();
-        if (launched) step(dt, simT);
+        if (!padsMeasured && simT >= LAUNCH_AT - 0.25) measureAndRoute();
+        if (padsMeasured) step(dt, simT);
         writeInstances(simT);
         renderer.render(scene, camera);
         raf = requestAnimationFrame(loop);
@@ -281,6 +311,7 @@ export default function Flock() {
 
       let cleanupObservers: (() => void) | null = null;
       if (reduceMotion) {
+        measureAnchor();
         const tmp = new THREE.Vector3();
         for (let i = 0; i < N; i++) {
           slot(i, tmp);
@@ -288,6 +319,8 @@ export default function Flock() {
           vel[i].set(1, 0, 0);
           docked[i] = true;
           dockBlend[i] = 1;
+          airborne[i] = true;
+          activeAt[i] = -1;
         }
         writeInstances(0);
         renderer.render(scene, camera);

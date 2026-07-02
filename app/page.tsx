@@ -91,7 +91,7 @@ export default async function HomePage() {
               }}
             >
               Reaction builds locally hosted multi-agentic systems: a formation of small,
-              specialised agents that move as one — inside your walls, around your
+              specialised agents that move as one: inside your walls, around your
               workflows, in service of your team.
             </p>
 
@@ -107,8 +107,8 @@ export default async function HomePage() {
                   <span className="arrow" aria-hidden="true">→</span>
                 </Link>
               )}
-              <Link href="#ethos" className="btn btn-ghost btn-large">
-                Read the ethos
+              <Link href="#ethos" className="btn btn-ghost btn-large" data-flock-anchor>
+                Our ethos
               </Link>
             </div>
 
@@ -142,7 +142,7 @@ export default async function HomePage() {
               color: "var(--text-muted)",
             }}
           >
-            fig. 1 — three formations, on manoeuvres
+            fig. 1 · three captains, forming up
           </div>
         </div>
       </section>
@@ -171,7 +171,7 @@ export default async function HomePage() {
               <span className="ethos-cap-green">E</span>thos<span style={{ color: "var(--reaction)" }}>.</span>
             </h2>
             <p style={{ fontSize: "1.08rem", lineHeight: 1.7, color: "var(--text-soft)", margin: 0, maxWidth: "58ch" }}>
-              We build systems that make your people more capable — never cheaper to remove.
+              We build systems that make your people more capable, never cheaper to remove.
               That isn&rsquo;t a slogan; it&rsquo;s a design constraint we accept in every engagement.
             </p>
             </div>
@@ -184,7 +184,7 @@ export default async function HomePage() {
               name: "Augment, don't replace",
               head: "Enhancement over headcount.",
               body: [
-                "Our agents take the repetitive weight out of a role so the person in it can do more of what they're actually for: judgement, care, relationships, craft. The measure of a deployment isn't who it makes redundant — it's how much more the same team can carry.",
+                "Our agents take the repetitive weight out of a role so the person in it can do more of what they're actually for: judgement, care, relationships, craft. The measure of a deployment isn't who it makes redundant. It's how much more the same team can carry.",
                 "If a proposal only makes sense as a redundancy plan, we decline the work. An augmented team compounds; a hollowed-out one just gets quieter.",
               ],
             },
@@ -193,8 +193,8 @@ export default async function HomePage() {
               name: "The dial, not the switch",
               head: "You control the degree of automation.",
               body: [
-                "Automation isn't all-or-nothing. Every workflow we build carries a dial: fully manual, agent-assisted, agent-drafted with human sign-off, or fully automated — set per task, by your team, and reversible at any time.",
-                "Trust in a system is earned in increments. So the system is built to be dialled — never surrendered to.",
+                "Automation isn't all-or-nothing. Every workflow we build carries a dial: fully manual, agent-assisted, agent-drafted with human sign-off, or fully automated. Set per task, by your team, and reversible at any time.",
+                "Trust in a system is earned in increments. So the system is built to be dialled, never surrendered to.",
               ],
             },
             {
@@ -202,8 +202,8 @@ export default async function HomePage() {
               name: "Headroom",
               head: "New skills inside the role they already hold.",
               body: [
-                "The hours an agent returns don't vanish; they become headroom. The people who ran a process learn to direct it — briefing agents, auditing their output, catching what the system can't see.",
-                "That's a promotion in capability without a change of job title — and it's how a business grows its own operators instead of renting ours forever.",
+                "The hours an agent returns don't vanish; they become headroom. The people who ran a process learn to direct it: briefing agents, auditing their output, catching what the system can't see.",
+                "That's a promotion in capability without a change of job title, and it's how a business grows its own operators instead of renting ours forever.",
               ],
             },
           ].map((tenet, i) => (
@@ -282,21 +282,21 @@ export default async function HomePage() {
                 num: "01",
                 name: "Websites",
                 h: "Shopfronts that carry their weight.",
-                p: "Fast, hand-built sites for working businesses — the shopfront, the booking flow, the pages a customer actually reads. Designed and written with intent, hosted and maintained by us, and measured on one thing: whether the work comes in.",
+                p: "Fast, hand-built sites for working businesses. The shopfront, the booking flow, the pages a customer actually reads. Designed and written with intent, hosted and maintained by us, and measured on one thing: whether the work comes in.",
                 flagship: false,
               },
               {
                 num: "02",
                 name: "Software",
                 h: "Software fitted to the business.",
-                p: "Client portals, internal tools, practice dashboards — the systems behind the counter. Built on modern foundations around the way your team already works, so the software bends to the business, never the other way round.",
+                p: "Client portals, internal tools, practice dashboards. The systems behind the counter. Built on modern foundations around the way your team already works, so the software bends to the business, never the other way round.",
                 flagship: false,
               },
               {
                 num: "03",
                 name: "LMAS",
                 h: "Locally hosted multi-agentic systems.",
-                p: "The flagship. Formations of small, specialised agents on infrastructure you control, applying themselves to your heaviest work — with your people holding the dial. Websites bring the work in; software organises it; a LMAS moves it.",
+                p: "The flagship. Formations of small, specialised agents on infrastructure you control, applying themselves to your heaviest work, with your people holding the dial. Websites bring the work in; software organises it; a LMAS moves it.",
                 flagship: true,
               },
             ].map((b) => (

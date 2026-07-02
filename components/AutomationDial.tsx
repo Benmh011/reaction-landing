@@ -3,53 +3,95 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * The Automation Dial — tenet 02, made physical.
+ * The Automation Dial, second machining.
  *
- * A machined control dial, face-on with a gentle tilt. Inside the dial's
- * recessed gallery, fourteen paper darts live on an annular channel — they
- * never leave the instrument. The dial's setting governs them: at Manual a
- * skeleton crew circulates slowly while the rest sit parked and dimmed; wind
- * it toward Automated and, one by one, the parked darts wake, the stream
- * quickens, the formation tightens. The lead dart is vermilion.
+ * A walnut-bodied instrument: procedurally grained wood barrel, cream face,
+ * a brass bezel around a recessed gallery sealed under glass. Inside the
+ * glass, twelve paper darts live on an annular channel and never leave it.
+ * The setting governs them: at Manual a skeleton crew circulates while the
+ * rest sit parked at their home stations, dimmed; wind the dial and they
+ * wake one by one, the stream quickening. The lead dart is vermilion, as is
+ * the needle riding the graduations across the TOP arc (the first machining
+ * put them at the bottom; y-up trigonometry, lesson learned).
  *
- * Four detents: Manual · Assisted · Drafted · Automated. The dial cycles
- * between them on its own — until the visitor grabs it. Dragging turns the
- * dial live; release snaps to the nearest detent. That's the pitch in one
- * gesture: you hold the dial.
+ * Wood and brass are lit (one soft key + ambient) so the grain and metal
+ * read as materials; the darts stay flat sumi-e ink under the glass, whose
+ * presence is sold by a tinted disc and a fixed crescent highlight that
+ * moves with the dial's idle sway.
  *
- * Flat ink materials, no lights — the same sumi-e language as the flock.
- * Reduced motion renders a single mid-setting frame. No WebGL falls back to
- * a static SVG. Pauses off-screen. Decorative; the caption strip below the
- * canvas carries the state for everyone, screen readers included.
+ * Draggable with detent snap: Manual · Assisted · Drafted · Automated.
+ * Auto-cycles when idle; yields to the visitor's hand. Reduced motion gets
+ * a still frame; no WebGL gets an SVG; off-screen pauses everything.
  */
 
 const DETENTS = [0, 1 / 3, 2 / 3, 1];
 const LABELS = ["Manual", "Assisted", "Drafted", "Automated"];
-const N_DARTS = 14;
-const ARC_START = Math.PI * 1.18; // graduation arc across the top of the face
-const ARC_SPAN = Math.PI * 0.64;
+const N_DARTS = 12;
+const ARC_START = Math.PI * 0.82; // upper-left …
+const ARC_SPAN = Math.PI * 0.64; // … sweeping to upper-right
 
 const INK = 0x1a1713;
-const INK_SOFT = 0x3a352c;
-const FACE = 0xeee9dc;
+const CREAM = 0xeee9dc;
 const WELL = 0xe2dccb;
-const RULE = 0xcdc5b2;
+const BRASS = 0xb08d4a;
+const BRASS_LIGHT = 0xd2af69;
 const VERM = 0xc93a17;
 const PAPER = { r: 247 / 255, g: 244 / 255, b: 236 / 255 };
+
+/** Procedural walnut: horizontal grain streaks that wrap the barrel. */
+function makeWoodCanvas(): HTMLCanvasElement {
+  const c = document.createElement("canvas");
+  c.width = 512;
+  c.height = 256;
+  const ctx = c.getContext("2d")!;
+  ctx.fillStyle = "#4a3626";
+  ctx.fillRect(0, 0, 512, 256);
+  let seed = 7;
+  const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const tones = ["#5e4630", "#3e2c1e", "#6c5238", "#38281c", "#544029"];
+  for (let i = 0; i < 120; i++) {
+    const y0 = rand() * 256;
+    const amp = 1 + rand() * 4;
+    const wl = 40 + rand() * 140;
+    const ph = rand() * Math.PI * 2;
+    ctx.strokeStyle = tones[(i * 13) % tones.length];
+    ctx.globalAlpha = 0.25 + rand() * 0.4;
+    ctx.lineWidth = 0.6 + rand() * 2.2;
+    ctx.beginPath();
+    for (let x = 0; x <= 512; x += 8) {
+      const y = y0 + Math.sin((x / wl) * Math.PI * 2 + ph) * amp;
+      x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  // a few subtle knots
+  for (let k = 0; k < 3; k++) {
+    const x = rand() * 512, y = rand() * 256;
+    for (let r = 10; r > 1; r -= 2.5) {
+      ctx.strokeStyle = k % 2 ? "#38281c" : "#5e4630";
+      ctx.globalAlpha = 0.3;
+      ctx.beginPath();
+      ctx.ellipse(x, y, r * 1.6, r, 0.3, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+  ctx.globalAlpha = 1;
+  return c;
+}
 
 function StaticFallback() {
   return (
     <svg viewBox="-120 -120 240 240" width="100%" aria-hidden="true" focusable="false" style={{ display: "block" }}>
-      <circle r="110" fill="#1a1713" />
-      <circle r="92" fill="#eee9dc" />
-      <path d="M 0 -86 L 6 -62 L -6 -62 Z" fill="#c93a17" transform="rotate(24)" />
-      <circle r="58" fill="#e2dccb" />
-      <circle r="26" fill="#eee9dc" />
-      {[...Array(10)].map((_, i) => {
-        const a = (i / 10) * Math.PI * 2;
-        const x = Math.cos(a) * 42, y = Math.sin(a) * 42;
-        return <path key={i} d="M0 -7 L4.5 5 L0 2.5 L-4.5 5 Z" transform={`translate(${x} ${y}) rotate(${(a * 180) / Math.PI + 180})`} fill={i === 0 ? "#c93a17" : "#1a1713"} />;
+      <circle r="110" fill="#4a3626" />
+      <circle r="88" fill="#eee9dc" />
+      <circle r="62" fill="#b08d4a" />
+      <circle r="56" fill="#e2dccb" />
+      <path d="M 0 -84 L 6 -60 L -6 -60 Z" fill="#c93a17" transform="rotate(20)" />
+      {[...Array(9)].map((_, i) => {
+        const a = (i / 9) * Math.PI * 2;
+        return <path key={i} d="M0 -7 L4.5 5 L0 2.5 L-4.5 5 Z" transform={`translate(${Math.cos(a) * 40} ${Math.sin(a) * 40}) rotate(${(a * 180) / Math.PI + 180})`} fill={i === 0 ? "#c93a17" : "#1a1713"} />;
       })}
+      <circle r="56" fill="#dfe9ee" opacity="0.25" />
     </svg>
   );
 }
@@ -90,74 +132,104 @@ export default function AutomationDial() {
       const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 30);
       camera.position.set(0, 0, 8.2);
 
+      // Material light: soft, warm, enough to read grain and brass.
+      scene.add(new THREE.AmbientLight(0xfff6e8, 0.95));
+      const key = new THREE.DirectionalLight(0xffffff, 0.85);
+      key.position.set(2.4, 3.2, 4.5);
+      scene.add(key);
+
       const dial = new THREE.Group();
-      dial.rotation.x = -0.42; // the tilt that makes it an object, not a diagram
+      dial.rotation.x = -0.4;
       scene.add(dial);
 
-      const flat = (color: number) => new THREE.MeshBasicMaterial({ color });
       const mats: import("three").Material[] = [];
       const geos: import("three").BufferGeometry[] = [];
-      const M = (c: number) => { const m = flat(c); mats.push(m); return m; };
+      const texs: import("three").Texture[] = [];
       const G = <T extends import("three").BufferGeometry>(g: T): T => { geos.push(g); return g; };
 
-      // ── Body: ink cylinder, knurled rim ──
-      const body = new THREE.Mesh(G(new THREE.CylinderGeometry(2.2, 2.2, 0.5, 72)), M(INK));
+      // ── Walnut barrel ──
+      const woodTex = new THREE.CanvasTexture(makeWoodCanvas());
+      woodTex.wrapS = THREE.RepeatWrapping;
+      woodTex.colorSpace = THREE.SRGBColorSpace;
+      texs.push(woodTex);
+      const woodMat = new THREE.MeshStandardMaterial({ map: woodTex, roughness: 0.72, metalness: 0.05 });
+      mats.push(woodMat);
+      const body = new THREE.Mesh(G(new THREE.CylinderGeometry(2.2, 2.2, 0.55, 96)), woodMat);
       body.rotation.x = Math.PI / 2;
       dial.add(body);
-      const knurl = new THREE.InstancedMesh(G(new THREE.BoxGeometry(0.055, 0.09, 0.52)), M(INK_SOFT), 48);
+
+      // grip ridges, carved from the same timber (darker)
+      const ridgeMat = new THREE.MeshStandardMaterial({ color: 0x33241a, roughness: 0.8 });
+      mats.push(ridgeMat);
+      const ridges = new THREE.InstancedMesh(G(new THREE.BoxGeometry(0.05, 0.1, 0.57)), ridgeMat, 40);
       const km = new THREE.Matrix4();
       const kq = new THREE.Quaternion();
-      for (let i = 0; i < 48; i++) {
-        const a = (i / 48) * Math.PI * 2;
-        kq.setFromAxisAngle(new THREE.Vector3(0, 0, 1), a);
+      const zAxis = new THREE.Vector3(0, 0, 1);
+      for (let i = 0; i < 40; i++) {
+        const a = (i / 40) * Math.PI * 2;
+        kq.setFromAxisAngle(zAxis, a);
         km.compose(new THREE.Vector3(Math.cos(a) * 2.2, Math.sin(a) * 2.2, 0), kq, new THREE.Vector3(1, 1, 1));
-        knurl.setMatrixAt(i, km);
+        ridges.setMatrixAt(i, km);
       }
-      dial.add(knurl);
+      dial.add(ridges);
 
-      // ── Face plate ──
-      const face = new THREE.Mesh(G(new THREE.CylinderGeometry(1.98, 1.98, 0.1, 72)), M(FACE));
+      // ── Cream face ──
+      const faceMat = new THREE.MeshStandardMaterial({ color: CREAM, roughness: 0.9 });
+      mats.push(faceMat);
+      const face = new THREE.Mesh(G(new THREE.CylinderGeometry(1.94, 1.94, 0.1, 96)), faceMat);
       face.rotation.x = Math.PI / 2;
-      face.position.z = 0.26;
+      face.position.z = 0.3;
       dial.add(face);
 
-      // ── Graduations across the top arc: 4 majors (detents), minors between ──
-      const tickMinor = new THREE.InstancedMesh(G(new THREE.BoxGeometry(0.02, 0.14, 0.02)), M(0x8d8574), 21);
-      const tickMajor = new THREE.InstancedMesh(G(new THREE.BoxGeometry(0.035, 0.24, 0.03)), M(INK), 4);
+      // ── Graduations, TOP arc ──
+      const tickMinorMat = new THREE.MeshBasicMaterial({ color: 0x8d8574 });
+      const tickMajorMat = new THREE.MeshBasicMaterial({ color: INK });
+      mats.push(tickMinorMat, tickMajorMat);
+      const tickMinor = new THREE.InstancedMesh(G(new THREE.BoxGeometry(0.02, 0.14, 0.02)), tickMinorMat, 21);
+      const tickMajor = new THREE.InstancedMesh(G(new THREE.BoxGeometry(0.035, 0.24, 0.03)), tickMajorMat, 4);
       let mi = 0, ma = 0;
       for (let i = 0; i < 25; i++) {
-        const t = i / 24;
-        const a = ARC_START + t * ARC_SPAN;
+        const a = ARC_START - (i / 24) * ARC_SPAN;
         const major = i % 8 === 0;
-        const r = major ? 1.7 : 1.75;
-        kq.setFromAxisAngle(new THREE.Vector3(0, 0, 1), a + Math.PI / 2);
-        km.compose(new THREE.Vector3(Math.cos(a) * r, Math.sin(a) * r, 0.33), kq, new THREE.Vector3(1, 1, 1));
-        if (major) tickMajor.setMatrixAt(ma++, km);
-        else tickMinor.setMatrixAt(mi++, km);
+        const r = major ? 1.66 : 1.71;
+        kq.setFromAxisAngle(zAxis, a + Math.PI / 2);
+        km.compose(new THREE.Vector3(Math.cos(a) * r, Math.sin(a) * r, 0.37), kq, new THREE.Vector3(1, 1, 1));
+        (major ? tickMajor : tickMinor).setMatrixAt(major ? ma++ : mi++, km);
       }
       dial.add(tickMinor, tickMajor);
 
-      // ── Needle: vermilion pointer riding the arc ──
+      // ── Needle ──
       const needleGroup = new THREE.Group();
-      const needle = new THREE.Mesh(G(new THREE.ConeGeometry(0.075, 0.34, 4)), M(VERM));
-      needle.position.set(0, 1.52, 0.36);
-      needle.rotation.z = Math.PI; // point outward at the graduations
+      const needleMat = new THREE.MeshBasicMaterial({ color: VERM });
+      mats.push(needleMat);
+      const needle = new THREE.Mesh(G(new THREE.ConeGeometry(0.07, 0.32, 4)), needleMat);
+      needle.position.set(0, 1.48, 0.4);
+      needle.rotation.z = Math.PI;
       needleGroup.add(needle);
       dial.add(needleGroup);
 
-      // ── The gallery: recessed annular channel where the darts live ──
-      const wellOuter = new THREE.Mesh(G(new THREE.CylinderGeometry(1.24, 1.24, 0.09, 64)), M(RULE));
-      wellOuter.rotation.x = Math.PI / 2;
-      wellOuter.position.z = 0.3;
-      const well = new THREE.Mesh(G(new THREE.CylinderGeometry(1.18, 1.18, 0.1, 64)), M(WELL));
-      well.rotation.x = Math.PI / 2;
-      well.position.z = 0.31;
-      const hub = new THREE.Mesh(G(new THREE.CylinderGeometry(0.5, 0.5, 0.12, 48)), M(FACE));
-      hub.rotation.x = Math.PI / 2;
-      hub.position.z = 0.33;
-      dial.add(wellOuter, well, hub);
+      // ── Brass bezel around the gallery ──
+      const brassMat = new THREE.MeshStandardMaterial({ color: BRASS, metalness: 0.68, roughness: 0.34 });
+      const brassLightMat = new THREE.MeshStandardMaterial({ color: BRASS_LIGHT, metalness: 0.6, roughness: 0.3 });
+      mats.push(brassMat, brassLightMat);
+      const bezel = new THREE.Mesh(G(new THREE.TorusGeometry(1.26, 0.075, 20, 72)), brassMat);
+      bezel.position.z = 0.4;
+      const bezelIn = new THREE.Mesh(G(new THREE.TorusGeometry(1.17, 0.028, 16, 72)), brassLightMat);
+      bezelIn.position.z = 0.43;
+      dial.add(bezel, bezelIn);
 
-      // ── The darts: folded paper, tangential on the annulus, never leaving it ──
+      // ── Gallery well + hub ──
+      const wellMat = new THREE.MeshStandardMaterial({ color: WELL, roughness: 0.95 });
+      mats.push(wellMat);
+      const well = new THREE.Mesh(G(new THREE.CylinderGeometry(1.17, 1.17, 0.08, 72)), wellMat);
+      well.rotation.x = Math.PI / 2;
+      well.position.z = 0.3;
+      const hub = new THREE.Mesh(G(new THREE.CylinderGeometry(0.46, 0.46, 0.1, 48)), faceMat);
+      hub.rotation.x = Math.PI / 2;
+      hub.position.z = 0.32;
+      dial.add(well, hub);
+
+      // ── Darts under glass ──
       const dartGeo = G(new THREE.BufferGeometry());
       dartGeo.setAttribute(
         "position",
@@ -173,52 +245,69 @@ export default function AutomationDial() {
       dial.add(darts);
       const phases = new Float32Array(N_DARTS);
       const activity = new Float32Array(N_DARTS);
-      for (let i = 0; i < N_DARTS; i++) phases[i] = (i / N_DARTS) * Math.PI * 2;
+      const HOME = new Float32Array(N_DARTS);
+      for (let i = 0; i < N_DARTS; i++) {
+        HOME[i] = (i / N_DARTS) * Math.PI * 2;
+        phases[i] = HOME[i];
+      }
 
+      // ── Glass: tinted disc + crescent highlights riding the dial ──
+      const glassMat = new THREE.MeshPhysicalMaterial({
+        color: 0xdfe9ee, transparent: true, opacity: 0.2, roughness: 0.08, metalness: 0,
+      });
+      mats.push(glassMat);
+      const glass = new THREE.Mesh(G(new THREE.CylinderGeometry(1.165, 1.165, 0.04, 72)), glassMat);
+      glass.rotation.x = Math.PI / 2;
+      glass.position.z = 0.47;
+      dial.add(glass);
+      const hiMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.4 });
+      const hiMat2 = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.22 });
+      mats.push(hiMat, hiMat2);
+      const hi = new THREE.Mesh(G(new THREE.TorusGeometry(0.98, 0.022, 8, 48, Math.PI * 0.34)), hiMat);
+      hi.rotation.z = Math.PI * 0.62;
+      hi.position.z = 0.5;
+      const hi2 = new THREE.Mesh(G(new THREE.TorusGeometry(0.82, 0.014, 8, 40, Math.PI * 0.2)), hiMat2);
+      hi2.rotation.z = Math.PI * 0.7;
+      hi2.position.z = 0.5;
+      dial.add(hi, hi2);
+
+      // ── Colours for dart activity blend ──
       const col = new THREE.Color();
       const inkC = new THREE.Color(INK);
       const vermC = new THREE.Color(VERM);
       const dimC = new THREE.Color().setRGB(
-        inkC.r + (PAPER.r - inkC.r) * 0.62,
-        inkC.g + (PAPER.g - inkC.g) * 0.62,
-        inkC.b + (PAPER.b - inkC.b) * 0.62,
+        inkC.r + (PAPER.r - inkC.r) * 0.58,
+        inkC.g + (PAPER.g - inkC.g) * 0.58,
+        inkC.b + (PAPER.b - inkC.b) * 0.58,
       );
 
-      // ── Dial state: current value chases a target; detents snap ──
+      // ── Dial state ──
       let v = DETENTS[1];
       let target = v;
       let autoIdx = 1;
       let autoTimer = 2.2;
-      let holdOff = 0; // seconds of auto-pause after user interaction
+      let holdOff = 0;
       let dragging = false;
       let dragStartX = 0;
       let dragStartV = 0;
-
       const snap = (x: number) => {
         let best = 0;
         for (let i = 1; i < DETENTS.length; i++) if (Math.abs(DETENTS[i] - x) < Math.abs(DETENTS[best] - x)) best = i;
         return best;
       };
-
       const onDown = (e: PointerEvent) => {
-        dragging = true;
-        holdOff = 8;
-        dragStartX = e.clientX;
-        dragStartV = v;
+        dragging = true; holdOff = 8; dragStartX = e.clientX; dragStartV = v;
         (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
       };
       const onMove = (e: PointerEvent) => {
         if (!dragging) return;
-        const dv = (e.clientX - dragStartX) / 240;
-        target = Math.min(1, Math.max(0, dragStartV + dv));
+        target = Math.min(1, Math.max(0, dragStartV + (e.clientX - dragStartX) / 240));
       };
       const onUp = () => {
         if (!dragging) return;
         dragging = false;
         const d = snap(target);
-        target = DETENTS[d];
-        autoIdx = d;
-        setDetent(d);
+        target = DETENTS[d]; autoIdx = d; setDetent(d);
       };
       if (!reduceMotion) {
         renderer.domElement.style.pointerEvents = "auto";
@@ -228,8 +317,9 @@ export default function AutomationDial() {
         window.addEventListener("pointerup", onUp, { passive: true });
       }
 
+      const m4 = new THREE.Matrix4();
+      const q = new THREE.Quaternion();
       const step = (dt: number, t: number) => {
-        // auto-cycle when idle
         if (!dragging) {
           if (holdOff > 0) holdOff -= dt;
           else {
@@ -238,40 +328,41 @@ export default function AutomationDial() {
               autoIdx = (autoIdx + 1) % DETENTS.length;
               target = DETENTS[autoIdx];
               setDetent(autoIdx);
-              autoTimer = 3.6;
+              autoTimer = 3.8;
             }
           }
         }
         v += (target - v) * Math.min(1, dt * 4.5);
 
-        // needle rides the arc
-        const a = ARC_START + v * ARC_SPAN;
-        needleGroup.rotation.z = a - Math.PI / 2;
+        needleGroup.rotation.z = (ARC_START - v * ARC_SPAN) - Math.PI / 2;
 
-        // idle sway — an object on a desk, not a static diagram
-        dial.rotation.y = Math.sin(t * 0.3) * 0.14;
-        dial.rotation.x = -0.42 + Math.sin(t * 0.19) * 0.05;
+        dial.rotation.y = Math.sin(t * 0.26) * 0.1;
+        dial.rotation.x = -0.4 + Math.sin(t * 0.17) * 0.04;
 
-        // darts: each has a wake threshold along the dial's travel
-        const activeF = 3 + v * (N_DARTS - 3); // continuous headcount
-        const m4 = new THREE.Matrix4();
-        const q = new THREE.Quaternion();
-        const zAxis = new THREE.Vector3(0, 0, 1);
+        const activeF = 3 + v * (N_DARTS - 3);
         for (let i = 0; i < N_DARTS; i++) {
-          const target_a = Math.min(1, Math.max(0, activeF - i)); // 0 parked … 1 flying
-          activity[i] += (target_a - activity[i]) * Math.min(1, dt * 3);
+          const targetA = Math.min(1, Math.max(0, activeF - i));
+          activity[i] += (targetA - activity[i]) * Math.min(1, dt * 3);
           const act = activity[i];
-          const speed = (0.18 + v * 1.25) * act;
-          phases[i] += speed * dt;
-          const r = 0.85 + Math.sin(phases[i] * 3 + i) * 0.035 * act;
-          const px = Math.cos(phases[i]) * r;
-          const py = Math.sin(phases[i]) * r;
-          q.setFromAxisAngle(zAxis, phases[i] + Math.PI); // nose along the direction of travel
-          const s = 0.16 * (0.72 + 0.28 * act);
-          m4.compose(new THREE.Vector3(px, py, 0.37 + 0.02 * Math.sin(phases[i] * 2)), q, new THREE.Vector3(s, s, s));
+          if (act > 0.05) {
+            phases[i] += (0.16 + v * 1.15) * act * dt;
+          } else {
+            // parked darts glide home to their station
+            let dphi = HOME[i] - (phases[i] % (Math.PI * 2));
+            while (dphi > Math.PI) dphi -= Math.PI * 2;
+            while (dphi < -Math.PI) dphi += Math.PI * 2;
+            phases[i] += dphi * Math.min(1, dt * 2);
+          }
+          const r = 0.82 + Math.sin(phases[i] * 3 + i) * 0.03 * act;
+          q.setFromAxisAngle(zAxis, phases[i] + Math.PI);
+          const s = 0.15 * (0.74 + 0.26 * act);
+          m4.compose(
+            new THREE.Vector3(Math.cos(phases[i]) * r, Math.sin(phases[i]) * r, 0.37),
+            q,
+            new THREE.Vector3(s, s, s),
+          );
           darts.setMatrixAt(i, m4);
-          const base = i === 0 ? vermC : inkC;
-          col.copy(dimC).lerp(base, act);
+          col.copy(dimC).lerp(i === 0 ? vermC : inkC, act);
           darts.setColorAt(i, col);
         }
         darts.instanceMatrix.needsUpdate = true;
@@ -291,9 +382,7 @@ export default function AutomationDial() {
       ro.observe(host);
 
       const clock = new THREE.Clock();
-      let simT = 0;
-      let raf = 0;
-      let running = false;
+      let simT = 0, raf = 0, running = false;
       const loop = () => {
         if (!running) return;
         const dt = Math.min(clock.getDelta(), 0.033);
@@ -309,7 +398,7 @@ export default function AutomationDial() {
       if (reduceMotion) {
         v = target = DETENTS[2];
         setDetent(2);
-        step(0.016, 0);
+        for (let k = 0; k < 60; k++) step(0.033, k * 0.033);
         renderer.render(scene, camera);
       } else {
         const io = new IntersectionObserver((es) => (es[0]?.isIntersecting ? start() : stop()), { threshold: 0.1 });
@@ -329,6 +418,7 @@ export default function AutomationDial() {
         renderer.dispose();
         geos.forEach((g) => g.dispose());
         mats.forEach((m) => m.dispose());
+        texs.forEach((tx) => tx.dispose());
         if (renderer.domElement.parentElement === host) host.removeChild(renderer.domElement);
       };
     })();
@@ -357,7 +447,7 @@ export default function AutomationDial() {
         ))}
       </div>
       <div className="mono" style={{ textAlign: "center", marginTop: 8, fontSize: "0.62rem", letterSpacing: "0.12em", color: "var(--text-muted)" }}>
-        fig. 2 — the dial. drag it.
+        fig. 2 · the dial. drag it.
       </div>
     </div>
   );
