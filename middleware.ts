@@ -1,48 +1,38 @@
-import { auth } from "@/auth";
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { verifySession, SESSION_COOKIE } from "@/lib/vet/auth";
 
-export default auth((req) => {
+/**
+ * Login wall for the Southmoor Vets demo — ported from the vet app and
+ * scoped to its mount points only. The rest of reaction.org.uk (including
+ * Auth.js magic-link routes) is untouched by this middleware.
+ *
+ * Same accounts, same passwords: /api/vet/login checks bcrypt hashes in the
+ * vet app's own database, so credentials issued for
+ * reactionbusinessservices.co.uk work here by construction.
+ */
+
+const PUBLIC = ["/demos/southmoor/login", "/api/vet/login"];
+
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const isLoggedIn = !!req.auth;
-  const role = req.auth?.user?.role;
+  if (PUBLIC.some((p) => pathname === p)) return NextResponse.next();
 
-  // /admin/* requires ADMIN role
-  if (pathname.startsWith("/admin")) {
-    // The /admin/setup route is exempt — it's how the very first admin gets created
-    if (pathname === "/admin/setup") return NextResponse.next();
-    if (!isLoggedIn) {
-      const url = new URL("/auth/signin", req.url);
-      url.searchParams.set("callbackUrl", pathname);
-      return NextResponse.redirect(url);
+  const token = req.cookies.get(SESSION_COOKIE)?.value;
+  const session = token ? await verifySession(token) : null;
+
+  if (!session) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    if (role !== "ADMIN") {
-      return NextResponse.redirect(new URL("/portal", req.url));
-    }
+    const url = req.nextUrl.clone();
+    url.pathname = "/demos/southmoor/login";
+    url.searchParams.set("from", pathname);
+    return NextResponse.redirect(url);
   }
-
-  // /portal/* requires any authenticated user
-  if (pathname.startsWith("/portal")) {
-    if (!isLoggedIn) {
-      const url = new URL("/auth/signin", req.url);
-      url.searchParams.set("callbackUrl", pathname);
-      return NextResponse.redirect(url);
-    }
-  }
-
-  // /demo-app/* requires authentication. The route handler then enforces
-  // demoVersion-based authorisation (user can only see their own demo,
-  // unless they are admin).
-  if (pathname.startsWith("/demo-app")) {
-    if (!isLoggedIn) {
-      const url = new URL("/auth/signin", req.url);
-      url.searchParams.set("callbackUrl", pathname);
-      return NextResponse.redirect(url);
-    }
-  }
-
   return NextResponse.next();
-});
+}
 
 export const config = {
-  matcher: ["/portal/:path*", "/admin/:path*", "/demo-app/:path*"],
+  matcher: ["/demos/southmoor", "/demos/southmoor/:path*", "/api/vet/:path*"],
 };

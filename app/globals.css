@@ -417,3 +417,46 @@ section { position: relative; z-index: 2; }
 @media (max-width: 900px) {
   .build-grid { grid-template-columns: 1fr !important; gap: 44px !important; }
 }
+
+/* ── What-we-build: staggered reveal + the captains' thread ──
+   The thread carries the three squadron colours, drawing left→right at the
+   same instant the segments begin to fade in beneath it. */
+.build-thread {
+  height: 2px;
+  border-radius: 2px;
+  margin: 0 0 56px;
+  background: linear-gradient(90deg, #c93a17 0%, #c93a17 30%, #2565aa 50%, #0d5a40 70%, #0d5a40 100%);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 1.15s cubic-bezier(0.22, 1, 0.36, 1) 0.05s;
+}
+#build.on .build-thread { transform: scaleX(1); }
+.build-item {
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+#build.on .build-item:nth-child(1) { transition-delay: 0.05s; }
+#build.on .build-item:nth-child(2) { transition-delay: 0.32s; }
+#build.on .build-item:nth-child(3) { transition-delay: 0.6s; }
+#build.on .build-item { opacity: 1; transform: none; }
+
+/* ── Nav hugs the viewport edge — consistent placement on every screen ── */
+.nav-fullbleed {
+  width: 100%;
+  max-width: none;
+  padding-left: 28px;
+  padding-right: 28px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+@media (max-width: 600px) {
+  .nav-fullbleed { padding-left: 16px; padding-right: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .build-thread { transition: none; transform: scaleX(1); }
+  .build-item { transition: none; opacity: 1; transform: none; }
+}

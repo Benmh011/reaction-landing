@@ -20,7 +20,7 @@ export default function SiteNav({
 }: SiteNavProps) {
   return (
     <nav className="nav">
-      <div className="container nav-inner">
+      <div className="nav-inner nav-fullbleed">
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {!hideSectionDropdown && <SectionDropdown />}
           <Link href="/" className="nav-brand">

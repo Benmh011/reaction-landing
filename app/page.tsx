@@ -2,6 +2,7 @@ import Link from "next/link";
 import SiteNav from "@/components/SiteNav";
 import SiteFooter from "@/components/SiteFooter";
 import Flock from "@/components/Flock";
+import BuildReveal from "@/components/BuildReveal";
 
 /**
  * Reaction — ink on paper.
@@ -122,12 +123,19 @@ export default function HomePage() {
             </p>
 
             <div className="ink-enter" style={{ display: "flex", gap: 14, flexWrap: "wrap", animationDelay: "280ms" }}>
-              <Link href="/demo" className="btn btn-primary btn-large">
-                Set things in motion
+              <Link href="/auth/register" className="btn btn-primary btn-large">
+                Create account
                 <span className="arrow" aria-hidden="true">→</span>
               </Link>
               <Link href="#laws" className="btn btn-ghost btn-large">
                 Read the three laws
+              </Link>
+            </div>
+
+            <div className="mono ink-enter" style={{ marginTop: 18, fontSize: "0.74rem", letterSpacing: "0.08em", color: "var(--text-muted)", animationDelay: "440ms" }}>
+              Already have an account?{" "}
+              <Link href="/auth/signin" style={{ color: "var(--reaction)", textDecoration: "none", borderBottom: "1px solid currentColor" }}>
+                Sign in
               </Link>
             </div>
           </div>
@@ -225,6 +233,7 @@ export default function HomePage() {
       ))}
 
       {/* ── WHAT WE BUILD ── */}
+      <BuildReveal />
       <section style={{ padding: "100px 0 90px", borderTop: "1px solid var(--rule)" }} id="build">
         <div className="container">
           <header style={{ maxWidth: 720, marginBottom: 64 }}>
@@ -246,6 +255,7 @@ export default function HomePage() {
             </h2>
           </header>
 
+          <div className="build-thread" aria-hidden="true" />
           <div className="build-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 56, alignItems: "start" }}>
             {[
               {
@@ -270,7 +280,7 @@ export default function HomePage() {
                 flagship: true,
               },
             ].map((b) => (
-              <div key={b.num}>
+              <div key={b.num} className="build-item">
                 <div
                   className="mono"
                   style={{

@@ -1,0 +1,205 @@
+// Southmoor Vets — agentic knowledge + records database
+// Postgres (Neon, EU/Frankfurt) with the pgvector extension.
+// pgvector lets us keep the relational store AND the vector store in one DB.
+
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../node_modules/@prisma-vet/client"
+  previewFeatures = ["postgresqlExtensions"]
+  // "native" for local dev; the rhel target is Vercel's serverless runtime.
+  binaryTargets   = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("VET_DATABASE_URL") // pooled — the vet app's own Neon DB
+  directUrl  = env("VET_DIRECT_URL") // unpooled — never migrated from this repo
+  extensions = [vector]
+}
+
+// ---------------------------------------------------------------------------
+// Practice / people / tenancy
+// ---------------------------------------------------------------------------
+
+enum Site {
+  KINGSBRIDGE
+  DARTINGTON
+  IVYBRIDGE
+}
+
+enum Role {
+  VET // RCVS-registered surgeon — full clinical access
+  NURSE // RVN
+  RECEPTION // operational, restricted clinical
+  ADMIN // system administration
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  passwordHash String? // bcrypt hash for demo login
+  role      Role     @default(VET)
+  rcvsNo    String? // RCVS registration number for vets
+  sites     Site[] // sites this user works across
+  queries   QueryLog[]
+  createdAt DateTime @default(now())
+}
+
+// A client (farm / owner) and their animals. Lightweight — the real detail
+// lives in ingested documents; this exists so records can be scoped & found.
+model Client {
+  id        String           @id @default(cuid())
+  ref       String           @unique // practice management system reference
+  name      String
+  site      Site
+  postcode  String?
+  animals   Animal[]
+  documents PracticeDocument[]
+  createdAt DateTime         @default(now())
+
+  @@index([site])
+}
+
+model Animal {
+  id        String           @id @default(cuid())
+  clientId  String
+  client    Client           @relation(fields: [clientId], references: [id])
+  ref       String? // ear tag / microchip / herd number
+  species   String // "cattle", "sheep", "equine", "canine", etc.
+  name      String?
+  documents PracticeDocument[]
+
+  @@index([clientId])
+  @@index([species])
+}
+
+// ---------------------------------------------------------------------------
+// Knowledge base — clinical, medication, legislation
+// One unified chunk table keeps retrieval simple; `domain` partitions it.
+// ---------------------------------------------------------------------------
+
+enum KnowledgeDomain {
+  CLINICAL // symptoms, conditions, treatment protocols
+  MEDICATION // VMD-sourced product information
+  LEGISLATION // legislation.gov.uk + RCVS code
+}
+
+model KnowledgeChunk {
+  id        String          @id @default(cuid())
+  domain    KnowledgeDomain
+  title     String // human-readable source title
+  content   String // the chunk text that gets embedded
+  source    String // citable origin: URL, "VMD PID", statute name + section
+  sourceUrl String?
+  metadata  Json? // species, therapeuticGroup, statuteSection, etc.
+
+  // Optional link to a structured medication record (for MEDICATION chunks)
+  medicationId String?
+  medication   Medication? @relation(fields: [medicationId], references: [id])
+
+  // 1024-dim embedding (Bedrock Titan v2 / Cohere). Index created in raw SQL.
+  embedding Unsupported("vector(1024)")?
+
+  createdAt DateTime @default(now())
+
+  @@index([domain])
+  @@index([medicationId])
+}
+
+// Structured medication record, populated from the VMD PID XML snapshot.
+// Keeps the regulated facts queryable as columns (not just buried in vectors)
+// so withdrawal periods / POM-V status / species can be filtered exactly.
+model Medication {
+  id                 String   @id @default(cuid())
+  vmNo               String   @unique // VMD marketing authorisation number
+  name               String
+  activeSubstances   String[] // e.g. ["amoxicillin"]
+  targetSpecies      String[] // e.g. ["cattle", "pig"]
+  distributionCat    String // POM-V | POM-VPS | NFA-VPS | AVM-GSL
+  therapeuticGroup   String? // anthelmintic, antibiotic, NSAID, etc.
+  // Withdrawal periods are food-chain / public-health critical. Stored as
+  // structured JSON: { "cattle": { "meat": "28 days", "milk": "5 days" }, ... }
+  withdrawalPeriods  Json?
+  spcText            String? // full Summary of Product Characteristics text
+  spcUrl             String?
+  status             String   @default("authorised") // authorised | expired | suspended
+  updatedAt          DateTime @updatedAt
+  chunks             KnowledgeChunk[]
+
+  @@index([distributionCat])
+  @@index([therapeuticGroup])
+}
+
+// ---------------------------------------------------------------------------
+// Practice records — the ingestion mechanism's destination.
+// Originals stay in object storage (EU); text is chunked + embedded here,
+// always scoped to a client/animal so retrieval can be access-controlled.
+// ---------------------------------------------------------------------------
+
+enum DocStatus {
+  UPLOADED
+  PARSING
+  EMBEDDING
+  READY
+  FAILED
+}
+
+model PracticeDocument {
+  id          String         @id @default(cuid())
+  site        Site
+  clientId    String?
+  client      Client?        @relation(fields: [clientId], references: [id])
+  animalId    String?
+  animal      Animal?        @relation(fields: [animalId], references: [id])
+  docType     String // "consultation", "lab_result", "invoice", "protocol", etc.
+  title       String
+  originalUri String // object-storage key (EU bucket / Vercel Blob)
+  mimeType    String
+  status      DocStatus      @default(UPLOADED)
+  error       String?
+  chunks      DocumentChunk[]
+  uploadedAt  DateTime       @default(now())
+
+  @@index([site])
+  @@index([clientId])
+  @@index([animalId])
+}
+
+model DocumentChunk {
+  id         String           @id @default(cuid())
+  documentId String
+  document   PracticeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  // Denormalised scope keys so record search can filter without a join.
+  site       Site
+  clientId   String?
+  animalId   String?
+  page       Int?
+  content    String
+  embedding  Unsupported("vector(1024)")?
+
+  @@index([documentId])
+  @@index([clientId])
+  @@index([animalId])
+}
+
+// ---------------------------------------------------------------------------
+// Audit — a clinical tool must log what was asked and what was retrieved.
+// ---------------------------------------------------------------------------
+
+model QueryLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  site        Site?
+  question    String
+  answer      String?
+  toolCalls   Json? // which tools ran, with what args
+  sourcesUsed Json? // chunk ids / sources cited
+  rating      Int? // user rating of the answer, 1-10
+  feedback    String? // free-text feedback when rating < 10
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
