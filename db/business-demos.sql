@@ -36,7 +36,7 @@ VALUES (
   'southmoor-vets',
   'Southmoor Vets — Clinical Assistant',
   'A locally hosted multi-agentic assistant for a working veterinary practice: grounded clinical answers with verified SPC citations, client files, a working-day board, and document search — all inside the practice''s own walls.',
-  '/demos/southmoor',
+  'https://reactionbusinessservices.co.uk/southmoor',
   'Gated by the software''s own login wall. Uses the existing Southmoor demo account (see password manager).',
   true,
   0
@@ -60,4 +60,4 @@ DELETE FROM "VerificationToken";
 -- SELECT slug, name, active FROM "Demo";
 
 -- 7) If you ran an earlier version of this file that seeded the external URL:
-UPDATE "Demo" SET "launchUrl" = '/demos/southmoor' WHERE "slug" = 'southmoor-vets';
+UPDATE "Demo" SET "launchUrl" = 'https://reactionbusinessservices.co.uk/southmoor' WHERE "slug" = 'southmoor-vets';

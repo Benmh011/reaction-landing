@@ -68,8 +68,6 @@ export default function LaunchDemoCard({ demo }: { demo: DemoEntry }) {
       </div>
       <a
         href={demo.launchUrl}
-        target="_blank"
-        rel="noopener noreferrer"
         className="btn btn-primary"
         onClick={trackLaunch}
         style={{ whiteSpace: "nowrap" }}
