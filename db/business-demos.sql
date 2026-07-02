@@ -26,8 +26,12 @@ ALTER TABLE "DemoRequest" ALTER COLUMN "requestType" SET DEFAULT 'BUSINESS';
 ALTER TABLE "User"        ALTER COLUMN "requestType" SET DEFAULT 'BUSINESS';
 
 -- 3) Seed the first demo: the Southmoor Vets clinical assistant.
---    Access is gated by the software's own login wall on
---    www.reactionbusinessservices.com — the same credentials already in use.
+--    Access is gated by the software's own login wall. We point at /login
+--    (not /southmoor directly, which is behind that wall) and pass
+--    ?from=%2Fsouthmoor so a successful sign-in lands the client straight in
+--    the assistant, skipping the demo-chooser page. Same credentials as the
+--    hosted app — mirror them into THIS database too (create-demo-login.bat)
+--    so one login works on both reaction.org.uk and the vet demo.
 --    (accessNote deliberately does not contain the password; keep that in
 --    your password manager and note only where to find it.)
 INSERT INTO "Demo" ("id", "slug", "name", "description", "launchUrl", "accessNote", "active", "sortOrder")
@@ -36,7 +40,7 @@ VALUES (
   'southmoor-vets',
   'Southmoor Vets — Clinical Assistant',
   'A locally hosted multi-agentic assistant for a working veterinary practice: grounded clinical answers with verified SPC citations, client files, a working-day board, and document search — all inside the practice''s own walls.',
-  'https://www.reactionbusinessservices.com/southmoor',
+  'https://www.reactionbusinessservices.com/login?from=%2Fsouthmoor',
   'Gated by the software''s own login wall. Uses the existing Southmoor demo account (see password manager).',
   true,
   0
@@ -60,4 +64,4 @@ DELETE FROM "VerificationToken";
 -- SELECT slug, name, active FROM "Demo";
 
 -- 7) If you ran an earlier version of this file that seeded the external URL:
-UPDATE "Demo" SET "launchUrl" = 'https://www.reactionbusinessservices.com/southmoor' WHERE "slug" = 'southmoor-vets';
+UPDATE "Demo" SET "launchUrl" = 'https://www.reactionbusinessservices.com/login?from=%2Fsouthmoor' WHERE "slug" = 'southmoor-vets';
