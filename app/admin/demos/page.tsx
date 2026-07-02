@@ -38,7 +38,7 @@ async function createDemo(formData: FormData) {
   const launchUrl = String(formData.get("launchUrl") ?? "").trim();
   const accessNote = String(formData.get("accessNote") ?? "").trim() || null;
   if (!name || !slug || !description || !launchUrl) return;
-  if (!/^https?:\/\//.test(launchUrl)) return;
+  if (!/^(https?:\/\/|\/)/.test(launchUrl)) return; // external URL or internal path
   await prisma.demo.create({
     data: { name, slug, description, launchUrl, accessNote, active: true, sortOrder: 99 },
   }).catch(() => undefined); // duplicate slug etc. — fail quiet, page re-renders
@@ -52,7 +52,7 @@ async function updateDemo(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
   const launchUrl = String(formData.get("launchUrl") ?? "").trim();
-  if (!/^https?:\/\//.test(launchUrl)) return;
+  if (!/^(https?:\/\/|\/)/.test(launchUrl)) return; // external URL or internal path
   await prisma.demo.update({
     where: { id },
     data: {
@@ -198,7 +198,7 @@ export default async function AdminDemosPage() {
               <label style={label} htmlFor="new-desc">Description (shown publicly)</label>
               <textarea style={{ ...input, minHeight: 74 }} id="new-desc" name="description" required />
               <label style={label} htmlFor="new-url">Launch URL (https://…)</label>
-              <input style={input} id="new-url" name="launchUrl" type="url" required placeholder="https://reactionbusinessservices.co.uk/…" />
+              <input style={input} id="new-url" name="launchUrl" type="text" required placeholder="https://… or /demos/…" />
               <label style={label} htmlFor="new-note">Access note (private)</label>
               <input style={input} id="new-note" name="accessNote" placeholder="Where the credentials live — never the credentials themselves" />
               <div style={{ marginTop: 16 }}>

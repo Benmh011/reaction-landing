@@ -412,3 +412,8 @@ section { position: relative; z-index: 2; }
 @keyframes iDotPop {
   to { opacity: 1; transform: translateX(-50%) scale(1); }
 }
+
+/* What-we-build trio collapses gracefully */
+@media (max-width: 900px) {
+  .build-grid { grid-template-columns: 1fr !important; gap: 44px !important; }
+}

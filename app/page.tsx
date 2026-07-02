@@ -224,6 +224,87 @@ export default function HomePage() {
         </section>
       ))}
 
+      {/* ── WHAT WE BUILD ── */}
+      <section style={{ padding: "100px 0 90px", borderTop: "1px solid var(--rule)" }} id="build">
+        <div className="container">
+          <header style={{ maxWidth: 720, marginBottom: 64 }}>
+            <div className="mono" style={{ fontSize: "0.7rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 20 }}>
+              What we build · three trades, one workshop
+            </div>
+            <h2
+              style={{
+                ...serif,
+                fontStyle: "italic",
+                fontWeight: 600,
+                fontSize: "clamp(1.9rem, 3.6vw, 2.8rem)",
+                lineHeight: 1.12,
+                color: "var(--text)",
+                margin: 0,
+              }}
+            >
+              Websites, software, and the systems that move them.
+            </h2>
+          </header>
+
+          <div className="build-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 56, alignItems: "start" }}>
+            {[
+              {
+                num: "01",
+                name: "Websites",
+                h: "Shopfronts that carry their weight.",
+                p: "Fast, hand-built sites for working businesses — the shopfront, the booking flow, the pages a customer actually reads. Designed and written with intent, hosted and maintained by us, and measured on one thing: whether the work comes in.",
+                flagship: false,
+              },
+              {
+                num: "02",
+                name: "Software",
+                h: "Software fitted to the business.",
+                p: "Client portals, internal tools, practice dashboards — the systems behind the counter. Built on modern foundations around the way your team already works, so the software bends to the business, never the other way round.",
+                flagship: false,
+              },
+              {
+                num: "03",
+                name: "LMAS",
+                h: "Locally hosted multi-agentic systems.",
+                p: "The flagship. Formations of small, specialised agents on infrastructure you control, applying themselves to your heaviest work — the machinery of Law II, under the guarantee of Law III. Websites bring the work in; software organises it; a LMAS moves it.",
+                flagship: true,
+              },
+            ].map((b) => (
+              <div key={b.num}>
+                <div
+                  className="mono"
+                  style={{
+                    fontSize: "0.68rem",
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    color: b.flagship ? "var(--reaction)" : "var(--text-muted)",
+                    marginBottom: 16,
+                  }}
+                >
+                  {b.num} · {b.name}
+                </div>
+                <h3
+                  style={{
+                    ...serif,
+                    fontStyle: "italic",
+                    fontWeight: 600,
+                    fontSize: "clamp(1.3rem, 2vw, 1.6rem)",
+                    lineHeight: 1.18,
+                    color: "var(--text)",
+                    margin: "0 0 18px",
+                  }}
+                >
+                  {b.h}
+                </h3>
+                <p style={{ fontSize: "0.98rem", lineHeight: 1.7, color: "var(--text-soft)", margin: 0 }}>
+                  {b.p}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── CODA ── */}
       <section style={{ padding: "120px 0 130px", borderTop: "1px solid var(--rule)", textAlign: "center" }} id="demo">
         <div className="container">

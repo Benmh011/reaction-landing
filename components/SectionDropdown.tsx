@@ -8,6 +8,7 @@ const SECTIONS = [
   { id: "law-1", label: "I · Inertia" },
   { id: "law-2", label: "II · Force" },
   { id: "law-3", label: "III · Reaction" },
+  { id: "build", label: "What we build" },
   { id: "demo", label: "Book a demo" },
 ];
 

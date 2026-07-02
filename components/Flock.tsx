@@ -35,18 +35,18 @@ const INK = 0x1a1713;
 const PAPER = 0xf7f4ec;
 
 const SQUADRONS = [
-  { pad: "verm", color: 0xc93a17, wings: 3 }, // Intell·i·gence
-  { pad: "blue", color: 0x2565aa, wings: 3 }, // ·i·n
-  { pad: "green", color: 0x0d5a40, wings: 6 }, // format·i·on
+  { pad: "verm", color: 0xc93a17, wings: 2 }, // Intell·i·gence
+  { pad: "blue", color: 0x2565aa, wings: 2 }, // ·i·n
+  { pad: "green", color: 0x0d5a40, wings: 2 }, // format·i·on
 ] as const;
-const N = SQUADRONS.reduce((s, q) => s + q.wings + 1, 0); // 15
+const N = SQUADRONS.reduce((s, q) => s + q.wings + 1, 0); // 9
 
 /* ── The murmuration's constants, verbatim where they survive ── */
 const SEP_R2 = 0.34 * 0.34; //   personal space within a squadron
 const XSEP_R2 = 0.5 * 0.5; //    personal space between squadrons
 const NEIGH_R2 = 1.15 * 1.15; // squadron-mate perception radius
-const MIN_S = 0.7; //            speed floor — nobody hovers
-const MAX_S = 2.3; //            speed ceiling
+const MIN_S = 0.35; //           speed floor — nobody hovers
+const MAX_S = 1.15; //           speed ceiling
 const W_SEP = 4.2; //            rule strengths
 const W_XSEP = 5.2;
 const W_ALI = 1.6;
@@ -64,7 +64,7 @@ const T_SQUAD = 0.38;
 const T_PLANE = 0.14;
 const T_RAMP = 0.9;
 const TRAIL_N = 26;
-const DART_K = 0.26; // dart scale (world units); captains ×1.22
+const DART_K = 0.13; // dart scale (world units); captains ×1.22
 
 function StaticFallback() {
   const dart = "M2.4 0 L-1.8 1.4 L-1 0 L-1.8 -1.4 Z";
@@ -146,7 +146,7 @@ export default function Flock() {
         terr.ry = halfH * 0.58;
         pxPerWorld = h / (2 * halfH);
         // The headline block in world xy at z=0, inflated — cruised around once airborne.
-        const h1 = host.parentElement?.querySelector("h1");
+        const h1 = host.closest("section")?.querySelector("h1");
         if (h1) {
           const hr = h1.getBoundingClientRect();
           const toWX = (px: number) => ((px - r.left) / w) * 2 * halfW - halfW;
@@ -243,7 +243,7 @@ export default function Flock() {
       const dotWorld = new THREE.Vector3();
       const spawnSquadron = (sq: number, simT: number) => {
         const cfg = SQUADRONS[sq];
-        const el = host.parentElement?.querySelector(`[data-captain="${cfg.pad}"]`);
+        const el = host.closest("section")?.querySelector(`[data-captain="${cfg.pad}"]`);
         if (el) {
           const d = el.getBoundingClientRect();
           unprojectToPlane(d.left + d.width / 2, d.top + d.height / 2, dotWorld);
