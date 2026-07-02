@@ -2,6 +2,7 @@ import Link from "next/link";
 import SiteNav from "@/components/SiteNav";
 import SiteFooter from "@/components/SiteFooter";
 import Flock from "@/components/Flock";
+import { auth } from "@/auth";
 import BuildReveal from "@/components/BuildReveal";
 
 /**
@@ -65,7 +66,11 @@ const LAWS = [
   },
 ];
 
-export default function HomePage() {
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  const session = await auth();
+  const loggedIn = Boolean(session?.user);
   return (
     <>
       <SiteNav />
@@ -123,21 +128,37 @@ export default function HomePage() {
             </p>
 
             <div className="ink-enter" style={{ display: "flex", gap: 14, flexWrap: "wrap", animationDelay: "280ms" }}>
-              <Link href="/auth/register" className="btn btn-primary btn-large">
-                Create account
-                <span className="arrow" aria-hidden="true">→</span>
-              </Link>
+              {loggedIn ? (
+                <Link href="/demo" className="btn btn-primary btn-large">
+                  Launch demo
+                  <span className="arrow" aria-hidden="true">→</span>
+                </Link>
+              ) : (
+                <Link href="/auth/register" className="btn btn-primary btn-large">
+                  Create account
+                  <span className="arrow" aria-hidden="true">→</span>
+                </Link>
+              )}
               <Link href="#laws" className="btn btn-ghost btn-large">
                 Read the three laws
               </Link>
             </div>
 
-            <div className="mono ink-enter" style={{ marginTop: 18, fontSize: "0.74rem", letterSpacing: "0.08em", color: "var(--text-muted)", animationDelay: "440ms" }}>
-              Already have an account?{" "}
-              <Link href="/auth/signin" style={{ color: "var(--reaction)", textDecoration: "none", borderBottom: "1px solid currentColor" }}>
-                Sign in
-              </Link>
-            </div>
+            {loggedIn ? (
+              <div className="mono ink-enter" style={{ marginTop: 18, fontSize: "0.74rem", letterSpacing: "0.08em", color: "var(--text-muted)", animationDelay: "440ms" }}>
+                Signed in as {session?.user?.email}.{" "}
+                <Link href="/auth/signout" style={{ color: "var(--reaction)", textDecoration: "none", borderBottom: "1px solid currentColor" }}>
+                  Sign out
+                </Link>
+              </div>
+            ) : (
+              <div className="mono ink-enter" style={{ marginTop: 18, fontSize: "0.74rem", letterSpacing: "0.08em", color: "var(--text-muted)", animationDelay: "440ms" }}>
+                Already have an account?{" "}
+                <Link href="/auth/signin" style={{ color: "var(--reaction)", textDecoration: "none", borderBottom: "1px solid currentColor" }}>
+                  Sign in
+                </Link>
+              </div>
+            )}
           </div>
 
           <div

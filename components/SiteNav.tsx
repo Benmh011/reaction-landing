@@ -1,23 +1,35 @@
 import Link from "next/link";
 import SectionDropdown from "@/components/SectionDropdown";
+import { auth } from "@/auth";
 
 interface SiteNavProps {
-  /** Right-side action: defaults to "Book a demo" linking to /demo */
+  /** Right-side action shown to LOGGED-OUT visitors. Defaults to "Book a demo". */
   rightAction?: { label: string; href: string };
-  /** Show a "Sign out" link instead of the right action */
+  /**
+   * Force the signed-out signout link (legacy prop, still honoured). Normally
+   * leave unset: SiteNav now derives login state from the session itself.
+   */
   signOutHref?: string;
   /** Hide the section dropdown (e.g. on pages other than the home landing page) */
   hideSectionDropdown?: boolean;
 }
 
-// SiteNav is now a server component — no theme toggle, no client state.
-// Dark mode is disabled site-wide; data-theme="light" is set in layout.tsx.
-// The section dropdown is a client component, composed in here for the landing page.
-export default function SiteNav({
+/**
+ * Session-aware nav. Reads the Auth.js session on the server so every page —
+ * the landing page included — reflects whether the visitor is logged in:
+ *   · logged out → the configured right action (default "Book a demo")
+ *   · logged in  → "Launch demo" + "Sign out"
+ * The session persists via the Auth.js cookie until the user signs out; this
+ * component simply renders that state instead of assuming logged-out.
+ */
+export default async function SiteNav({
   rightAction = { label: "Book a demo", href: "/demo" },
   signOutHref,
   hideSectionDropdown = false,
 }: SiteNavProps) {
+  const session = await auth();
+  const loggedIn = Boolean(session?.user);
+
   return (
     <nav className="nav">
       <div className="nav-inner nav-fullbleed">
@@ -27,8 +39,18 @@ export default function SiteNav({
             Reaction
           </Link>
         </div>
-        <div className="nav-actions">
-          {signOutHref ? (
+        <div className="nav-actions" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {loggedIn ? (
+            <>
+              <Link href="/auth/signout" className="btn btn-ghost">
+                Sign out
+              </Link>
+              <Link href="/demo" className="btn btn-primary">
+                Launch demo
+                <span className="arrow" aria-hidden="true">→</span>
+              </Link>
+            </>
+          ) : signOutHref ? (
             <Link href={signOutHref} className="btn btn-ghost">
               Sign out
             </Link>
