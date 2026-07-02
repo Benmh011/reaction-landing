@@ -308,7 +308,7 @@ export default function AutomationDial() {
           activity[i] += (targetA - activity[i]) * Math.min(1, dt * 3);
           const act = activity[i];
           if (act > 0.05) {
-            phases[i] += (0.16 + v * 1.15) * act * dt;
+            phases[i] -= (0.16 + v * 1.15) * act * dt; // clockwise, noses forward
           } else {
             let dphi = HOME[i] - (phases[i] % (Math.PI * 2));
             while (dphi > Math.PI) dphi -= Math.PI * 2;
