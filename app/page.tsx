@@ -4,15 +4,16 @@ import SiteFooter from "@/components/SiteFooter";
 import Flock from "@/components/Flock";
 import { auth } from "@/auth";
 import BuildReveal from "@/components/BuildReveal";
+import AutomationDial from "@/components/AutomationDial";
 
 /**
  * Reaction — ink on paper.
  *
- * The page is a short manifesto: three laws of motion for business AI,
+ * The page is a short manifesto: the Augmentation Ethos — enhance people,
  * after Newton. Above them, three squadrons of ink darts fly true boid
  * physics — each launched from the coloured tittle of its own lowercase i
  * in the headline — and part around the cursor as it moves. Your action,
- * their Reaction. Nothing announced; the laws make the argument.
+ * their Reaction. Nothing announced; the position makes the argument.
  */
 
 /** A lowercase i whose tittle is a coloured launch pad. The glyph is dotless
@@ -32,39 +33,6 @@ const serif = {
   fontVariationSettings: '"opsz" 144, "SOFT" 0, "WONK" 0',
   letterSpacing: "-0.02em",
 } as const;
-
-const LAWS = [
-  {
-    numeral: "I",
-    name: "Inertia",
-    law: "Work at rest stays at rest.",
-    body: [
-      "Every business carries mass. The intake queue. The reconciliations. The documents that wait, sometimes for weeks, on a single pair of eyes. Left alone, that mass does not move — it accumulates.",
-      "Most AI tools don't move it either. They sit outside your business, answer questions when asked, and leave the weight exactly where it was. A chat window is not a force.",
-    ],
-    note: "the diagnosis",
-  },
-  {
-    numeral: "II",
-    name: "Force",
-    law: "Change requires a force, applied where the mass is.",
-    body: [
-      "Reaction builds locally hosted multi-agentic systems — LMAS. Not one general model guessing at everything, but a formation of small, specialised agents that live inside your infrastructure and apply themselves directly to your heaviest work. One triages. One drafts. One checks the draft against your rules. One asks a person before anything leaves the building.",
-      "Force is proportional to how well the system knows the mass it's moving. So we begin every engagement by mapping how your business actually works — the tasks, the tools, the handoffs — and build the formation around it.",
-    ],
-    note: "the machinery",
-  },
-  {
-    numeral: "III",
-    name: "Reaction",
-    law: "Every action meets an equal and opposite Reaction.",
-    body: [
-      "Your business acts; the system answers in kind — and never out of turn. It augments the tools and workflows your team already trusts rather than replacing the team itself, and we train your employees to work alongside it until it feels less like software and more like instinct.",
-      "Because we host and curate everything ourselves, your data never migrates to somebody else's cloud. No third-party model quietly learning from your work. No prompts leaving the premises. What we set in motion inside your business stays inside your business — and moves only when you do.",
-    ],
-    note: "the guarantee",
-  },
-];
 
 export const dynamic = "force-dynamic";
 
@@ -139,8 +107,8 @@ export default async function HomePage() {
                   <span className="arrow" aria-hidden="true">→</span>
                 </Link>
               )}
-              <Link href="#laws" className="btn btn-ghost btn-large">
-                Read the three laws
+              <Link href="#ethos" className="btn btn-ghost btn-large">
+                Read the ethos
               </Link>
             </div>
 
@@ -179,79 +147,110 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ── THE THREE LAWS ── */}
-      <section style={{ padding: "110px 0 40px", borderTop: "1px solid var(--rule)" }} id="laws">
+      {/* ── THE AUGMENTATION ETHOS ── */}
+      <BuildReveal target="ethos" />
+      <section style={{ padding: "110px 0 90px", borderTop: "1px solid var(--rule)" }} id="ethos">
         <div className="container">
-          <header style={{ maxWidth: 720, marginBottom: 30 }}>
+          <header className="ethos-item ethos-head-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 360px", gap: 72, alignItems: "center", marginBottom: 70 }}>
+            <div style={{ maxWidth: 620 }}>
             <div className="mono" style={{ fontSize: "0.7rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 20 }}>
-              A working theory of business AI · after Newton, 1687
+              Our position · how we work with your people
             </div>
             <h2
               style={{
                 ...serif,
                 fontStyle: "italic",
                 fontWeight: 600,
-                fontSize: "clamp(1.9rem, 3.6vw, 2.8rem)",
-                lineHeight: 1.12,
+                fontSize: "clamp(2.1rem, 4.2vw, 3.2rem)",
+                lineHeight: 1.1,
                 color: "var(--text)",
-                margin: 0,
+                margin: "0 0 22px",
               }}
             >
-              The three laws of motion, applied to the work your business
-              actually does.
+              <span className="ethos-cap-verm">T</span>he <span className="ethos-cap-blue">A</span>ugmentation{" "}
+              <span className="ethos-cap-green">E</span>thos<span style={{ color: "var(--reaction)" }}>.</span>
             </h2>
+            <p style={{ fontSize: "1.08rem", lineHeight: 1.7, color: "var(--text-soft)", margin: 0, maxWidth: "58ch" }}>
+              We build systems that make your people more capable — never cheaper to remove.
+              That isn&rsquo;t a slogan; it&rsquo;s a design constraint we accept in every engagement.
+            </p>
+            </div>
+            <AutomationDial />
           </header>
-        </div>
-      </section>
 
-      {LAWS.map((law, i) => (
-        <section key={law.numeral} style={{ padding: "70px 0", borderTop: i === 0 ? "none" : "1px solid var(--rule)" }} id={`law-${i + 1}`}>
-          <div className="container">
-            <div className="law-grid" style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 56, alignItems: "start" }}>
+          {[
+            {
+              num: "01",
+              name: "Augment, don't replace",
+              head: "Enhancement over headcount.",
+              body: [
+                "Our agents take the repetitive weight out of a role so the person in it can do more of what they're actually for: judgement, care, relationships, craft. The measure of a deployment isn't who it makes redundant — it's how much more the same team can carry.",
+                "If a proposal only makes sense as a redundancy plan, we decline the work. An augmented team compounds; a hollowed-out one just gets quieter.",
+              ],
+            },
+            {
+              num: "02",
+              name: "The dial, not the switch",
+              head: "You control the degree of automation.",
+              body: [
+                "Automation isn't all-or-nothing. Every workflow we build carries a dial: fully manual, agent-assisted, agent-drafted with human sign-off, or fully automated — set per task, by your team, and reversible at any time.",
+                "Trust in a system is earned in increments. So the system is built to be dialled — never surrendered to.",
+              ],
+            },
+            {
+              num: "03",
+              name: "Headroom",
+              head: "New skills inside the role they already hold.",
+              body: [
+                "The hours an agent returns don't vanish; they become headroom. The people who ran a process learn to direct it — briefing agents, auditing their output, catching what the system can't see.",
+                "That's a promotion in capability without a change of job title — and it's how a business grows its own operators instead of renting ours forever.",
+              ],
+            },
+          ].map((tenet, i) => (
+            <div
+              key={tenet.num}
+              className="ethos-grid ethos-item"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "220px 1fr",
+                gap: 56,
+                alignItems: "start",
+                padding: "44px 0",
+                borderTop: "1px solid var(--rule)",
+              }}
+            >
               <div>
-                <div
-                  aria-hidden="true"
-                  style={{
-                    ...serif,
-                    fontStyle: "italic",
-                    fontWeight: 500,
-                    fontSize: "clamp(4rem, 8vw, 7rem)",
-                    lineHeight: 0.9,
-                    color: i === 2 ? "var(--reaction)" : "var(--text)",
-                    opacity: i === 2 ? 1 : 0.92,
-                  }}
-                >
-                  {law.numeral}
+                <div className="mono" style={{ fontSize: "0.68rem", letterSpacing: "0.18em", textTransform: "uppercase", color: ["#c93a17", "#2565aa", "#0d5a40"][i], marginBottom: 10 }}>
+                  {tenet.num}
                 </div>
-                <div className="mono" style={{ fontSize: "0.68rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--text-muted)", marginTop: 18 }}>
-                  {law.name} · {law.note}
+                <div style={{ ...serif, fontStyle: "italic", fontWeight: 600, fontSize: "1.15rem", lineHeight: 1.3, color: "var(--text)" }}>
+                  {tenet.name}
                 </div>
               </div>
-
-              <div style={{ maxWidth: "62ch" }}>
+              <div>
                 <h3
                   style={{
                     ...serif,
                     fontStyle: "italic",
                     fontWeight: 600,
-                    fontSize: "clamp(1.5rem, 2.6vw, 2.1rem)",
-                    lineHeight: 1.15,
+                    fontSize: "clamp(1.25rem, 2vw, 1.55rem)",
+                    lineHeight: 1.2,
                     color: "var(--text)",
-                    margin: "0.35em 0 26px",
+                    margin: "0 0 16px",
                   }}
                 >
-                  {law.law}
+                  {tenet.head}
                 </h3>
-                {law.body.map((p) => (
-                  <p key={p.slice(0, 24)} style={{ fontSize: "1.05rem", lineHeight: 1.75, color: "var(--text-soft)", margin: "0 0 20px" }}>
+                {tenet.body.map((p) => (
+                  <p key={p.slice(0, 24)} style={{ fontSize: "0.98rem", lineHeight: 1.7, color: "var(--text-soft)", margin: "0 0 14px" }}>
                     {p}
                   </p>
                 ))}
               </div>
             </div>
-          </div>
-        </section>
-      ))}
+          ))}
+        </div>
+      </section>
 
       {/* ── WHAT WE BUILD ── */}
       <BuildReveal />
@@ -297,7 +296,7 @@ export default async function HomePage() {
                 num: "03",
                 name: "LMAS",
                 h: "Locally hosted multi-agentic systems.",
-                p: "The flagship. Formations of small, specialised agents on infrastructure you control, applying themselves to your heaviest work — the machinery of Law II, under the guarantee of Law III. Websites bring the work in; software organises it; a LMAS moves it.",
+                p: "The flagship. Formations of small, specialised agents on infrastructure you control, applying themselves to your heaviest work — with your people holding the dial. Websites bring the work in; software organises it; a LMAS moves it.",
                 flagship: true,
               },
             ].map((b) => (

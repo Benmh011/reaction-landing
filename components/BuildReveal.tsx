@@ -7,9 +7,9 @@ import { useEffect } from "react";
  * viewport — CSS then staggers the three segments in and draws the thread.
  * Renders nothing; reduced-motion users get everything visible via CSS.
  */
-export default function BuildReveal() {
+export default function BuildReveal({ target = "build" }: { target?: string } = {}) {
   useEffect(() => {
-    const el = document.getElementById("build");
+    const el = document.getElementById(target);
     if (!el) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       el.classList.add("on");
@@ -26,6 +26,6 @@ export default function BuildReveal() {
     );
     io.observe(el);
     return () => io.disconnect();
-  }, []);
+  }, [target]);
   return null;
 }

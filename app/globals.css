@@ -460,3 +460,32 @@ section { position: relative; z-index: 2; }
   .build-thread { transition: none; transform: scaleX(1); }
   .build-item { transition: none; opacity: 1; transform: none; }
 }
+
+/* ── The Augmentation Ethos: tri-coloured initials + staggered reveal ── */
+.ethos-cap-verm { color: #c93a17; }
+.ethos-cap-blue { color: #2565aa; }
+.ethos-cap-green { color: #0d5a40; }
+#ethos .ethos-item {
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+#ethos.on .ethos-item:nth-of-type(1),
+#ethos.on header.ethos-item { transition-delay: 0.05s; }
+#ethos.on .ethos-item:nth-of-type(2) { transition-delay: 0.3s; }
+#ethos.on .ethos-item:nth-of-type(3) { transition-delay: 0.55s; }
+#ethos.on .ethos-item:nth-of-type(4) { transition-delay: 0.8s; }
+#ethos.on .ethos-item { opacity: 1; transform: none; }
+@media (max-width: 900px) {
+  .ethos-grid { grid-template-columns: 1fr !important; gap: 22px !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #ethos .ethos-item { transition: none; opacity: 1; transform: none; }
+}
+
+/* Ethos header: text + dial side by side, stacking on smaller screens */
+@media (max-width: 940px) {
+  .ethos-head-grid { grid-template-columns: 1fr !important; gap: 44px !important; }
+  .ethos-head-grid > div:last-child,
+  .ethos-head-grid > *:last-child { max-width: 320px; margin: 0 auto; }
+}
