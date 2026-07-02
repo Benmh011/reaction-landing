@@ -3,80 +3,70 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * Flock — three formations, on manoeuvres.
+ * Flock — three formations, on manoeuvres. In three dimensions.
  *
- * Fifteen ink darts in three squadrons: a vermilion captain with 3 ink
- * wingmen, a blue captain with 3, an emerald captain with 6. The physics is
- * the original murmuration's, unchanged in kind: true boids — separation,
- * alignment, cohesion — inside a soft invisible territory, stirred by a slow
- * sine wind so the sky never holds still, fleeing the cursor as a presence
- * that eases in and out (your action, its Reaction). Cohesion and alignment
- * bind only squadron-mates; separation acts across all fifteen, so the three
- * sets part around each other rather than merging.
+ * This is the original murmuration's machinery, reduced in number but not in
+ * kind: true 3D boids (separation, alignment, cohesion) flying inside a soft
+ * invisible ellipsoid territory, stirred by a slow sine wind, fleeing the
+ * cursor as a presence that eases in and out — all under a fixed perspective
+ * camera, so darts genuinely approach and recede, foreshorten, and bank as
+ * they turn. Fifteen agents in three squadrons: a vermilion captain with 3
+ * ink wingmen, a blue captain with 3, an emerald captain with 6. Cohesion
+ * and alignment bind only squadron-mates; separation acts across all
+ * fifteen, so the sets part around each other rather than merging.
  *
  * The launch: each squadron lifts off from the coloured tittle of its own
- * lowercase i in the headline — vermilion from Intelligence, blue from in,
- * emerald from formation — measured live from the DOM ([data-captain]), so
- * the launch point is pixel-true wherever the headline wraps. Captains tow a
- * short ribbon of their own colour that dissolves toward the paper.
+ * lowercase i in the headline — the dot's screen position is unprojected
+ * through the camera onto the flock's z=0 plane, so lift-off is pixel-true
+ * wherever the headline wraps. Captains tow a short ribbon of their own
+ * pigment that dissolves toward the paper.
  *
- * Engineering: plain 2D canvas (fifteen agents need no GPU), DPR cap 1.5,
- * pauses offscreen/tab-hidden, reduced-motion renders squadrons already on
- * station as a single still, no-canvas falls back to a static SVG.
+ * Rendered as flat folded ink darts — sumi-e silhouettes, no lights, no
+ * gloss; the fold's changing silhouette is what sells the banking.
+ *
+ * Engineering: dynamic three import (no SSR), one InstancedMesh for all
+ * fifteen darts (per-instance colour), DPR cap 1.5, pauses offscreen and
+ * tab-hidden, reduced-motion pre-simulates squadrons on station and renders
+ * a single composed frame, no-WebGL falls back to a static SVG flock.
  * Decorative: aria-hidden; pointer events stay on the page.
  */
 
-const PAPER = "#f7f4ec";
-const INK = "#1a1713";
+const INK = 0x1a1713;
+const PAPER = 0xf7f4ec;
 
 const SQUADRONS = [
-  { pad: "verm", color: "#c93a17", wings: 3 }, // Intell·i·gence
-  { pad: "blue", color: "#2565aa", wings: 3 }, // ·i·n
-  { pad: "green", color: "#0d5a40", wings: 6 }, // format·i·on
+  { pad: "verm", color: 0xc93a17, wings: 3 }, // Intell·i·gence
+  { pad: "blue", color: 0x2565aa, wings: 3 }, // ·i·n
+  { pad: "green", color: 0x0d5a40, wings: 6 }, // format·i·on
 ] as const;
+const N = SQUADRONS.reduce((s, q) => s + q.wings + 1, 0); // 15
 
-/* ── Physics — the murmuration's constants, in its original world units.
-      The old flock lived in a world 13.2 units wide (territory BX = 6.6);
-      S = canvasWidth / WORLD_W converts units → pixels at any size. ── */
-const WORLD_W = 13.2;
-const NEIGH_R = 1.15; // squadron-mate perception radius (world units)
-const SEP_R = 0.34; //   personal space within a squadron
-const XSEP_R = 0.5; //   personal space between squadrons
-const MIN_S = 0.7; //    speed floor — nobody hovers (world units / s)
-const MAX_S = 2.3; //    speed ceiling
-const SPEED_TUNE = 0.72; // 15 large darts read calmer than 420 specks
-const W_SEP = 5.2; //    rule weights (steering, Reynolds-style)
-const W_XSEP = 6.0;
-const W_ALI = 1.7;
-const W_COH = 1.15;
-const WIND = { ax: 0.32, fx: 0.21, ay: 0.2, fy: 0.34, py: 2.1 }; // the slow sine wind, verbatim
-const CURSOR_R = 1.6; // the cursor's presence radius (world units)
-const W_FLEE = 7.0;
-const CURSOR_DECAY = 0.35; // presence eases out at the original rate
-const BOUND_K = 4.5; //  soft territory spring
-const TEXT_K = 2.6; //   gentle repulsion off the headline block
+/* ── The murmuration's constants, verbatim where they survive ── */
+const SEP_R2 = 0.34 * 0.34; //   personal space within a squadron
+const XSEP_R2 = 0.5 * 0.5; //    personal space between squadrons
+const NEIGH_R2 = 1.15 * 1.15; // squadron-mate perception radius
+const MIN_S = 0.7; //            speed floor — nobody hovers
+const MAX_S = 2.3; //            speed ceiling
+const W_SEP = 4.2; //            rule strengths
+const W_XSEP = 5.2;
+const W_ALI = 1.6;
+const W_COH = 1.1;
+const WIND = { ax: 0.32, fx: 0.21, ay: 0.2, fy: 0.34, py: 2.1 }; // the slow sine wind
+const FLEE_R = 1.7; //           the cursor's presence radius
+const W_FLEE = 6.5;
+const CURSOR_DECAY = 0.35; //    presence eases out at the original rate
+const BOUND_K = 3.4; //          soft territory spring, engages from e > 0.85
+const BZ = 2.2; //               territory half-depth — where the 3D lives
 
 /* ── Launch choreography (seconds; dots pop via CSS at 1.15/1.30/1.45s) ── */
-const T_LAUNCH = 1.75; // first captain lifts off
-const T_SQUAD = 0.38; //  stagger between squadrons
-const T_PLANE = 0.14; //  wingmen stream out behind their captain
-const T_RAMP = 0.9; //    flocking forces fade in over each dart's first flight
-const TRAIL_N = 26; //    captain ribbon length (frames)
-
-type Dart = {
-  sq: number;
-  cap: boolean;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  at: number; // launch time (s)
-  live: boolean;
-  trail: { x: number; y: number }[] | null;
-};
+const T_LAUNCH = 1.75;
+const T_SQUAD = 0.38;
+const T_PLANE = 0.14;
+const T_RAMP = 0.9;
+const TRAIL_N = 26;
+const DART_K = 0.26; // dart scale (world units); captains ×1.22
 
 function StaticFallback() {
-  // Hand-placed squadrons for no-canvas environments.
   const dart = "M2.4 0 L-1.8 1.4 L-1 0 L-1.8 -1.4 Z";
   const squads: [number, number, number, string, [number, number, number][]][] = [
     [30, 22, -12, "#c93a17", [[-5, 4, -18], [-5, -4, -4], [-9, 7, -20]]],
@@ -88,7 +78,7 @@ function StaticFallback() {
       {squads.map(([cx, cy, rot, col, wings], s) => (
         <g key={s} transform={`translate(${cx} ${cy}) rotate(${rot})`}>
           {wings.map(([wx, wy, wr], i) => (
-            <path key={i} d={dart} transform={`translate(${wx} ${wy}) rotate(${wr})`} fill={INK} />
+            <path key={i} d={dart} transform={`translate(${wx} ${wy}) rotate(${wr})`} fill="#1a1713" />
           ))}
           <path d={dart} transform="scale(1.2)" fill={col} />
         </g>
@@ -105,356 +95,428 @@ export default function Flock() {
     const host = hostRef.current;
     if (!host) return;
 
-    const canvas = document.createElement("canvas");
-    canvas.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block;";
-    const ctx = canvas.getContext("2d");
-    if (!ctx) {
-      setFallback(true);
-      return;
-    }
-    host.appendChild(canvas);
-
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    let W = 0;
-    let H = 0;
-    let S = 100; // px per world unit
-    let raf = 0;
-    let running = false;
     let disposed = false;
-    let started = performance.now();
-    let last = started;
-    let textRect: { x: number; y: number; w: number; h: number } | null = null;
 
-    const darts: Dart[] = [];
-    const rings: { x: number; y: number; t: number; c: string; r: number }[] = [];
-
-    const resize = () => {
-      const r = host.getBoundingClientRect();
-      W = r.width;
-      H = r.height;
-      S = W / WORLD_W;
-      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-      canvas.width = Math.max(1, Math.round(W * dpr));
-      canvas.height = Math.max(1, Math.round(H * dpr));
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      // The headline block, inflated: launches begin inside it, cruising avoids it.
-      const h1 = host.parentElement?.querySelector("h1");
-      if (h1) {
-        const hr = h1.getBoundingClientRect();
-        textRect = { x: hr.left - r.left - 20, y: hr.top - r.top - 20, w: hr.width + 40, h: hr.height + 40 };
+    (async () => {
+      let THREE: typeof import("three");
+      try {
+        THREE = await import("three");
+      } catch {
+        setFallback(true);
+        return;
       }
-    };
-    resize();
-    const ro = new ResizeObserver(resize);
-    ro.observe(host);
+      if (disposed || !hostRef.current) return;
 
-    // The cursor: a presence that eases in while the pointer moves. (Original.)
-    const cursor = { x: -9999, y: -9999 };
-    let cursorLive = 0;
-    const onMove = (e: PointerEvent) => {
-      const r = host.getBoundingClientRect();
-      cursor.x = e.clientX - r.left;
-      cursor.y = e.clientY - r.top;
-      cursorLive = 1;
-    };
-    if (!reduceMotion) window.addEventListener("pointermove", onMove, { passive: true });
+      let renderer: import("three").WebGLRenderer;
+      try {
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      } catch {
+        setFallback(true);
+        return;
+      }
+      renderer.setClearColor(0x000000, 0); // the paper shows through
+      host.appendChild(renderer.domElement);
+      renderer.domElement.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block;";
 
-    const dotPoint = (pad: string) => {
-      const el = host.parentElement?.querySelector(`[data-captain="${pad}"]`);
-      const r = host.getBoundingClientRect();
-      if (!el) return { x: W * 0.3, y: H * 0.6 }; // never strand a squadron
-      const d = el.getBoundingClientRect();
-      return { x: d.left + d.width / 2 - r.left, y: d.top + d.height / 2 - r.top };
-    };
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 40);
+      camera.position.set(0, 0, 8.4);
 
-    const territory = () => ({ cx: W * 0.52, cy: H * 0.36, rx: W * 0.44, ry: H * 0.3 });
+      // Territory (locally hosted): a soft ellipsoid the flock never leaves.
+      // Sized from the visible frustum at z=0 so it fits every viewport,
+      // biased up and slightly right — the sky above the headline.
+      let halfH = 3.56, halfW = 6.8;
+      const terr = { cx: 0, cy: 0, rx: 5, ry: 2, rz: BZ };
+      let pxPerWorld = 100;
+      let textBox: { x0: number; x1: number; y0: number; y1: number } | null = null;
 
-    const spawnSquadron = (sq: number, at: number) => {
-      const cfg = SQUADRONS[sq];
-      const p = dotPoint(cfg.pad);
-      const t = territory();
-      const aim = Math.atan2(t.cy - p.y, t.cx - p.x);
-      for (let k = 0; k <= cfg.wings; k++) {
-        const a = aim + (Math.random() - 0.5) * 0.7;
-        const v0 = MIN_S * S * SPEED_TUNE * 1.15;
-        darts.push({
-          sq,
-          cap: k === 0,
-          x: p.x,
-          y: p.y,
-          vx: Math.cos(a) * v0,
-          vy: Math.sin(a) * v0,
-          at: at + k * T_PLANE,
-          live: false,
-          trail: k === 0 ? [] : null,
+      const resize = () => {
+        const r = host.getBoundingClientRect();
+        const w = Math.max(1, r.width), h = Math.max(1, r.height);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+        renderer.setSize(w, h, false);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        halfH = camera.position.z * Math.tan((camera.fov * Math.PI) / 360);
+        halfW = halfH * camera.aspect;
+        terr.cx = halfW * 0.08;
+        terr.cy = halfH * 0.24;
+        terr.rx = halfW * 0.86;
+        terr.ry = halfH * 0.58;
+        pxPerWorld = h / (2 * halfH);
+        // The headline block in world xy at z=0, inflated — cruised around once airborne.
+        const h1 = host.parentElement?.querySelector("h1");
+        if (h1) {
+          const hr = h1.getBoundingClientRect();
+          const toWX = (px: number) => ((px - r.left) / w) * 2 * halfW - halfW;
+          const toWY = (py: number) => -((py - r.top) / h) * 2 * halfH + halfH;
+          textBox = { x0: toWX(hr.left - 20), x1: toWX(hr.right + 20), y0: toWY(hr.bottom + 20), y1: toWY(hr.top - 20) };
+        }
+      };
+      resize();
+      const ro = new ResizeObserver(resize);
+      ro.observe(host);
+
+      // ── The fifteen darts: one InstancedMesh, per-instance colour ──
+      // A folded paper dart, nose along +Y, wings raised off the crease —
+      // the fold's silhouette is what makes the banking legible.
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute(
+        "position",
+        new THREE.Float32BufferAttribute(
+          [
+            0, 1.0, 0, -0.62, -0.75, 0.2, 0, -0.45, 0, // left wing
+            0, 1.0, 0, 0, -0.45, 0, 0.62, -0.75, 0.2, //  right wing
+          ],
+          3,
+        ),
+      );
+      const mat = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
+      const mesh = new THREE.InstancedMesh(geo, mat, N);
+      mesh.frustumCulled = false;
+      const ink = new THREE.Color(INK);
+      const sqOf: number[] = [];
+      const isCap: boolean[] = [];
+      {
+        let i = 0;
+        SQUADRONS.forEach((cfg, sq) => {
+          for (let k = 0; k <= cfg.wings; k++, i++) {
+            sqOf[i] = sq;
+            isCap[i] = k === 0;
+            mesh.setColorAt(i, k === 0 ? new THREE.Color(cfg.color) : ink);
+          }
         });
       }
-    };
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      scene.add(mesh);
 
-    const smooth = (t: number) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
+      // ── Boids state ──
+      const pos = new Float32Array(N * 3);
+      const vel = new Float32Array(N * 3);
+      const born = new Float32Array(N).fill(-1); // sim time of lift-off; -1 = not yet
+      let launched = [false, false, false];
 
-    const step = (dt: number, el: number) => {
-      cursorLive = Math.max(0, cursorLive - dt * CURSOR_DECAY);
-      const t = el;
-      // Gentle wind so the flock fluctuates even when the pointer rests. (Original.)
-      const wx = Math.sin(t * WIND.fx) * WIND.ax * S;
-      const wy = Math.sin(t * WIND.fy + WIND.py) * WIND.ay * S;
-
-      const vmax = MAX_S * S * SPEED_TUNE;
-      const vminFull = MIN_S * S * SPEED_TUNE;
-      const neighR2 = NEIGH_R * S * (NEIGH_R * S);
-      const sepR2 = SEP_R * S * (SEP_R * S);
-      const xsepR2 = XSEP_R * S * (XSEP_R * S);
-      const terr = territory();
-
-      for (let i = 0; i < darts.length; i++) {
-        const p = darts[i];
-        if (el * 1000 < p.at * 1000) continue;
-        if (!p.live) {
-          p.live = true;
-          rings.push({ x: p.x, y: p.y, t: el, c: p.cap ? SQUADRONS[p.sq].color : INK, r: p.cap ? 4 : 7 });
+      // Captain ribbons: short pigment trails dissolving toward the paper.
+      const paper = new THREE.Color(PAPER);
+      const trails = SQUADRONS.map((cfg) => {
+        const g = new THREE.BufferGeometry();
+        const verts = new Float32Array(TRAIL_N * 2 * 3);
+        const cols = new Float32Array(TRAIL_N * 2 * 3);
+        g.setAttribute("position", new THREE.BufferAttribute(verts, 3).setUsage(THREE.DynamicDrawUsage));
+        g.setAttribute("color", new THREE.BufferAttribute(cols, 3).setUsage(THREE.DynamicDrawUsage));
+        const idx: number[] = [];
+        for (let i = 0; i < TRAIL_N - 1; i++) {
+          const a = i * 2;
+          idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
         }
-        const age = el - p.at;
-        const ramp = smooth(age / T_RAMP);
-
-        let sepX = 0, sepY = 0, aliX = 0, aliY = 0, cohX = 0, cohY = 0, n = 0;
-        for (let j = 0; j < darts.length; j++) {
-          if (i === j) continue;
-          const q = darts[j];
-          if (!q.live) continue;
-          const dx = p.x - q.x, dy = p.y - q.y;
-          const d2 = Math.max(dx * dx + dy * dy, 1e-4);
-          if (q.sq === p.sq) {
-            if (d2 < neighR2) {
-              n++;
-              cohX += q.x; cohY += q.y;
-              aliX += q.vx; aliY += q.vy;
-              if (d2 < sepR2) { sepX += dx / d2; sepY += dy / d2; }
-            }
-          } else if (d2 < xsepR2) {
-            sepX += (dx / d2) * (W_XSEP / W_SEP);
-            sepY += (dy / d2) * (W_XSEP / W_SEP);
-          }
-        }
-
-        let fx = 0, fy = 0;
-        const sepM = Math.hypot(sepX, sepY);
-        if (sepM > 1e-6) {
-          fx += ((sepX / sepM) * vmax - p.vx) * W_SEP * ramp;
-          fy += ((sepY / sepM) * vmax - p.vy) * W_SEP * ramp;
-        }
-        if (n > 0) {
-          const aM = Math.hypot(aliX, aliY);
-          if (aM > 1e-6) {
-            fx += ((aliX / aM) * vmax - p.vx) * W_ALI * ramp;
-            fy += ((aliY / aM) * vmax - p.vy) * W_ALI * ramp;
-          }
-          const gx = cohX / n - p.x, gy = cohY / n - p.y;
-          const gM = Math.hypot(gx, gy);
-          if (gM > 1e-6) {
-            fx += ((gx / gM) * vmax - p.vx) * W_COH * ramp;
-            fy += ((gy / gM) * vmax - p.vy) * W_COH * ramp;
-          }
-        }
-        // Wind
-        fx += wx; fy += wy;
-        // Territory (locally hosted): a soft ellipse the flock never leaves. (Original, one axis fewer.)
-        const ex = (p.x - terr.cx) / terr.rx, ey = (p.y - terr.cy) / terr.ry;
-        const e = ex * ex + ey * ey;
-        if (e > 0.82) {
-          const k = BOUND_K * (e - 0.82);
-          fx += (terr.cx - p.x) * k;
-          fy += (terr.cy - p.y) * k;
-        }
-        // The headline is solid ground — cruise around it once airborne.
-        if (age > 1.3 && textRect && p.x > textRect.x && p.x < textRect.x + textRect.w && p.y > textRect.y && p.y < textRect.y + textRect.h) {
-          const rcx = textRect.x + textRect.w / 2, rcy = textRect.y + textRect.h / 2;
-          const tdx = p.x - rcx, tdy = p.y - rcy;
-          const td = Math.hypot(tdx, tdy) || 1;
-          fx += (tdx / td) * TEXT_K * vmax;
-          fy += (tdy / td) * TEXT_K * vmax;
-        }
-        // The cursor: flee the presence, scaled by how alive it is. (Original.)
-        const cr = CURSOR_R * S;
-        const mdx = p.x - cursor.x, mdy = p.y - cursor.y;
-        const md = Math.hypot(mdx, mdy);
-        if (md < cr && md > 0.1 && cursorLive > 0) {
-          const f = W_FLEE * (1 - md / cr) * cursorLive * vmax;
-          fx += (mdx / md) * f;
-          fy += (mdy / md) * f;
-        }
-
-        p.vx += fx * dt;
-        p.vy += fy * dt;
-        const v = Math.hypot(p.vx, p.vy) || 1e-4;
-        const vmin = vminFull * ramp + vminFull * 0.4 * (1 - ramp);
-        if (v > vmax) { p.vx *= vmax / v; p.vy *= vmax / v; }
-        else if (v < vmin) { p.vx *= vmin / v; p.vy *= vmin / v; }
-        p.x += p.vx * dt;
-        p.y += p.vy * dt;
-        if (p.x < 6) p.x = 6; if (p.x > W - 6) p.x = W - 6;
-        if (p.y < 6) p.y = 6; if (p.y > H - 6) p.y = H - 6;
-        if (p.trail) {
-          p.trail.push({ x: p.x, y: p.y });
-          if (p.trail.length > TRAIL_N) p.trail.shift();
-        }
-      }
-    };
-
-    const drawDart = (x: number, y: number, ang: number, k: number, col: string) => {
-      if (k <= 0.01) return;
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(ang);
-      ctx.scale(k, k);
-      ctx.beginPath();
-      ctx.moveTo(12, 0);
-      ctx.lineTo(-9, 7);
-      ctx.lineTo(-5, 0);
-      ctx.lineTo(-9, -7);
-      ctx.closePath();
-      ctx.fillStyle = col;
-      ctx.fill();
-      ctx.strokeStyle = PAPER;
-      ctx.globalAlpha = 0.45;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(12, 0);
-      ctx.lineTo(-5, 0);
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-      ctx.restore();
-    };
-
-    const draw = (el: number) => {
-      ctx.clearRect(0, 0, W, H);
-      const size = 1.35 * Math.min(1.25, Math.max(0.85, W / 1200));
-      // Launch ripples
-      for (let i = rings.length - 1; i >= 0; i--) {
-        const r = rings[i];
-        const q = (el - r.t) / 0.65;
-        if (q >= 1) { rings.splice(i, 1); continue; }
-        ctx.beginPath();
-        ctx.arc(r.x, r.y, r.r + q * 26, 0, Math.PI * 2);
-        ctx.strokeStyle = r.c;
-        ctx.globalAlpha = (1 - q) * 0.5;
-        ctx.lineWidth = 1.4;
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-      }
-      // Captain ribbons — pigment dissolving toward the paper
-      ctx.lineCap = "round";
-      for (const p of darts) {
-        if (!p.live || !p.trail) continue;
-        const nT = p.trail.length;
-        for (let j = 1; j < nT; j++) {
-          const a = j / nT;
-          ctx.beginPath();
-          ctx.moveTo(p.trail[j - 1].x, p.trail[j - 1].y);
-          ctx.lineTo(p.trail[j].x, p.trail[j].y);
-          ctx.strokeStyle = SQUADRONS[p.sq].color;
-          ctx.globalAlpha = a * 0.42;
-          ctx.lineWidth = a * 3.2;
-          ctx.stroke();
-        }
-        ctx.globalAlpha = 1;
-      }
-      // Wingmen beneath, captains above
-      for (const p of darts) {
-        if (!p.live || p.cap) continue;
-        drawDart(p.x, p.y, Math.atan2(p.vy, p.vx), size * 0.95 * Math.min(1, (el - p.at) / 0.26), INK);
-      }
-      for (const p of darts) {
-        if (!p.live || !p.cap) continue;
-        drawDart(p.x, p.y, Math.atan2(p.vy, p.vx), size * 1.15 * Math.min(1, (el - p.at) / 0.3), SQUADRONS[p.sq].color);
-      }
-    };
-
-    if (reduceMotion) {
-      // No theatre: squadrons already on station, one composed frame.
-      const stations = [
-        [0.32, 0.3, -0.25],
-        [0.56, 0.22, 0.1],
-        [0.78, 0.38, 0.35],
-      ];
-      SQUADRONS.forEach((cfg, sq) => {
-        const [sx, sy, h] = stations[sq];
-        for (let k = 0; k <= cfg.wings; k++) {
-          const back = Math.ceil(k / 2) * 0.028 * W;
-          const side = (k % 2 === 0 ? 1 : -1) * Math.ceil(k / 2) * 0.02 * W;
-          darts.push({
-            sq,
-            cap: k === 0,
-            x: sx * W - Math.cos(h) * back - Math.sin(h) * side,
-            y: sy * H - Math.sin(h) * back + Math.cos(h) * side,
-            vx: Math.cos(h + (Math.random() - 0.5) * 0.2),
-            vy: Math.sin(h + (Math.random() - 0.5) * 0.2),
-            at: -9,
-            live: true,
-            trail: null,
-          });
-        }
+        g.setIndex(idx);
+        const m = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, depthWrite: false });
+        const t = new THREE.Mesh(g, m);
+        t.frustumCulled = false;
+        t.renderOrder = -1;
+        scene.add(t);
+        const pigment = new THREE.Color(cfg.color);
+        return { mesh: t, geo: g, verts, cols, pts: [] as number[][], pigment };
       });
-      draw(10);
-      const disposeStill = () => {
-        ro.disconnect();
-        if (canvas.parentElement === host) host.removeChild(canvas);
-      };
-      (host as HTMLDivElement & { __rxDispose?: () => void }).__rxDispose = disposeStill;
-      return () => {
-        (hostRef.current as (HTMLDivElement & { __rxDispose?: () => void }) | null)?.__rxDispose?.();
-      };
-    }
 
-    let spawned = [false, false, false];
-    const frame = (now: number) => {
-      if (disposed) return;
-      const el = (now - started) / 1000;
-      const dt = Math.min(0.033, (now - last) / 1000);
-      last = now;
-      for (let i = 0; i < 3; i++) {
-        const at = T_LAUNCH + i * T_SQUAD;
-        if (el > at && !spawned[i]) {
-          spawned[i] = true;
-          resize(); // measure fresh — fonts may have swapped, headline may have wrapped
-          spawnSquadron(i, at);
+      // The cursor: a presence in the flock's world (plane z = 0). (Original.)
+      const cursor = new THREE.Vector3(999, 999, 0);
+      let cursorLive = 0;
+      const ndc = new THREE.Vector3();
+      const unprojectToPlane = (clientX: number, clientY: number, out: import("three").Vector3) => {
+        const rect = host.getBoundingClientRect();
+        const nx = ((clientX - rect.left) / rect.width) * 2 - 1;
+        const ny = -(((clientY - rect.top) / rect.height) * 2 - 1);
+        ndc.set(nx, ny, 0.5).unproject(camera);
+        const dir = ndc.sub(camera.position).normalize();
+        const t = -camera.position.z / dir.z;
+        out.copy(camera.position).addScaledVector(dir, t);
+      };
+      const onMove = (e: PointerEvent) => {
+        unprojectToPlane(e.clientX, e.clientY, cursor);
+        cursorLive = 1;
+      };
+      if (!reduceMotion) window.addEventListener("pointermove", onMove, { passive: true });
+
+      // A squadron lifts off from the coloured tittle of its own i.
+      const dotWorld = new THREE.Vector3();
+      const spawnSquadron = (sq: number, simT: number) => {
+        const cfg = SQUADRONS[sq];
+        const el = host.parentElement?.querySelector(`[data-captain="${cfg.pad}"]`);
+        if (el) {
+          const d = el.getBoundingClientRect();
+          unprojectToPlane(d.left + d.width / 2, d.top + d.height / 2, dotWorld);
+        } else {
+          dotWorld.set(-halfW * 0.4, -halfH * 0.4, 0);
         }
+        let i = 0;
+        for (let s = 0; s < sq; s++) i += SQUADRONS[s].wings + 1;
+        const aim = Math.atan2(terr.cy - dotWorld.y, terr.cx - dotWorld.x);
+        for (let k = 0; k <= cfg.wings; k++) {
+          const ix = (i + k) * 3;
+          pos[ix] = dotWorld.x;
+          pos[ix + 1] = dotWorld.y;
+          pos[ix + 2] = (Math.random() - 0.5) * 0.3;
+          const a = aim + (Math.random() - 0.5) * 0.7;
+          const v0 = MIN_S * 1.3;
+          vel[ix] = Math.cos(a) * v0;
+          vel[ix + 1] = Math.sin(a) * v0;
+          vel[ix + 2] = (Math.random() - 0.5) * 0.3;
+          born[i + k] = simT + k * T_PLANE;
+        }
+      };
+
+      const smooth = (t: number) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
+
+      const step = (dt: number, t: number) => {
+        cursorLive = Math.max(0, cursorLive - dt * CURSOR_DECAY);
+        // Gentle wind so the flock fluctuates even when the pointer rests. (Original.)
+        const wx = Math.sin(t * WIND.fx) * WIND.ax;
+        const wy = Math.sin(t * WIND.fy + WIND.py) * WIND.ay;
+
+        for (let i = 0; i < N; i++) {
+          if (born[i] < 0 || t < born[i]) continue;
+          const ix = i * 3;
+          const px = pos[ix], py = pos[ix + 1], pz = pos[ix + 2];
+          const age = t - born[i];
+          const ramp = smooth(age / T_RAMP);
+
+          let sepX = 0, sepY = 0, sepZ = 0;
+          let aliX = 0, aliY = 0, aliZ = 0;
+          let cohX = 0, cohY = 0, cohZ = 0;
+          let n = 0;
+
+          for (let j = 0; j < N; j++) {
+            if (j === i || born[j] < 0 || t < born[j]) continue;
+            const jx = j * 3;
+            const dx = pos[jx] - px, dy = pos[jx + 1] - py, dz = pos[jx + 2] - pz;
+            const d2 = Math.max(dx * dx + dy * dy + dz * dz, 1e-6);
+            if (sqOf[j] === sqOf[i]) {
+              if (d2 > NEIGH_R2) continue;
+              n++;
+              cohX += dx; cohY += dy; cohZ += dz;
+              aliX += vel[jx]; aliY += vel[jx + 1]; aliZ += vel[jx + 2];
+              if (d2 < SEP_R2) {
+                sepX -= dx / d2; sepY -= dy / d2; sepZ -= dz / d2;
+              }
+            } else if (d2 < XSEP_R2) {
+              const w = W_XSEP / W_SEP;
+              sepX -= (dx / d2) * w; sepY -= (dy / d2) * w; sepZ -= (dz / d2) * w;
+            }
+          }
+
+          let fx = wx, fy = wy, fz = 0;
+          fx += sepX * W_SEP * ramp; fy += sepY * W_SEP * ramp; fz += sepZ * W_SEP * ramp;
+          if (n > 0) {
+            fx += (aliX / n - vel[ix]) * W_ALI * ramp;
+            fy += (aliY / n - vel[ix + 1]) * W_ALI * ramp;
+            fz += (aliZ / n - vel[ix + 2]) * W_ALI * ramp;
+            fx += (cohX / n) * W_COH * ramp;
+            fy += (cohY / n) * W_COH * ramp;
+            fz += (cohZ / n) * W_COH * ramp;
+          }
+          // Territory: the soft ellipsoid. (Original.)
+          const ex = (px - terr.cx) / terr.rx, ey = (py - terr.cy) / terr.ry, ez = pz / terr.rz;
+          const e = ex * ex + ey * ey + ez * ez;
+          if (e > 0.85) {
+            const k = BOUND_K * (e - 0.85);
+            fx += (terr.cx - px) * k;
+            fy += (terr.cy - py) * k;
+            fz += -pz * k;
+          }
+          // The headline is solid ground — cruise around it once airborne.
+          if (age > 1.3 && textBox && px > textBox.x0 && px < textBox.x1 && py > textBox.y0 && py < textBox.y1) {
+            const rcx = (textBox.x0 + textBox.x1) / 2, rcy = (textBox.y0 + textBox.y1) / 2;
+            const tdx = px - rcx, tdy = py - rcy;
+            const td = Math.hypot(tdx, tdy) || 1;
+            fx += (tdx / td) * 2.4;
+            fy += (tdy / td) * 2.4;
+          }
+          // The cursor: flee the presence, scaled by how alive it is. (Original.)
+          const cdx = px - cursor.x, cdy = py - cursor.y, cdz = pz - cursor.z;
+          const cd = Math.sqrt(cdx * cdx + cdy * cdy + cdz * cdz);
+          if (cd < FLEE_R && cd > 0.01 && cursorLive > 0) {
+            const f = (W_FLEE * (1 - cd / FLEE_R) * cursorLive) / cd;
+            fx += cdx * f; fy += cdy * f; fz += cdz * f;
+          }
+
+          vel[ix] += fx * dt;
+          vel[ix + 1] += fy * dt;
+          vel[ix + 2] += fz * dt;
+          const v = Math.sqrt(vel[ix] ** 2 + vel[ix + 1] ** 2 + vel[ix + 2] ** 2) || 1e-6;
+          const vmin = MIN_S * (0.4 + 0.6 * ramp);
+          if (v > MAX_S) {
+            const s = MAX_S / v;
+            vel[ix] *= s; vel[ix + 1] *= s; vel[ix + 2] *= s;
+          } else if (v < vmin) {
+            const s = vmin / v;
+            vel[ix] *= s; vel[ix + 1] *= s; vel[ix + 2] *= s;
+          }
+          pos[ix] += vel[ix] * dt;
+          pos[ix + 1] += vel[ix + 1] * dt;
+          pos[ix + 2] += vel[ix + 2] * dt;
+        }
+
+        // Captain ribbons
+        let base = 0;
+        SQUADRONS.forEach((cfg, sq) => {
+          const capI = base;
+          base += cfg.wings + 1;
+          if (born[capI] < 0 || t < born[capI]) return;
+          const tr = trails[sq];
+          tr.pts.push([pos[capI * 3], pos[capI * 3 + 1], pos[capI * 3 + 2]]);
+          if (tr.pts.length > TRAIL_N) tr.pts.shift();
+        });
+      };
+
+      // ── Rendering ──
+      const q = new THREE.Quaternion();
+      const up = new THREE.Vector3(0, 1, 0);
+      const dirV = new THREE.Vector3();
+      const m4 = new THREE.Matrix4();
+      const sc = new THREE.Vector3();
+      const pv = new THREE.Vector3();
+      const zero = new THREE.Matrix4().makeScale(0, 0, 0);
+      const cA = new THREE.Color(), cB = new THREE.Color();
+
+      const render = (t: number) => {
+        for (let i = 0; i < N; i++) {
+          if (born[i] < 0 || t < born[i]) {
+            mesh.setMatrixAt(i, zero);
+            continue;
+          }
+          const ix = i * 3;
+          pv.set(pos[ix], pos[ix + 1], pos[ix + 2]);
+          dirV.set(vel[ix], vel[ix + 1], vel[ix + 2]).normalize();
+          q.setFromUnitVectors(up, dirV);
+          const grow = Math.min(1, (t - born[i]) / 0.3);
+          const k = DART_K * (isCap[i] ? 1.22 : 1) * grow;
+          sc.set(k, k, k);
+          m4.compose(pv, q, sc);
+          mesh.setMatrixAt(i, m4);
+        }
+        mesh.instanceMatrix.needsUpdate = true;
+
+        for (const tr of trails) {
+          const nP = tr.pts.length;
+          const verts = tr.verts, cols = tr.cols;
+          for (let i = 0; i < TRAIL_N; i++) {
+            const p = nP > 0 ? tr.pts[Math.min(i, nP - 1)] : [0, 0, -30];
+            const a = nP > 1 ? Math.min(i, nP - 1) / (nP - 1) : 0;
+            // width tapers toward the tail; perpendicular taken in the view plane
+            const nxt = nP > 1 ? tr.pts[Math.min(Math.min(i, nP - 1) + 1, nP - 1)] : p;
+            let dx = nxt[0] - p[0], dy = nxt[1] - p[1];
+            const dl = Math.hypot(dx, dy) || 1;
+            dx /= dl; dy /= dl;
+            const hw = 0.016 + a * 0.052;
+            const o = i * 6;
+            verts[o] = p[0] - dy * hw; verts[o + 1] = p[1] + dx * hw; verts[o + 2] = p[2] - 0.03;
+            verts[o + 3] = p[0] + dy * hw; verts[o + 4] = p[1] - dx * hw; verts[o + 5] = p[2] - 0.03;
+            // pigment dissolving toward the paper along the ribbon
+            cA.copy(paper).lerp(tr.pigment, a * 0.6);
+            cols[o] = cA.r; cols[o + 1] = cA.g; cols[o + 2] = cA.b;
+            cols[o + 3] = cA.r; cols[o + 4] = cA.g; cols[o + 5] = cA.b;
+          }
+          (tr.geo.attributes.position as import("three").BufferAttribute).needsUpdate = true;
+          (tr.geo.attributes.color as import("three").BufferAttribute).needsUpdate = true;
+          tr.mesh.visible = nP > 1;
+        }
+        renderer.render(scene, camera);
+      };
+
+      // ── Loop ──
+      let raf = 0;
+      let running = false;
+      let simT = 0;
+      let last = performance.now();
+
+      const frame = (now: number) => {
+        if (disposed) return;
+        const dt = Math.min(0.033, (now - last) / 1000);
+        last = now;
+        simT += dt;
+        for (let i = 0; i < 3; i++) {
+          if (!launched[i] && simT > T_LAUNCH + i * T_SQUAD) {
+            launched[i] = true;
+            resize(); // fonts may have swapped; measure the tittle fresh
+            spawnSquadron(i, simT);
+          }
+        }
+        step(dt, simT);
+        render(simT);
+        raf = requestAnimationFrame(frame);
+      };
+      const start = () => {
+        if (running || disposed) return;
+        running = true;
+        last = performance.now();
+        raf = requestAnimationFrame(frame);
+      };
+      const stop = () => {
+        running = false;
+        cancelAnimationFrame(raf);
+      };
+
+      let cleanup: (() => void) | null = null;
+
+      if (reduceMotion) {
+        // No theatre: squadrons already on station, one composed frame.
+        const stations = [
+          [-0.35, 0.35], [0.1, 0.55], [0.45, 0.15],
+        ];
+        let i = 0;
+        SQUADRONS.forEach((cfg, sq) => {
+          const [sx, sy] = stations[sq];
+          for (let k = 0; k <= cfg.wings; k++, i++) {
+            const ix = i * 3;
+            pos[ix] = terr.cx + sx * terr.rx + (Math.random() - 0.5) * 0.9;
+            pos[ix + 1] = terr.cy + sy * terr.ry + (Math.random() - 0.5) * 0.6;
+            pos[ix + 2] = (Math.random() - 0.5) * 1.6;
+            const a = -0.3 + sq * 0.25;
+            vel[ix] = Math.cos(a); vel[ix + 1] = Math.sin(a); vel[ix + 2] = 0;
+            born[i] = -5;
+          }
+        });
+        // Let the rules settle them into formation, then hold the frame.
+        for (let s = 0; s < 90; s++) step(1 / 60, s / 60);
+        render(10);
+      } else {
+        start();
+        const io = new IntersectionObserver(
+          (entries) => (entries[0]?.isIntersecting ? start() : stop()),
+          { threshold: 0.05 },
+        );
+        io.observe(host);
+        const onVis = () => (document.visibilityState === "hidden" ? stop() : start());
+        document.addEventListener("visibilitychange", onVis);
+        cleanup = () => {
+          io.disconnect();
+          document.removeEventListener("visibilitychange", onVis);
+        };
       }
-      step(dt, el);
-      draw(el);
-      raf = requestAnimationFrame(frame);
-    };
-    const start = () => {
-      if (running || disposed) return;
-      running = true;
-      last = performance.now();
-      raf = requestAnimationFrame(frame);
-    };
-    const stop = () => {
-      running = false;
-      cancelAnimationFrame(raf);
-    };
 
-    const io = new IntersectionObserver((entries) => (entries[0]?.isIntersecting ? start() : stop()), { threshold: 0.05 });
-    io.observe(host);
-    const onVis = () => (document.visibilityState === "hidden" ? stop() : start());
-    document.addEventListener("visibilitychange", onVis);
-    start();
-
-    const disposeAll = () => {
-      disposed = true;
-      stop();
-      io.disconnect();
-      document.removeEventListener("visibilitychange", onVis);
-      window.removeEventListener("pointermove", onMove);
-      ro.disconnect();
-      if (canvas.parentElement === host) host.removeChild(canvas);
-    };
-    (host as HTMLDivElement & { __rxDispose?: () => void }).__rxDispose = disposeAll;
+      const disposeAll = () => {
+        stop();
+        cleanup?.();
+        window.removeEventListener("pointermove", onMove);
+        ro.disconnect();
+        renderer.dispose();
+        geo.dispose();
+        mat.dispose();
+        for (const tr of trails) {
+          tr.geo.dispose();
+          (tr.mesh.material as import("three").Material).dispose();
+        }
+        if (renderer.domElement.parentElement === host) host.removeChild(renderer.domElement);
+      };
+      (host as HTMLDivElement & { __rxDispose?: () => void }).__rxDispose = disposeAll;
+    })();
 
     return () => {
-      (hostRef.current as (HTMLDivElement & { __rxDispose?: () => void }) | null)?.__rxDispose?.();
+      disposed = true;
+      const h = hostRef.current as (HTMLDivElement & { __rxDispose?: () => void }) | null;
+      h?.__rxDispose?.();
     };
   }, []);
 
