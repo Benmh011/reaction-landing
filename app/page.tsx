@@ -1,16 +1,29 @@
 import Link from "next/link";
 import SiteNav from "@/components/SiteNav";
 import SiteFooter from "@/components/SiteFooter";
-import InkBloom from "@/components/InkBloom";
+import Flock from "@/components/Flock";
 
 /**
  * Reaction — ink on paper.
  *
  * The page is a short manifesto: three laws of motion for business AI,
- * after Newton. Above them, ink blooms slowly through water — dense at the
- * core, dissolving at the edges — and stirs, lightly, when the cursor moves
- * through it. Nothing announced; the laws make the argument.
+ * after Newton. Above them, three squadrons of ink darts fly true boid
+ * physics — each launched from the coloured tittle of its own lowercase i
+ * in the headline — and part around the cursor as it moves. Your action,
+ * their Reaction. Nothing announced; the laws make the argument.
  */
+
+/** A lowercase i whose tittle is a coloured launch pad. The glyph is dotless
+ *  ı (U+0131); the dot is our own element, measured live by the Flock for
+ *  lift-off, and it stays behind as the letter's permanent tittle. */
+function LaunchDot({ pad }: { pad: "verm" | "blue" | "green" }) {
+  return (
+    <span style={{ position: "relative", display: "inline-block" }}>
+      ı
+      <span data-captain={pad} className={`i-dot i-dot-${pad}`} aria-hidden="true" />
+    </span>
+  );
+}
 
 const serif = {
   fontFamily: "'Newsreader', Georgia, serif",
@@ -56,7 +69,7 @@ export default function HomePage() {
     <>
       <SiteNav />
 
-      {/* ── HERO: the murmuration owns the page. Ink on paper. ── */}
+      {/* ── HERO: the squadrons own the page. Ink on paper. ── */}
       <section
         style={{
           position: "relative",
@@ -69,13 +82,14 @@ export default function HomePage() {
         id="top"
       >
         <div style={{ position: "absolute", inset: 0 }}>
-          <InkBloom />
+          <Flock />
         </div>
 
         <div className="container" style={{ position: "relative", zIndex: 2, padding: "180px 0 96px" }}>
           <div style={{ maxWidth: 780 }}>
             <h1
               className="ink-enter"
+              aria-label="Intelligence, in formation."
               style={{
                 ...serif,
                 fontStyle: "italic",
@@ -87,7 +101,8 @@ export default function HomePage() {
                 animationDelay: "80ms",
               }}
             >
-              Intelligence, in formation<span style={{ color: "var(--reaction)" }}>.</span>
+              Intell<LaunchDot pad="verm" />gence,{" "}
+              <LaunchDot pad="blue" />n format<LaunchDot pad="green" />on<span style={{ color: "var(--reaction)" }}>.</span>
             </h1>
 
             <p
@@ -101,7 +116,7 @@ export default function HomePage() {
                 animationDelay: "180ms",
               }}
             >
-              Reaction builds locally hosted multi-agentic systems: hundreds of small,
+              Reaction builds locally hosted multi-agentic systems: a formation of small,
               specialised agents that move as one — inside your walls, around your
               workflows, in service of your team.
             </p>
@@ -130,7 +145,7 @@ export default function HomePage() {
               color: "var(--text-muted)",
             }}
           >
-            fig. 1 — a Reaction, in suspension
+            fig. 1 — three formations, on manoeuvres
           </div>
         </div>
       </section>

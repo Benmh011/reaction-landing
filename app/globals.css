@@ -388,3 +388,27 @@ section { position: relative; z-index: 2; }
 @media (prefers-reduced-motion: reduce) {
   .ink-enter { animation: none; opacity: 1; transform: none; }
 }
+
+/* ─────────────── Launch-pad tittles ───────────────
+   The three lowercase i's in the headline are set dotless (ı); these are
+   their tittles — vermilion, blue, emerald — which pop in after the words
+   settle, then serve as launch pads for the squadrons. Position is tuned
+   in em for Newsreader italic 600; nudge top/left if a dot sits off its
+   stem at some size. */
+.i-dot {
+  position: absolute;
+  left: 62%;
+  top: 0.03em;
+  width: 0.11em;
+  height: 0.11em;
+  border-radius: 50%;
+  transform: translateX(-50%) scale(0);
+  opacity: 0;
+  animation: iDotPop 0.5s cubic-bezier(0.3, 1.5, 0.4, 1) forwards;
+}
+.i-dot-verm  { background: #c93a17; animation-delay: 1.15s; }
+.i-dot-blue  { background: #2565aa; animation-delay: 1.3s; }
+.i-dot-green { background: #0d5a40; animation-delay: 1.45s; }
+@keyframes iDotPop {
+  to { opacity: 1; transform: translateX(-50%) scale(1); }
+}
