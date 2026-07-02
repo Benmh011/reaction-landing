@@ -1,30 +1,46 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import SiteNav from "@/components/SiteNav";
 import SiteFooter from "@/components/SiteFooter";
 import DemoRequestForm from "./DemoRequestForm";
+import LaunchDemoCard from "./LaunchDemoCard";
+import { prisma } from "@/lib/prisma";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Book a demo",
   description:
-    "See how Reaction connects students on and off campus. Book a demo — for universities, students' unions, local employers, and charities.",
+    "See a locally hosted multi-agentic system working inside a real business. Book a walkthrough, or launch a live demo.",
   openGraph: {
     title: "Book a demo · Reaction",
-    description: "See how Reaction connects students on and off campus.",
+    description: "See a locally hosted multi-agentic system working inside a real business.",
     url: "https://reaction.org.uk/demo",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
     title: "Book a demo · Reaction",
-    description: "See how Reaction connects students on and off campus.",
+    description: "See a locally hosted multi-agentic system working inside a real business.",
   },
   alternates: {
     canonical: "https://reaction.org.uk/demo",
   },
 };
 
-export default function DemoPage() {
+export default async function DemoPage() {
+  // The launchable catalogue — managed at /admin/demos. Fail-soft: if the
+  // table is missing or the query errors, the page still renders the form.
+  let demos: { id: string; slug: string; name: string; description: string; launchUrl: string }[] = [];
+  try {
+    demos = await prisma.demo.findMany({
+      where: { active: true },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      select: { id: true, slug: true, name: true, description: true, launchUrl: true },
+    });
+  } catch {
+    demos = [];
+  }
+
   return (
     <>
       <SiteNav />
@@ -33,54 +49,49 @@ export default function DemoPage() {
         <div className="container-narrow">
           <div className="page-eyebrow">Demo</div>
           <h1 className="page-title">
-            See <em>Reaction</em> in your students' hands.
+            See <em>Reaction</em> inside a working business.
           </h1>
           <p className="page-lede">
-            Two ways to start. Register your interest below — we'll get back to you within two working days to schedule
-            a guided walkthrough. If you've already been given a login, you can launch your preview directly.
+            Two ways to start. Register your interest below and we&rsquo;ll come back within two working
+            days to walk you through what a locally hosted multi-agentic system would look like built
+            around your workflows. Or launch a live demo — real software, doing a real business&rsquo;s work.
           </p>
 
-          {/* Two paths panel */}
-          <div className="panel" style={{ marginBottom: 32 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }} className="two-col">
-              <div>
-                <div
-                  className="mono"
-                  style={{ fontSize: "0.7rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--reaction)", marginBottom: 12 }}
-                >
-                  01 · No account yet
-                </div>
-                <h3 style={{ fontFamily: "'Fraunces', Georgia, serif", fontWeight: 600, fontVariationSettings: '"opsz" 96', fontSize: "1.25rem", margin: "0 0 8px", letterSpacing: "-0.015em" }}>
-                  Register your interest
-                </h3>
-                <p style={{ fontSize: "0.92rem", color: "var(--text-soft)", margin: "0 0 0", lineHeight: 1.5 }}>
-                  Fill in the form below. We'll review and follow up to set up your bespoke preview.
-                </p>
-              </div>
-              <div>
-                <div
-                  className="mono"
-                  style={{ fontSize: "0.7rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--reaction)", marginBottom: 12 }}
-                >
-                  02 · Already approved
-                </div>
-                <h3 style={{ fontFamily: "'Fraunces', Georgia, serif", fontWeight: 600, fontVariationSettings: '"opsz" 96', fontSize: "1.25rem", margin: "0 0 8px", letterSpacing: "-0.015em" }}>
-                  Launch demo
-                </h3>
-                <p style={{ fontSize: "0.92rem", color: "var(--text-soft)", margin: "0 0 14px", lineHeight: 1.5 }}>
-                  Sign in with the email we used to send your magic link.
-                </p>
-                <Link href="/auth/signin" className="btn btn-ghost">
-                  Launch demo
-                  <span className="arrow" aria-hidden="true">→</span>
-                </Link>
-              </div>
+          {/* ── Launch: the live demo catalogue ── */}
+          <div className="panel" style={{ marginBottom: 32 }} id="launch">
+            <div
+              className="mono"
+              style={{ fontSize: "0.7rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--reaction)", marginBottom: 14 }}
+            >
+              01 · Launch a live demo
             </div>
+            {demos.length === 0 ? (
+              <p style={{ fontSize: "0.95rem", color: "var(--text-soft)", margin: 0, lineHeight: 1.6 }}>
+                Live demos are being staged at the moment — register your interest below and we&rsquo;ll
+                send you a link the moment one is ready.
+              </p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                {demos.map((d) => (
+                  <LaunchDemoCard key={d.id} demo={d} />
+                ))}
+              </div>
+            )}
+            <p style={{ fontSize: "0.82rem", color: "var(--text-muted)", margin: "18px 0 0", lineHeight: 1.5 }}>
+              Demos are protected by their own sign-in. If you haven&rsquo;t been issued credentials yet,
+              register below and we&rsquo;ll arrange access.
+            </p>
           </div>
 
-          {/* The form */}
-          <div className="panel">
-            <h2 style={{ fontFamily: "'Fraunces', Georgia, serif", fontWeight: 600, fontVariationSettings: '"opsz" 96', fontSize: "1.5rem", margin: "0 0 6px", letterSpacing: "-0.015em" }}>
+          {/* ── Register interest ── */}
+          <div className="panel" id="register">
+            <div
+              className="mono"
+              style={{ fontSize: "0.7rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--reaction)", marginBottom: 14 }}
+            >
+              02 · Book a walkthrough
+            </div>
+            <h2 style={{ fontFamily: "'Newsreader', Georgia, serif", fontStyle: "italic", fontWeight: 600, fontSize: "1.5rem", margin: "0 0 6px", letterSpacing: "-0.015em" }}>
               Register your interest
             </h2>
             <p style={{ fontSize: "0.92rem", color: "var(--text-soft)", margin: "0 0 24px" }}>
@@ -92,12 +103,6 @@ export default function DemoPage() {
       </section>
 
       <SiteFooter />
-
-      <style>{`
-        @media (max-width: 600px) {
-          .two-col { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
     </>
   );
 }

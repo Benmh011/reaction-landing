@@ -10,10 +10,12 @@ const schema = z.object({
   organisation: z.string().min(2).max(200),
   role: z.string().max(120).optional(),
   message: z.string().max(2000).optional(),
-  requestType: z.enum(["UNIVERSITY", "STUDENTS_UNION", "EMPLOYER", "CHARITY", "OTHER"]).default("UNIVERSITY"),
+  requestType: z.enum(["BUSINESS", "UNIVERSITY", "STUDENTS_UNION", "EMPLOYER", "CHARITY", "OTHER"]).default("BUSINESS"),
+  sector: z.string().max(120).optional(),
 });
 
 const REQUEST_TYPE_LABELS: Record<string, string> = {
+  BUSINESS: "Business",
   UNIVERSITY: "University",
   STUDENTS_UNION: "Students' Union",
   EMPLOYER: "Local employer / business",
@@ -34,7 +36,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Please fill in all required fields correctly." }, { status: 400 });
   }
 
-  const { name, email, organisation, role, message, requestType } = parsed.data;
+  const { name, email, organisation, role, message, requestType, sector } = parsed.data;
   const lowerEmail = email.toLowerCase();
 
   // Persist the request
@@ -46,6 +48,7 @@ export async function POST(req: Request) {
       role,
       message,
       requestType,
+      sector,
     },
   });
 

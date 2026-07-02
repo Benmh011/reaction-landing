@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 export default async function NewUserPage() {
   const session = await auth();
-  if (session?.user?.role !== "ADMIN") redirect("/portal");
+  if (session?.user?.role !== "ADMIN") redirect("/");
 
   return (
     <>

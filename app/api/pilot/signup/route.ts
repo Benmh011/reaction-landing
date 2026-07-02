@@ -10,11 +10,11 @@ const PILOT_COHORT = "plymouth-pilot-2026-q2";
 const PILOT_DEMO_VERSION = "plymouth-pilot";
 
 // Where the user lands after clicking the magic link in their inbox.
-// /portal is the existing post-auth landing for any role — it'll render
+// /pilot is the participant surface — students land back on it after auth.
 // fine for STUDENT users and surface the demoVersion-aware "Launch demo"
 // link. Once the cloned pilot demo build ships, we'll redirect directly
 // to /demos/plymouth-pilot/ instead.
-const POST_SIGNIN_REDIRECT = "/portal";
+const POST_SIGNIN_REDIRECT = "/pilot";
 
 const signupSchema = z.object({
   email: z

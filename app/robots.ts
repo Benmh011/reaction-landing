@@ -18,8 +18,6 @@ export default function robots(): MetadataRoute.Robots {
         disallow: [
           '/admin/',
           '/auth/',
-          '/portal',
-          '/portal/',
           '/api/',
           '/unsubscribe',
         ],

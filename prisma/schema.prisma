@@ -23,9 +23,11 @@ model DemoRequest {
   organisation String
   role         String?
   message      String?
+  // Business sector (free text from the demo form's sector select)
+  sector       String?
   // What kind of organisation this person represents.
   // Drives admin UX and which demo version gets defaulted on approval.
-  requestType  RequestType     @default(UNIVERSITY)
+  requestType  RequestType     @default(BUSINESS)
   status       DemoRequestStatus @default(PENDING)
   reviewedAt   DateTime?
   reviewedBy   String?
@@ -47,6 +49,7 @@ enum DemoRequestStatus {
 }
 
 enum RequestType {
+  BUSINESS
   UNIVERSITY
   STUDENTS_UNION
   EMPLOYER
@@ -72,7 +75,7 @@ model User {
 
   // What kind of organisation this user represents (mirrored from DemoRequest)
   // Useful for filtering /admin/users by audience type.
-  requestType   RequestType @default(UNIVERSITY)
+  requestType   RequestType @default(BUSINESS)
 
   // Bespoke-version pointer: which build of the React app this client should
   // see when they hit /portal. Refers to a folder name under /private-demos/
@@ -317,4 +320,26 @@ model AgentMetric {
   unit       String?
 
   @@index([client, metric, capturedAt])
+}
+
+// ─────────────── DEMO CATALOGUE ───────────────
+// The launchable demos shown on /demo, managed at /admin/demos (owner-only).
+// launchUrl points at the hosted software itself (e.g. the Southmoor Vets
+// assistant on reactionbusinessservices.co.uk) — the destination's own login
+// wall is the access gate. accessNote is private, shown only in the manager.
+// Table created via raw SQL (db/business-demos.sql) — never prisma migrate.
+
+model Demo {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  slug        String   @unique
+  name        String
+  description String
+  launchUrl   String
+  accessNote  String?
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+
+  @@index([active, sortOrder])
 }

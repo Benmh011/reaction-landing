@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminPage() {
   const session = await auth();
   if (!session?.user) redirect("/auth/signin");
-  if (session.user.role !== "ADMIN") redirect("/portal");
+  if (session.user.role !== "ADMIN") redirect("/");
 
   const [pendingCount, totalRequests, totalUsers] = await Promise.all([
     prisma.demoRequest.count({ where: { status: "PENDING" } }),

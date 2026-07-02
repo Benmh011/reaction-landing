@@ -2,12 +2,12 @@ import Link from "next/link";
 
 // Small navigation strip for admin pages. Sits below SiteNav.
 // Provides quick navigation between admin sections plus a "Dashboard" link
-// that takes the admin to /portal — useful for previewing what regular users see.
+// that takes the admin to the public /demo page for a quick preview.
 //
 // Usage: drop <AdminNav active="..." /> at the top of each admin page,
 // where active is one of: "home", "requests", "users".
 
-export default function AdminNav({ active = "home" }: { active?: "home" | "requests" | "users" }) {
+export default function AdminNav({ active = "home" }: { active?: "home" | "requests" | "users" | "demos" }) {
   const linkStyle = (isActive: boolean) => ({
     display: "inline-flex" as const,
     alignItems: "center" as const,
@@ -56,11 +56,14 @@ export default function AdminNav({ active = "home" }: { active?: "home" | "reque
           <Link href="/admin/users" style={linkStyle(active === "users")}>
             Users
           </Link>
+          <Link href="/admin/demos" style={linkStyle(active === "demos")}>
+            Demos
+          </Link>
         </div>
 
         {/* Dashboard button — takes admin to /portal to preview what clients see */}
         <Link
-          href="/portal"
+          href="/demo"
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -77,7 +80,7 @@ export default function AdminNav({ active = "home" }: { active?: "home" | "reque
           }}
         >
           <span aria-hidden="true">←</span>
-          View as user (Dashboard)
+          View public demo page
         </Link>
       </div>
     </div>

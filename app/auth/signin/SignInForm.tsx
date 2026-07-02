@@ -21,7 +21,7 @@ export default function SignInForm({
     const fd = new FormData(e.currentTarget);
     const email = (fd.get("email") as string).trim().toLowerCase();
     try {
-      await signIn("resend", { email, redirectTo: callbackUrl ?? "/portal" });
+      await signIn("resend", { email, redirectTo: callbackUrl ?? "/demo" });
     } catch {
       setError("Couldn't send the magic link. Please try again.");
     } finally {
@@ -43,7 +43,7 @@ export default function SignInForm({
     if (result?.error) {
       setError("Email or password is incorrect.");
     } else if (result?.ok) {
-      window.location.href = callbackUrl ?? "/portal";
+      window.location.href = callbackUrl ?? "/demo";
     }
   };
 

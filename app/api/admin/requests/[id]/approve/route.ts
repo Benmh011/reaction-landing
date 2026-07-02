@@ -69,14 +69,14 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
   // ── ONE-CLICK MAGIC LINK ──
   // Trigger Auth.js to generate a real verification token, store it in the DB,
   // and send the magic-link email via the existing Resend provider config in auth.ts.
-  // The user clicks the link in the email and lands signed in at /portal — no
+  // The user clicks the link in the email and lands signed in at /demo — no
   // intermediate sign-in form.
   let emailSent = false;
   try {
     await signIn("resend", {
       email: request.email,
       redirect: false,
-      redirectTo: "/portal",
+      redirectTo: "/demo",
     });
     emailSent = true;
   } catch (err) {
