@@ -520,7 +520,9 @@ section { position: relative; z-index: 2; }
    holds one line; grows to the original size as the flypast reveals the
    final composition. ── */
 .hero-h1 {
-  font-size: clamp(2.5rem, 6.15vw, 5.05rem);
+  /* sized so "Intelligence, information." holds ONE line inside the hero's
+     780px text column at every viewport; grows to the original on reveal */
+  font-size: clamp(1.9rem, 4.7vw, 4.7rem);
   transition: font-size 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.1s;
 }
 .hero-h1.mf-grown {
