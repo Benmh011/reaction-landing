@@ -4,6 +4,7 @@ import SiteFooter from "@/components/SiteFooter";
 import Flock from "@/components/Flock";
 import { auth } from "@/auth";
 import BuildReveal from "@/components/BuildReveal";
+import HeadlineMorph from "@/components/HeadlineMorph";
 import AutomationDial from "@/components/AutomationDial";
 
 /**
@@ -57,6 +58,7 @@ export default async function HomePage() {
       >
         <div style={{ position: "absolute", inset: 0 }}>
           <Flock />
+      <HeadlineMorph />
         </div>
 
         <div className="container" style={{ position: "relative", zIndex: 2, padding: "180px 0 96px" }}>
@@ -75,8 +77,19 @@ export default async function HomePage() {
                 animationDelay: "80ms",
               }}
             >
-              Intell<LaunchDot pad="verm" />gence,{" "}
-              <LaunchDot pad="blue" />n format<LaunchDot pad="green" />on<span style={{ color: "var(--reaction)" }}>.</span>
+              Intell<LaunchDot pad="verm" />gence,
+              <br />
+              <LaunchDot pad="blue" />n
+              <span data-mf-group className="mf-group">
+                {["f", "o", "r", "m", "a", "t"].map((ch, i) => (
+                  <span key={i} className="mf-l" style={{ ["--d" as string]: `${i * 55}ms` }}>{ch}</span>
+                ))}
+                <span className="mf-l" style={{ ["--d" as string]: "330ms" }}><LaunchDot pad="green" /></span>
+                {["o", "n"].map((ch, i) => (
+                  <span key={ch} className="mf-l" style={{ ["--d" as string]: `${385 + i * 55}ms` }}>{ch}</span>
+                ))}
+                <span className="mf-l" style={{ ["--d" as string]: "495ms", color: "var(--reaction)" }}>.</span>
+              </span>
             </h1>
 
             <p

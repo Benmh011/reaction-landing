@@ -489,3 +489,29 @@ section { position: relative; z-index: 2; }
   .ethos-head-grid > div:last-child,
   .ethos-head-grid > *:last-child { max-width: 320px; margin: 0 auto; }
 }
+
+/* ── The headline's trick: "information" → "in formation" ──
+   Letters inside the mf-group evaporate (rise, blur, fade) in stagger once
+   the mark forms, the word-space opens while they're gone, and they reform
+   shifted one gap to the right. */
+.mf-group { display: inline-block; white-space: nowrap; }
+.mf-l {
+  display: inline-block;
+  transition: opacity 0.4s ease var(--d, 0s), transform 0.45s ease var(--d, 0s), filter 0.4s ease var(--d, 0s);
+}
+.mf-out .mf-l {
+  opacity: 0;
+  transform: translateY(-16px) scale(1.04);
+  filter: blur(5px);
+}
+.mf-shift { margin-left: 0.26em; }
+.mf-in .mf-l {
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+.mf-final { margin-left: 0.26em; }
+.mf-final .mf-l { opacity: 1; transform: none; filter: none; transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  .mf-l { transition: none !important; }
+}
