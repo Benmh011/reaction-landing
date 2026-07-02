@@ -1,0 +1,390 @@
+/* ─────────────── Theme tokens (light only) ─────────────── */
+/* Dark mode CSS retained as commented-out section at the bottom in case
+ * it's needed later. The site forces data-theme="light" via layout.tsx. */
+:root,
+[data-theme="light"] {
+  /* Surfaces — marble white: cool, luminous, faintly veined grey-blue */
+  --bg:           #f7f4ec;
+  --bg-surface:   #ece7da;
+  --bg-elevated:  #fdfbf6;
+
+  /* Text — lab-ink navy for headlines, cooled slate for body */
+  --text:         #1a1713;
+  --text-soft:    #4c463c;
+  --text-muted:   #7a7266;
+
+  /* Brand — "Reaction": scientific blue. Precise, cold, credible — the colour
+     of instrumentation and deep water. Charged by the amber "action" spark
+     (Newton's thesis intact: warm action, cool considered Reaction). */
+  --reaction:      #c93a17;   /* vermilion — the single accent; the red bird */
+  --reaction-deep: #14110d;   /* ink — dark surfaces (footer, app chrome) */
+  --reaction-soft: #e8896c;   /* soft vermilion on dark surfaces */
+  --accent:        #c93a17;
+  --accent-warm:   #d95a35;
+
+  /* Action — the warm spark. Sparingly: the "action" word, live dots,
+     one charged accent per dark section. */
+  --action:        #c93a17;
+  --action-deep:   #a02f11;
+
+  /* Lines */
+  --rule:        #e2dccd;
+  --rule-strong: #c8c0ad;
+
+  /* Effects */
+  --grain-opacity: 0.04;
+  --shadow-cta:    0 1px 2px rgba(20, 14, 8, 0.12), 0 6px 20px rgba(20, 14, 8, 0.16);
+
+  /* Status colours — kept distinct from brand */
+  --success: #15803d;
+  --warning: #b45309;
+  --danger:  #b91c1c;
+
+  /* Form input */
+  --input-bg: #fbf9f4;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text-soft);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-weight: 400;
+  line-height: 1.55;
+  letter-spacing: -0.005em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+/* Subtle paper grain texture — layered above bg, beneath content. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: var(--grain-opacity);
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.5 0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: multiply;
+}
+
+/* ─────────────── Typography ─────────────── */
+.reaction-mark {
+  font-family: "Newsreader", Georgia, serif;
+  font-style: italic;
+  color: var(--reaction);
+  font-weight: 600;
+  font-variation-settings: "opsz" 96, "SOFT" 0, "WONK" 1;
+  letter-spacing: -0.02em;
+}
+.mono {
+  font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+/* ─────────────── Layout primitives ─────────────── */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 32px;
+  position: relative;
+  z-index: 2;
+}
+.container-narrow {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 0 32px;
+  position: relative;
+  z-index: 2;
+}
+section { position: relative; z-index: 2; }
+
+/* ─────────────── Top nav ─────────────── */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  border-bottom: 1px solid var(--rule);
+}
+.nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 0;
+}
+.nav-brand {
+  font-family: "Newsreader", Georgia, serif;
+  font-style: italic;
+  font-weight: 600;
+  font-variation-settings: "opsz" 96, "SOFT" 0, "WONK" 1;
+  font-size: 1.65rem;
+  color: var(--reaction);
+  text-decoration: none;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Theme toggle CSS retained but components/SiteNav.tsx no longer renders it,
+ * so these styles are inert. Left here in case dark mode is re-enabled later. */
+.theme-toggle {
+  display: none;
+}
+
+/* ─────────────── Buttons ─────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 20px;
+  border-radius: 999px;
+  font-family: "Inter", sans-serif;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.25s ease;
+  white-space: nowrap;
+  letter-spacing: -0.005em;
+  outline: none;
+}
+.btn:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-primary {
+  background: var(--text);
+  color: var(--bg);
+  box-shadow: var(--shadow-cta);
+}
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.10), 0 8px 24px rgba(0,0,0,0.10);
+}
+.btn-primary .arrow { transition: transform 0.25s ease; }
+.btn-primary:hover:not(:disabled) .arrow { transform: translateX(3px); }
+
+/* Outlined variant — same lift + arrow animation as primary, but with brand-coloured border.
+   Used for secondary "Launch demo" style CTAs that should feel interactive without
+   competing visually with the primary action. */
+.btn-outlined {
+  background: transparent;
+  color: var(--reaction);
+  border-color: var(--reaction);
+}
+.btn-outlined:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--reaction) 8%, transparent);
+  transform: translateY(-1px);
+  box-shadow: 0 1px 2px rgba(201, 58, 23, 0.14), 0 6px 18px rgba(201, 58, 23, 0.18);
+}
+.btn-outlined .arrow { transition: transform 0.25s ease; }
+.btn-outlined:hover:not(:disabled) .arrow { transform: translateX(3px); }
+
+.btn-large { padding: 14px 28px; font-size: 1rem; }
+.btn-block { display: flex; width: 100%; }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--rule-strong);
+}
+.btn-ghost:hover:not(:disabled) { border-color: var(--text); background: var(--bg-surface); }
+
+.btn-danger {
+  background: var(--danger);
+  color: white;
+}
+.btn-danger:hover:not(:disabled) { filter: brightness(1.1); }
+
+/* ─────────────── Forms ─────────────── */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+.form-label {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.form-label .req { color: var(--reaction); margin-left: 3px; }
+.form-input,
+.form-textarea,
+.form-select {
+  font-family: "Inter", sans-serif;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--rule-strong);
+  background: var(--input-bg);
+  color: var(--text);
+  width: 100%;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.form-input:focus,
+.form-textarea:focus,
+.form-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.form-textarea { resize: vertical; min-height: 110px; font-family: inherit; }
+.form-help { font-size: 0.8rem; color: var(--text-muted); margin: 0; }
+.form-error { font-size: 0.8rem; color: var(--danger); margin: 0; }
+
+/* ─────────────── Cards / panels ─────────────── */
+.panel {
+  background: var(--bg-elevated);
+  border: 1px solid var(--rule);
+  border-radius: 16px;
+  padding: 32px;
+  position: relative;
+  z-index: 2;
+}
+.panel-tight { padding: 24px; }
+
+/* ─────────────── Page heading patterns ─────────────── */
+.page-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+  font-weight: 500;
+}
+.page-eyebrow::before {
+  content: "";
+  width: 24px;
+  height: 1px;
+  background: var(--reaction);
+}
+.page-title {
+  font-family: "Newsreader", Georgia, serif;
+  font-style: italic;
+  font-weight: 600;
+  font-variation-settings: "opsz" 96, "SOFT" 0, "WONK" 1;
+  font-size: clamp(2rem, 4vw, 3rem);
+  line-height: 1.05;
+  letter-spacing: -0.022em;
+  margin: 0 0 16px;
+  color: var(--text);
+}
+.page-title em { color: var(--reaction); font-style: italic; }
+.page-lede {
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: var(--text-soft);
+  max-width: 56ch;
+  margin: 0 0 32px;
+}
+
+/* ─────────────── Status badges ─────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid;
+}
+.badge-pending  { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 40%, transparent); background: color-mix(in srgb, var(--warning) 8%, transparent); }
+.badge-approved { color: var(--success); border-color: color-mix(in srgb, var(--success) 40%, transparent); background: color-mix(in srgb, var(--success) 8%, transparent); }
+.badge-rejected { color: var(--danger);  border-color: color-mix(in srgb, var(--danger) 40%, transparent);  background: color-mix(in srgb, var(--danger) 8%, transparent); }
+
+/* ─────────────── Footer ─────────────── */
+.foot {
+  padding: 36px 0;
+  border-top: 1px solid var(--rule);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 80px;
+}
+.foot-inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.foot-mark {
+  font-family: "Newsreader", Georgia, serif;
+  font-style: italic;
+  font-weight: 600;
+  font-variation-settings: "opsz" 96, "SOFT" 0, "WONK" 1;
+  color: var(--reaction);
+  font-size: 1.1rem;
+  letter-spacing: -0.018em;
+}
+.foot-links { display: flex; gap: 24px; }
+.foot-links a { color: var(--text-muted); text-decoration: none; transition: color 0.2s; }
+.foot-links a:hover { color: var(--text); }
+
+/* ─────────────── Mobile ─────────────── */
+@media (max-width: 760px) {
+  .container, .container-narrow { padding: 0 24px; }
+  .panel { padding: 24px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+
+/* ─────────────────────────────────────────────────────────────
+   INK ON PAPER — the rebuilt landing surface. Kept deliberately small.
+   ───────────────────────────────────────────────────────────── */
+
+/* Entrance: hero text settles onto the paper */
+.ink-enter {
+  opacity: 0;
+  transform: translateY(18px);
+  animation: inkEnter 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes inkEnter {
+  to { opacity: 1; transform: none; }
+}
+
+/* Selection in vermilion — a small signature */
+::selection { background: rgba(201, 58, 23, 0.16); }
+
+/* Laws: numeral column folds above the prose on small screens */
+@media (max-width: 860px) {
+  .law-grid { grid-template-columns: 1fr !important; gap: 22px !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ink-enter { animation: none; opacity: 1; transform: none; }
+}
