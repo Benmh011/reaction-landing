@@ -97,17 +97,17 @@ export default async function HomePage() {
 
             <div className="ink-enter" style={{ display: "flex", gap: 14, flexWrap: "wrap", animationDelay: "280ms" }}>
               {loggedIn ? (
-                <Link href="/demo" className="btn btn-primary btn-large">
+                <Link href="/demo" className="btn btn-primary btn-large" data-flock-anchor>
                   Launch demo
                   <span className="arrow" aria-hidden="true">→</span>
                 </Link>
               ) : (
-                <Link href="/auth/register" className="btn btn-primary btn-large">
+                <Link href="/auth/register" className="btn btn-primary btn-large" data-flock-anchor>
                   Create account
                   <span className="arrow" aria-hidden="true">→</span>
                 </Link>
               )}
-              <Link href="#ethos" className="btn btn-ghost btn-large" data-flock-anchor>
+              <Link href="#ethos" className="btn btn-ghost btn-large">
                 Our ethos
               </Link>
             </div>

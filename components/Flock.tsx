@@ -28,11 +28,12 @@ const N = 3;
 const LAUNCH_AT = 1.7; //  dots fade ≈1.15s; wheels-up after
 const STAGGER = 0.14; //   captains leave their letters in sequence
 const TRAIL_LEN = 26;
+const TRAIL_W = 0.085; // ribbon half-width at the dart, tapering to nothing
 const FLY_K = 0.17;
 const DOCK_K = 0.26;
 const LAYER_DX = 0.12; //  emblem layering: tails protrude behind red
 const LAYER_DZ = 0.02;
-const ANCHOR_GAP_PX = 72; // clear air between the ethos button and the mark
+const ANCHOR_GAP_PX = 44; // air between the mark's nose and the button it points at
 const CRUISE = 1.8;
 const PAPER = { r: 247 / 255, g: 244 / 255, b: 236 / 255 };
 
@@ -94,13 +95,17 @@ export default function Flock() {
         out.copy(camera.position).addScaledVector(dir, t);
       };
 
-      // ── The station anchor: right of the "Our ethos" button, on its line ──
-      const anchor = new THREE.Vector3(2.6, -0.9, 0); // fallback
+      // ── The station: LEFT of the primary button, noses aimed straight at it.
+      //    We unproject the point a small gap left of the button's edge, then
+      //    back the red dart's centre off so its NOSE TIP lands on that point.
+      const anchor = new THREE.Vector3(-2.2, -0.9, 0); // fallback
       const measureAnchor = () => {
         const el = host.closest("section")?.querySelector("[data-flock-anchor]");
         if (!el) return;
         const r = (el as HTMLElement).getBoundingClientRect();
-        unproject(r.right + ANCHOR_GAP_PX, r.top + r.height / 2, anchor);
+        unproject(r.left - ANCHOR_GAP_PX, r.top + r.height / 2, anchor);
+        anchor.x -= DOCK_K * 1.0; // centre sits one nose-length behind the tip
+        anchor.x = Math.max(anchor.x, -halfW + 0.9); // never off the page edge
         anchor.z = 0;
       };
 
@@ -155,26 +160,65 @@ export default function Flock() {
       const routes: import("three").Vector3[][] = [[], [], []];
       let padsMeasured = false;
 
-      // ── Trails ──
+      // ── Trails: clean tapered ribbon stripes ──
+      //    Centreline history + a quad strip skinned over it each frame:
+      //    width tapers from the dart's tail to nothing, colour fades to
+      //    paper. A paint stroke, not a flagellum.
       const trails = CAPTAINS.map((c) => {
-        const positions = new Float32Array(TRAIL_LEN * 3);
-        const colors = new Float32Array(TRAIL_LEN * 3);
+        const hist = new Float32Array(TRAIL_LEN * 3);
+        const positions = new Float32Array(TRAIL_LEN * 2 * 3);
+        const colors = new Float32Array(TRAIL_LEN * 2 * 3);
         const cc = new THREE.Color(c.color);
         for (let k = 0; k < TRAIL_LEN; k++) {
           const t = k / (TRAIL_LEN - 1);
-          colors[k * 3] = cc.r + (PAPER.r - cc.r) * t;
-          colors[k * 3 + 1] = cc.g + (PAPER.g - cc.g) * t;
-          colors[k * 3 + 2] = cc.b + (PAPER.b - cc.b) * t;
+          const r = cc.r + (PAPER.r - cc.r) * t;
+          const gg = cc.g + (PAPER.g - cc.g) * t;
+          const b = cc.b + (PAPER.b - cc.b) * t;
+          for (const e of [0, 1]) {
+            colors[(k * 2 + e) * 3] = r;
+            colors[(k * 2 + e) * 3 + 1] = gg;
+            colors[(k * 2 + e) * 3 + 2] = b;
+          }
+        }
+        const index: number[] = [];
+        for (let k = 0; k < TRAIL_LEN - 1; k++) {
+          const a = k * 2, b = k * 2 + 1, cIdx = k * 2 + 2, d = k * 2 + 3;
+          index.push(a, b, cIdx, b, d, cIdx);
         }
         const g = new THREE.BufferGeometry();
         g.setAttribute("position", new THREE.BufferAttribute(positions, 3).setUsage(THREE.DynamicDrawUsage));
         g.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-        const line = new THREE.Line(g, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.9 }));
+        g.setIndex(index);
+        const line = new THREE.Mesh(
+          g,
+          new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, transparent: true, opacity: 0.95 }),
+        );
         line.frustumCulled = false;
         line.visible = false;
         scene.add(line);
-        return { line, positions };
+        return { line, positions, hist };
       });
+
+      // Skin the ribbon over a captain's centreline history.
+      const skinTrail = (i: number) => {
+        const h = trails[i].hist;
+        const p = trails[i].positions;
+        for (let k = 0; k < TRAIL_LEN; k++) {
+          const t = k / (TRAIL_LEN - 1);
+          const k0 = Math.max(0, k - 1) * 3;
+          const k1 = Math.min(TRAIL_LEN - 1, k + 1) * 3;
+          let dx = h[k0] - h[k1];
+          let dy = h[k0 + 1] - h[k1 + 1];
+          const len = Math.hypot(dx, dy) || 1;
+          dx /= len; dy /= len;
+          const half = TRAIL_W * Math.pow(1 - t, 1.25);
+          const px = -dy * half, py = dx * half;
+          const cx = h[k * 3], cy = h[k * 3 + 1], cz = h[k * 3 + 2] - 0.001;
+          p[(k * 2) * 3] = cx + px; p[(k * 2) * 3 + 1] = cy + py; p[(k * 2) * 3 + 2] = cz;
+          p[(k * 2 + 1) * 3] = cx - px; p[(k * 2 + 1) * 3 + 1] = cy - py; p[(k * 2 + 1) * 3 + 2] = cz;
+        }
+        trails[i].line.geometry.getAttribute("position").needsUpdate = true;
+      };
 
       // ── Launch: measure pads, lay out each captain's route ──
       //  dot → straight up → arc out LEFT → swing to left-of-station → dock,
@@ -192,11 +236,12 @@ export default function Flock() {
           }
           pos[i].z = -i * LAYER_DZ; // depth order fixed for life
           slot(i, tmp);
+          const cl = (x: number) => Math.max(-halfW + 0.55, x);
           routes[i] = [
             new THREE.Vector3(pos[i].x + 0.15, pos[i].y + 1.35 + i * 0.28, pos[i].z), // straight up
-            new THREE.Vector3(pos[i].x - 1.9 - i * 0.4, pos[i].y + 2.1 + i * 0.3, pos[i].z), // arc out left
-            new THREE.Vector3(tmp.x - 2.7 - i * 0.35, tmp.y + 0.75 + i * 0.22, pos[i].z), // swing above-left of station
-            new THREE.Vector3(tmp.x - 1.3, tmp.y + 0.05, pos[i].z), // final approach line, flying right
+            new THREE.Vector3(cl(pos[i].x - 1.9 - i * 0.4), pos[i].y + 2.1 + i * 0.3, pos[i].z), // arc out left
+            new THREE.Vector3(cl(tmp.x - 1.9 - i * 0.3), tmp.y + 0.9 + i * 0.22, pos[i].z), // swing above-left of station
+            new THREE.Vector3(cl(tmp.x - 1.15), tmp.y + 0.04, pos[i].z), // final approach, flying right at the button
           ];
           legIdx[i] = 0;
         });
@@ -223,10 +268,11 @@ export default function Flock() {
             vel[i].set(0.05, 1.3, 0); // straight up off the letter
             trails[i].line.visible = true;
             for (let k = 0; k < TRAIL_LEN; k++) {
-              trails[i].positions[k * 3] = pos[i].x;
-              trails[i].positions[k * 3 + 1] = pos[i].y;
-              trails[i].positions[k * 3 + 2] = pos[i].z;
+              trails[i].hist[k * 3] = pos[i].x;
+              trails[i].hist[k * 3 + 1] = pos[i].y;
+              trails[i].hist[k * 3 + 2] = pos[i].z;
             }
+            skinTrail(i);
           }
           slot(i, tmpT);
           if (!docked[i]) {
@@ -247,29 +293,29 @@ export default function Flock() {
               dockBlend[i] = Math.max(dockBlend[i], Math.min(1, 1 - dd / 1.4));
               if (dd < 0.05 && vel[i].length() < 0.4) docked[i] = true;
             }
-            const p = trails[i].positions;
+            const h = trails[i].hist;
             for (let k = TRAIL_LEN - 1; k > 0; k--) {
-              p[k * 3] = p[(k - 1) * 3];
-              p[k * 3 + 1] = p[(k - 1) * 3 + 1];
-              p[k * 3 + 2] = p[(k - 1) * 3 + 2];
+              h[k * 3] = h[(k - 1) * 3];
+              h[k * 3 + 1] = h[(k - 1) * 3 + 1];
+              h[k * 3 + 2] = h[(k - 1) * 3 + 2];
             }
-            p[0] = pos[i].x; p[1] = pos[i].y; p[2] = pos[i].z;
-            trails[i].line.geometry.getAttribute("position").needsUpdate = true;
+            h[0] = pos[i].x; h[1] = pos[i].y; h[2] = pos[i].z;
+            skinTrail(i);
           } else {
             dockBlend[i] = Math.min(1, dockBlend[i] + dt * 2);
             tmpT.y += Math.sin(t * 0.9) * 0.016; // the mark breathes as one
             pos[i].lerp(tmpT, Math.min(1, dt * 5));
             vel[i].set(1, 0, 0);
             if (trails[i].line.visible) {
-              const p = trails[i].positions;
+              const h = trails[i].hist;
               let maxD = 0;
               for (let k = 0; k < TRAIL_LEN; k++) {
-                p[k * 3] += (pos[i].x - p[k * 3]) * Math.min(1, dt * 4);
-                p[k * 3 + 1] += (pos[i].y - p[k * 3 + 1]) * Math.min(1, dt * 4);
-                const dx = p[k * 3] - pos[i].x, dyy = p[k * 3 + 1] - pos[i].y;
+                h[k * 3] += (pos[i].x - h[k * 3]) * Math.min(1, dt * 4);
+                h[k * 3 + 1] += (pos[i].y - h[k * 3 + 1]) * Math.min(1, dt * 4);
+                const dx = h[k * 3] - pos[i].x, dyy = h[k * 3 + 1] - pos[i].y;
                 maxD = Math.max(maxD, dx * dx + dyy * dyy);
               }
-              trails[i].line.geometry.getAttribute("position").needsUpdate = true;
+              skinTrail(i);
               if (maxD < 0.0004) trails[i].line.visible = false;
             }
           }
