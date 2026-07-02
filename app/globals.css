@@ -504,13 +504,13 @@ section { position: relative; z-index: 2; }
   transform: translateY(-16px) scale(1.04);
   filter: blur(5px);
 }
-.mf-shift { margin-left: 0.26em; }
+.mf-shift { display: block; margin-left: 0; } /* formation reforms on its own line */
 .mf-in .mf-l {
   opacity: 1;
   transform: none;
   filter: none;
 }
-.mf-final { margin-left: 0.26em; }
+.mf-final { display: block; margin-left: 0; }
 .mf-final .mf-l { opacity: 1; transform: none; filter: none; transition: none; }
 @media (prefers-reduced-motion: reduce) {
   .mf-l { transition: none !important; }

@@ -77,8 +77,8 @@ export default async function HomePage() {
                 animationDelay: "80ms",
               }}
             >
-              Intell<LaunchDot pad="verm" />gence,
-              <br />
+              Intell<LaunchDot pad="verm" />gence,{" "}
+              <span style={{ whiteSpace: "nowrap" }}>
               <LaunchDot pad="blue" />n
               <span data-mf-group className="mf-group">
                 {["f", "o", "r", "m", "a", "t"].map((ch, i) => (
@@ -89,6 +89,7 @@ export default async function HomePage() {
                   <span key={ch} className="mf-l" style={{ ["--d" as string]: `${385 + i * 55}ms` }}>{ch}</span>
                 ))}
                 <span className="mf-l" style={{ ["--d" as string]: "495ms", color: "var(--reaction)" }}>.</span>
+              </span>
               </span>
             </h1>
 

@@ -40,6 +40,7 @@ const LAYER_DX = 0.12;
 const LAYER_DZ = 0.02;
 const ANCHOR_GAP_PX = 44;
 const PAPER = { r: 247 / 255, g: 244 / 255, b: 236 / 255 };
+const MERGED_TRAIL = 0x1a1713; // three colours become one: the unified stream is ink
 
 function StaticFallback() {
   return (
@@ -164,12 +165,12 @@ export default function Flock() {
         return out;
       };
 
-      // ── Trails: tapered ribbon stripes ──
-      const trails = CAPTAINS.map((c) => {
+      // ── Trails: tapered ribbon stripes (factory shared by captains + merged stream) ──
+      const makeTrail = (colorHex: number, widthMul: number) => {
         const hist = new Float32Array(TRAIL_LEN * 3);
         const positions = new Float32Array(TRAIL_LEN * 2 * 3);
         const colors = new Float32Array(TRAIL_LEN * 2 * 3);
-        const cc = new THREE.Color(c.color);
+        const cc = new THREE.Color(colorHex);
         for (let k = 0; k < TRAIL_LEN; k++) {
           const t = k / (TRAIL_LEN - 1);
           const r = cc.r + (PAPER.r - cc.r) * t;
@@ -197,17 +198,20 @@ export default function Flock() {
         line.frustumCulled = false;
         line.visible = false;
         scene.add(line);
-        return { line, positions, hist };
-      });
-      const resetTrail = (i: number, to: import("three").Vector3) => {
-        const h = trails[i].hist;
+        return { line, positions, hist, widthMul };
+      };
+      const trails = CAPTAINS.map((c) => makeTrail(c.color, 1));
+      const mTrail = makeTrail(MERGED_TRAIL, 1.45); // the unified stream
+      type Trail = ReturnType<typeof makeTrail>;
+      const resetTrail = (tr: Trail, to: import("three").Vector3) => {
+        const h = tr.hist;
         for (let k = 0; k < TRAIL_LEN; k++) {
           h[k * 3] = to.x; h[k * 3 + 1] = to.y; h[k * 3 + 2] = to.z;
         }
       };
-      const skinTrail = (i: number) => {
-        const h = trails[i].hist;
-        const p = trails[i].positions;
+      const skinTrail = (tr: Trail) => {
+        const h = tr.hist;
+        const p = tr.positions;
         for (let k = 0; k < TRAIL_LEN; k++) {
           const t = k / (TRAIL_LEN - 1);
           const k0 = Math.max(0, k - 1) * 3;
@@ -216,22 +220,40 @@ export default function Flock() {
           let dy = h[k0 + 1] - h[k1 + 1];
           const len = Math.hypot(dx, dy) || 1;
           dx /= len; dy /= len;
-          const half = TRAIL_W * Math.pow(1 - t, 1.25);
+          const half = TRAIL_W * tr.widthMul * Math.pow(1 - t, 1.25);
           const px = -dy * half, py = dx * half;
           p[(k * 2) * 3] = h[k * 3] + px; p[(k * 2) * 3 + 1] = h[k * 3 + 1] + py; p[(k * 2) * 3 + 2] = h[k * 3 + 2] - 0.001;
           p[(k * 2 + 1) * 3] = h[k * 3] - px; p[(k * 2 + 1) * 3 + 1] = h[k * 3 + 1] - py; p[(k * 2 + 1) * 3 + 2] = h[k * 3 + 2] - 0.001;
         }
-        trails[i].line.geometry.getAttribute("position").needsUpdate = true;
+        tr.line.geometry.getAttribute("position").needsUpdate = true;
       };
-      const pushTrail = (i: number) => {
-        const h = trails[i].hist;
+      const pushTrail = (tr: Trail, x: number, y: number, z: number) => {
+        const h = tr.hist;
         for (let k = TRAIL_LEN - 1; k > 0; k--) {
           h[k * 3] = h[(k - 1) * 3];
           h[k * 3 + 1] = h[(k - 1) * 3 + 1];
           h[k * 3 + 2] = h[(k - 1) * 3 + 2];
         }
-        h[0] = pos[i].x; h[1] = pos[i].y; h[2] = pos[i].z;
-        skinTrail(i);
+        h[0] = x; h[1] = y; h[2] = z;
+        skinTrail(tr);
+      };
+      // A trail reeling toward a point; returns true once fully gathered.
+      const reelTrail = (tr: Trail, x: number, y: number, dt: number) => {
+        const h = tr.hist;
+        let maxD = 0;
+        for (let k = 0; k < TRAIL_LEN; k++) {
+          h[k * 3] += (x - h[k * 3]) * Math.min(1, dt * 4);
+          h[k * 3 + 1] += (y - h[k * 3 + 1]) * Math.min(1, dt * 4);
+          const dx = h[k * 3] - x, dyy = h[k * 3 + 1] - y;
+          maxD = Math.max(maxD, dx * dx + dyy * dyy);
+        }
+        skinTrail(tr);
+        return maxD < 0.0004;
+      };
+      // The merged stream is emitted from the tail of the whole mark.
+      const emitter = (out: import("three").Vector3) => {
+        out.set(carrier.x - 2 * LAYER_DX - 0.14, carrier.y, -0.06);
+        return out;
       };
 
       // ── Launch: measure the tittles, set the carrier on the merge line ──
@@ -249,8 +271,10 @@ export default function Flock() {
           dots[i].z = -i * LAYER_DZ;
           pos[i].copy(dots[i]);
         });
-        // merge line: between the headline's two rows of dots
-        carrier.set(dots[0].x + 0.5, (dots[0].y + dots[1].y) / 2, 0);
+        // merge line: clear sky just above the single-line headline —
+        // the canvas renders behind the text, so we fly over it, not through it
+        const topY = Math.max(dots[0].y, dots[1].y, dots[2].y);
+        carrier.set(dots[0].x + 0.4, topY + 0.62, 0);
         phase = 1;
         padsMeasured = true;
       };
@@ -270,6 +294,11 @@ export default function Flock() {
           if (allAssembled && !markFormedFired) {
             markFormedFired = true;
             window.dispatchEvent(new Event("rx:mark-formed"));
+            // the three colours become one: individual ribbons reel away,
+            // the unified ink stream takes over behind the whole mark
+            emitter(tmp);
+            resetTrail(mTrail, tmp);
+            mTrail.line.visible = true;
           }
           if (allAssembled && carrier.x > halfW + 2.0) {
             // off the right edge, trails included — re-enter left on the button's line
@@ -278,8 +307,10 @@ export default function Flock() {
             for (let i = 0; i < N; i++) {
               slotOf(i, tmp);
               pos[i].copy(tmp);
-              resetTrail(i, tmp);
+              trails[i].line.visible = false;
             }
+            emitter(tmp);
+            resetTrail(mTrail, tmp);
           }
         } else if (phase === 2) {
           const d = anchor.x - carrier.x;
@@ -296,6 +327,15 @@ export default function Flock() {
           carrier.x = anchor.x;
           carrier.y = anchor.y + Math.sin(t * 0.9) * 0.016; // the mark breathes as one
         }
+        // the unified ink stream follows the whole mark
+        if (mTrail.line.visible) {
+          emitter(tmp);
+          if (phase === 3) {
+            if (reelTrail(mTrail, tmp.x, tmp.y, dt)) mTrail.line.visible = false;
+          } else {
+            pushTrail(mTrail, tmp.x, tmp.y, tmp.z);
+          }
+        }
 
         // ── darts ride the carrier; each glides on from its dot ──
         for (let i = 0; i < N; i++) {
@@ -307,26 +347,17 @@ export default function Flock() {
           } else {
             pos[i].copy(tmp);
           }
-          if (!trails[i].line.visible && phase <= 1) {
+          if (!trails[i].line.visible && phase === 1 && !markFormedFired) {
             trails[i].line.visible = true;
-            resetTrail(i, pos[i]);
+            resetTrail(trails[i], pos[i]);
           }
-          if (phase === 3) {
-            // reel the ribbon in
-            if (trails[i].line.visible) {
-              const h = trails[i].hist;
-              let maxD = 0;
-              for (let k = 0; k < TRAIL_LEN; k++) {
-                h[k * 3] += (pos[i].x - h[k * 3]) * Math.min(1, dt * 4);
-                h[k * 3 + 1] += (pos[i].y - h[k * 3 + 1]) * Math.min(1, dt * 4);
-                const dx = h[k * 3] - pos[i].x, dyy = h[k * 3 + 1] - pos[i].y;
-                maxD = Math.max(maxD, dx * dx + dyy * dyy);
-              }
-              skinTrail(i);
-              if (maxD < 0.0004) trails[i].line.visible = false;
+          if (markFormedFired) {
+            // post-merge: individual colours gather into the dart and vanish
+            if (trails[i].line.visible && reelTrail(trails[i], pos[i].x, pos[i].y, dt)) {
+              trails[i].line.visible = false;
             }
           } else {
-            pushTrail(i);
+            pushTrail(trails[i], pos[i].x, pos[i].y, pos[i].z);
           }
         }
       };
@@ -387,7 +418,7 @@ export default function Flock() {
         renderer.dispose();
         geo.dispose();
         mat.dispose();
-        trails.forEach((tr) => {
+        [...trails, mTrail].forEach((tr) => {
           tr.line.geometry.dispose();
           (tr.line.material as import("three").Material).dispose();
         });
