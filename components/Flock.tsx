@@ -3,23 +3,25 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * Flock, fifth movement — information, in formation.
+ * Flock, sixth movement — the flypast.
  *
- * Three captains, born from the coloured tittles of the headline. Red first,
- * then blue, then green, each shooting SIDEWAYS off its dot — no climb, no
- * turn — and easing onto its layer of a moving pile. The pile is carried by
- * an invisible carrier travelling smoothly rightward: each dart's target is
- * its slot on that carrier, so the conjoining is one continuous, symmetric
- * glide with zero rotation anywhere. No waypoints, no snapping.
+ * The headline opens slightly condensed so "Intelligence, information."
+ * holds one line. Red, blue, green rise off their tittles in sequence and
+ * glide onto an invisible carrier travelling smoothly rightward just above
+ * the text — each dart a single eased slide onto its moving slot, noses
+ * right from birth, nothing ever rotating, so the merge cannot snap.
  *
- * When the mark completes, we tell the page (rx:mark-formed) so the headline
- * can perform its trick. The mark then continues dead straight off the right
- * edge, re-enters from the left on the primary button's line, decelerates,
- * and lands at its pointing station: nose-tip a small gap left of the
- * button, aimed straight at it.
+ * As the assembled mark PASSES OVER the word, we fire rx:mark-formed and
+ * the page vaporises "formation" in the mark's wake, reforming it on its
+ * own line while the headline grows to full size — the original design,
+ * revealed. The mark exits right, re-enters on the button's line (the
+ * station is re-measured there, since the reveal reflows the page), and
+ * decelerates onto its pointing station: nose-tip aimed at the button.
  *
- * Trails are tapered ribbon stripes that reel in on landing. Reduced motion
- * renders the finished mark at its station.
+ * No ribbon trails. Behind the travelling mark: three short, dead-straight
+ * ink speed lines with fading tips — they record no history, so they can
+ * never wobble. The darts themselves are two-tone folds: each wing a
+ * slightly different shade of its captain's colour. Paper, not polygons.
  */
 
 const CAPTAINS = [
@@ -28,19 +30,15 @@ const CAPTAINS = [
   { pad: "green", color: 0x0d5a40 },
 ];
 const N = 3;
-const LAUNCH_AT = 1.7; //   dots settle ≈1.15s
-const STAGGER = 0.34; //    red, then blue, then green
-const ASSEMBLE_T = 0.85; // each dart's glide from dot to its moving slot
+const LAUNCH_AT = 1.7;
+const STAGGER = 0.34;
+const ASSEMBLE_T = 0.85;
 const CRUISE = 2.3;
-const TRAIL_LEN = 26;
-const TRAIL_W = 0.085;
 const FLY_K = 0.17;
 const DOCK_K = 0.26;
 const LAYER_DX = 0.12;
 const LAYER_DZ = 0.02;
 const ANCHOR_GAP_PX = 44;
-const PAPER = { r: 247 / 255, g: 244 / 255, b: 236 / 255 };
-const MERGED_TRAIL = 0x1a1713; // three colours become one: the unified stream is ink
 
 function StaticFallback() {
   return (
@@ -102,7 +100,6 @@ export default function Flock() {
         out.copy(camera.position).addScaledVector(dir, t);
       };
 
-      // The pointing station: nose-tip a gap left of the primary button.
       const anchor = new THREE.Vector3(-2.2, -0.9, 0);
       const measureAnchor = () => {
         const el = host.closest("section")?.querySelector("[data-flock-anchor]");
@@ -129,7 +126,7 @@ export default function Flock() {
       const ro = new ResizeObserver(resize);
       ro.observe(host);
 
-      // ── Darts ──
+      // ── Darts: two-tone origami fold (per-wing shading × instance colour) ──
       const geo = new THREE.BufferGeometry();
       geo.setAttribute(
         "position",
@@ -138,7 +135,10 @@ export default function Flock() {
           3,
         ),
       );
-      const mat = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
+      // wing 1 full tone, wing 2 caught in shadow of the fold
+      const shade = [1, 1, 1, 1, 1, 1, 1, 1, 1, 0.78, 0.78, 0.78, 0.78, 0.78, 0.78, 0.78, 0.78, 0.78];
+      geo.setAttribute("color", new THREE.Float32BufferAttribute(shade, 3));
+      const mat = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, vertexColors: true });
       const mesh = new THREE.InstancedMesh(geo, mat, N);
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       const col = new THREE.Color();
@@ -149,12 +149,44 @@ export default function Flock() {
       if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
       scene.add(mesh);
 
-      // ── The carrier: one point whose journey the whole mark shares ──
-      // phases: 0 pre-launch · 1 rightward (assemble + exit) · 2 return · 3 docked
+      // ── Speed lines: three dead-straight ink strokes with fading tips ──
+      const lineMats: import("three").MeshBasicMaterial[] = [];
+      const speedGroup = new THREE.Group();
+      const SPEC = [
+        { len: 0.55, dy: 0.1 },
+        { len: 0.82, dy: 0 },
+        { len: 0.55, dy: -0.1 },
+      ];
+      const speedLines = SPEC.map((s) => {
+        const g = new THREE.PlaneGeometry(s.len, 0.016);
+        const ink = new THREE.Color(0x1a1713);
+        const paper = new THREE.Color(0xf7f4ec);
+        // left pair fades to paper, right pair solid ink
+        const cols = new Float32Array([
+          paper.r, paper.g, paper.b,
+          ink.r, ink.g, ink.b,
+          paper.r, paper.g, paper.b,
+          ink.r, ink.g, ink.b,
+        ]);
+        g.setAttribute("color", new THREE.BufferAttribute(cols, 3));
+        const m = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0 });
+        lineMats.push(m);
+        const mesh2 = new THREE.Mesh(g, m);
+        mesh2.position.set(-s.len / 2, s.dy, -0.06);
+        speedGroup.add(mesh2);
+        return { mesh: mesh2, spec: s };
+      });
+      speedGroup.visible = false;
+      scene.add(speedGroup);
+
+      // ── The carrier and its journey ──
+      // phases: 0 pre-launch · 1 rightward (assemble, flypast, exit) · 2 return · 3 docked
       let phase = 0;
       const carrier = new THREE.Vector3();
-      let markFormedFired = false;
+      let assembled = false;
+      let passedFired = false;
       let dockBlend = 0;
+      let groupLeftX = 0; // world x of the word that will vaporise
 
       const dots = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
       const pos = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
@@ -165,98 +197,6 @@ export default function Flock() {
         return out;
       };
 
-      // ── Trails: tapered ribbon stripes (factory shared by captains + merged stream) ──
-      const makeTrail = (colorHex: number, widthMul: number) => {
-        const hist = new Float32Array(TRAIL_LEN * 3);
-        const positions = new Float32Array(TRAIL_LEN * 2 * 3);
-        const colors = new Float32Array(TRAIL_LEN * 2 * 3);
-        const cc = new THREE.Color(colorHex);
-        for (let k = 0; k < TRAIL_LEN; k++) {
-          const t = k / (TRAIL_LEN - 1);
-          const r = cc.r + (PAPER.r - cc.r) * t;
-          const gg = cc.g + (PAPER.g - cc.g) * t;
-          const b = cc.b + (PAPER.b - cc.b) * t;
-          for (const e of [0, 1]) {
-            colors[(k * 2 + e) * 3] = r;
-            colors[(k * 2 + e) * 3 + 1] = gg;
-            colors[(k * 2 + e) * 3 + 2] = b;
-          }
-        }
-        const index: number[] = [];
-        for (let k = 0; k < TRAIL_LEN - 1; k++) {
-          const a = k * 2, b = k * 2 + 1, cI = k * 2 + 2, d = k * 2 + 3;
-          index.push(a, b, cI, b, d, cI);
-        }
-        const g = new THREE.BufferGeometry();
-        g.setAttribute("position", new THREE.BufferAttribute(positions, 3).setUsage(THREE.DynamicDrawUsage));
-        g.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-        g.setIndex(index);
-        const line = new THREE.Mesh(
-          g,
-          new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, transparent: true, opacity: 0.95 }),
-        );
-        line.frustumCulled = false;
-        line.visible = false;
-        scene.add(line);
-        return { line, positions, hist, widthMul };
-      };
-      const trails = CAPTAINS.map((c) => makeTrail(c.color, 1));
-      const mTrail = makeTrail(MERGED_TRAIL, 1.45); // the unified stream
-      type Trail = ReturnType<typeof makeTrail>;
-      const resetTrail = (tr: Trail, to: import("three").Vector3) => {
-        const h = tr.hist;
-        for (let k = 0; k < TRAIL_LEN; k++) {
-          h[k * 3] = to.x; h[k * 3 + 1] = to.y; h[k * 3 + 2] = to.z;
-        }
-      };
-      const skinTrail = (tr: Trail) => {
-        const h = tr.hist;
-        const p = tr.positions;
-        for (let k = 0; k < TRAIL_LEN; k++) {
-          const t = k / (TRAIL_LEN - 1);
-          const k0 = Math.max(0, k - 1) * 3;
-          const k1 = Math.min(TRAIL_LEN - 1, k + 1) * 3;
-          let dx = h[k0] - h[k1];
-          let dy = h[k0 + 1] - h[k1 + 1];
-          const len = Math.hypot(dx, dy) || 1;
-          dx /= len; dy /= len;
-          const half = TRAIL_W * tr.widthMul * Math.pow(1 - t, 1.25);
-          const px = -dy * half, py = dx * half;
-          p[(k * 2) * 3] = h[k * 3] + px; p[(k * 2) * 3 + 1] = h[k * 3 + 1] + py; p[(k * 2) * 3 + 2] = h[k * 3 + 2] - 0.001;
-          p[(k * 2 + 1) * 3] = h[k * 3] - px; p[(k * 2 + 1) * 3 + 1] = h[k * 3 + 1] - py; p[(k * 2 + 1) * 3 + 2] = h[k * 3 + 2] - 0.001;
-        }
-        tr.line.geometry.getAttribute("position").needsUpdate = true;
-      };
-      const pushTrail = (tr: Trail, x: number, y: number, z: number) => {
-        const h = tr.hist;
-        for (let k = TRAIL_LEN - 1; k > 0; k--) {
-          h[k * 3] = h[(k - 1) * 3];
-          h[k * 3 + 1] = h[(k - 1) * 3 + 1];
-          h[k * 3 + 2] = h[(k - 1) * 3 + 2];
-        }
-        h[0] = x; h[1] = y; h[2] = z;
-        skinTrail(tr);
-      };
-      // A trail reeling toward a point; returns true once fully gathered.
-      const reelTrail = (tr: Trail, x: number, y: number, dt: number) => {
-        const h = tr.hist;
-        let maxD = 0;
-        for (let k = 0; k < TRAIL_LEN; k++) {
-          h[k * 3] += (x - h[k * 3]) * Math.min(1, dt * 4);
-          h[k * 3 + 1] += (y - h[k * 3 + 1]) * Math.min(1, dt * 4);
-          const dx = h[k * 3] - x, dyy = h[k * 3 + 1] - y;
-          maxD = Math.max(maxD, dx * dx + dyy * dyy);
-        }
-        skinTrail(tr);
-        return maxD < 0.0004;
-      };
-      // The merged stream is emitted from the tail of the whole mark.
-      const emitter = (out: import("three").Vector3) => {
-        out.set(carrier.x - 2 * LAYER_DX - 0.14, carrier.y, -0.06);
-        return out;
-      };
-
-      // ── Launch: measure the tittles, set the carrier on the merge line ──
       let padsMeasured = false;
       const measureAndArm = () => {
         measureAnchor();
@@ -266,13 +206,20 @@ export default function Flock() {
             const d = (el as HTMLElement).getBoundingClientRect();
             unproject(d.left + d.width / 2, d.top + d.height / 2, dots[i]);
           } else {
-            dots[i].set(-halfW * 0.35 + i * 0.6, halfH * 0.15 - i * 0.2, 0);
+            dots[i].set(-halfW * 0.35 + i * 0.6, halfH * 0.15, 0);
           }
           dots[i].z = -i * LAYER_DZ;
           pos[i].copy(dots[i]);
         });
-        // merge line: clear sky just above the single-line headline —
-        // the canvas renders behind the text, so we fly over it, not through it
+        const grp = host.closest("section")?.querySelector("[data-mf-group]");
+        if (grp) {
+          const gr = (grp as HTMLElement).getBoundingClientRect();
+          const tmp2 = new THREE.Vector3();
+          unproject(gr.left, gr.top + gr.height / 2, tmp2);
+          groupLeftX = tmp2.x;
+        } else {
+          groupLeftX = dots[1].x + 0.4;
+        }
         const topY = Math.max(dots[0].y, dots[1].y, dots[2].y);
         carrier.set(dots[0].x + 0.4, topY + 0.62, 0);
         phase = 1;
@@ -285,32 +232,28 @@ export default function Flock() {
       const qDock = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -Math.PI / 2);
       const qBank = new THREE.Quaternion();
       const zA = new THREE.Vector3(0, 0, 1);
+      let lineFade = 0; // speed-line intensity
 
       const step = (dt: number, t: number) => {
-        // ── carrier motion ──
         if (phase === 1) {
           carrier.x += CRUISE * dt;
-          const allAssembled = t > activeAt[N - 1] + ASSEMBLE_T;
-          if (allAssembled && !markFormedFired) {
-            markFormedFired = true;
-            window.dispatchEvent(new Event("rx:mark-formed"));
-            // the three colours become one: individual ribbons reel away,
-            // the unified ink stream takes over behind the whole mark
-            emitter(tmp);
-            resetTrail(mTrail, tmp);
-            mTrail.line.visible = true;
+          if (!assembled && t > activeAt[N - 1] + ASSEMBLE_T) {
+            assembled = true;
+            speedGroup.visible = true;
           }
-          if (allAssembled && carrier.x > halfW + 2.0) {
-            // off the right edge, trails included — re-enter left on the button's line
+          // the flypast: the word vaporises in the mark's wake
+          if (assembled && !passedFired && carrier.x + DOCK_K > groupLeftX) {
+            passedFired = true;
+            window.dispatchEvent(new Event("rx:mark-formed"));
+          }
+          if (assembled && carrier.x > halfW + 2.0) {
             phase = 2;
+            measureAnchor(); // the reveal reflowed the page — re-fix the station
             carrier.set(-halfW - 1.8, anchor.y, 0);
             for (let i = 0; i < N; i++) {
               slotOf(i, tmp);
               pos[i].copy(tmp);
-              trails[i].line.visible = false;
             }
-            emitter(tmp);
-            resetTrail(mTrail, tmp);
           }
         } else if (phase === 2) {
           const d = anchor.x - carrier.x;
@@ -325,48 +268,32 @@ export default function Flock() {
         } else if (phase === 3) {
           dockBlend = Math.min(1, dockBlend + dt * 2);
           carrier.x = anchor.x;
-          carrier.y = anchor.y + Math.sin(t * 0.9) * 0.016; // the mark breathes as one
-        }
-        // the unified ink stream follows the whole mark
-        if (mTrail.line.visible) {
-          emitter(tmp);
-          if (phase === 3) {
-            if (reelTrail(mTrail, tmp.x, tmp.y, dt)) mTrail.line.visible = false;
-          } else {
-            pushTrail(mTrail, tmp.x, tmp.y, tmp.z);
-          }
+          carrier.y = anchor.y + Math.sin(t * 0.9) * 0.016;
         }
 
-        // ── darts ride the carrier; each glides on from its dot ──
         for (let i = 0; i < N; i++) {
           if (t < activeAt[i]) continue;
           const s = smooth(Math.min(1, (t - activeAt[i]) / ASSEMBLE_T));
           slotOf(i, tmp);
-          if (s < 1 && phase === 1) {
-            pos[i].lerpVectors(dots[i], tmp, s);
-          } else {
-            pos[i].copy(tmp);
-          }
-          if (!trails[i].line.visible && phase === 1 && !markFormedFired) {
-            trails[i].line.visible = true;
-            resetTrail(trails[i], pos[i]);
-          }
-          if (markFormedFired) {
-            // post-merge: individual colours gather into the dart and vanish
-            if (trails[i].line.visible && reelTrail(trails[i], pos[i].x, pos[i].y, dt)) {
-              trails[i].line.visible = false;
-            }
-          } else {
-            pushTrail(trails[i], pos[i].x, pos[i].y, pos[i].z);
-          }
+          if (s < 1 && phase === 1) pos[i].lerpVectors(dots[i], tmp, s);
+          else pos[i].copy(tmp);
         }
+
+        // speed lines ride the tail; intensity follows motion, dies on docking
+        const target = assembled && phase !== 3 ? 1 : 0;
+        lineFade += (target - lineFade) * Math.min(1, dt * (target ? 3 : 4));
+        speedGroup.position.set(carrier.x - 2 * LAYER_DX - 0.18, carrier.y, 0);
+        lineMats.forEach((m2, k) => {
+          m2.opacity = lineFade * (k === 1 ? 0.85 : 0.6);
+        });
+        if (lineFade < 0.01 && phase === 3) speedGroup.visible = false;
       };
 
       const writeInstances = (t: number) => {
         for (let i = 0; i < N; i++) {
           const born = Math.min(1, Math.max(0, (t - activeAt[i]) / 0.3));
           qBank.setFromAxisAngle(zA, Math.sin(t * 1.1 + i * 1.7) * 0.02);
-          q.copy(qDock).multiply(qBank); // nose right, always — sideways by design
+          q.copy(qDock).multiply(qBank);
           const s = (FLY_K + (DOCK_K - FLY_K) * dockBlend) * born;
           m4.compose(pos[i], q, new THREE.Vector3(s, s, s));
           mesh.setMatrixAt(i, m4);
@@ -418,10 +345,8 @@ export default function Flock() {
         renderer.dispose();
         geo.dispose();
         mat.dispose();
-        [...trails, mTrail].forEach((tr) => {
-          tr.line.geometry.dispose();
-          (tr.line.material as import("three").Material).dispose();
-        });
+        speedLines.forEach((sl) => sl.mesh.geometry.dispose());
+        lineMats.forEach((m2) => m2.dispose());
         if (renderer.domElement.parentElement === host) host.removeChild(renderer.domElement);
       };
     })();

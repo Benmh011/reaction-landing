@@ -515,3 +515,17 @@ section { position: relative; z-index: 2; }
 @media (prefers-reduced-motion: reduce) {
   .mf-l { transition: none !important; }
 }
+
+/* ── Hero headline: opens ~12% condensed so "Intelligence, information."
+   holds one line; grows to the original size as the flypast reveals the
+   final composition. ── */
+.hero-h1 {
+  font-size: clamp(2.5rem, 6.15vw, 5.05rem);
+  transition: font-size 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.1s;
+}
+.hero-h1.mf-grown {
+  font-size: clamp(2.8rem, 7vw, 5.8rem);
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-h1 { transition: none; }
+}

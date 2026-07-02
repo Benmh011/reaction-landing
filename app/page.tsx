@@ -64,13 +64,12 @@ export default async function HomePage() {
         <div className="container" style={{ position: "relative", zIndex: 2, padding: "180px 0 96px" }}>
           <div style={{ maxWidth: 780 }}>
             <h1
-              className="ink-enter"
+              className="ink-enter hero-h1"
               aria-label="Intelligence, in formation."
               style={{
                 ...serif,
                 fontStyle: "italic",
                 fontWeight: 600,
-                fontSize: "clamp(2.8rem, 7vw, 5.8rem)",
                 lineHeight: 0.98,
                 color: "var(--text)",
                 margin: "0 0 30px",

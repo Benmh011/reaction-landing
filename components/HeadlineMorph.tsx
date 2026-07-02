@@ -16,7 +16,11 @@ export default function HeadlineMorph() {
     const group = document.querySelector("[data-mf-group]");
     if (!group) return;
 
-    const finalState = () => group.classList.add("mf-final");
+    const h1 = group.closest("h1");
+    const finalState = () => {
+      group.classList.add("mf-final");
+      h1?.classList.add("mf-grown");
+    };
 
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       finalState();
@@ -29,7 +33,8 @@ export default function HeadlineMorph() {
       done = true;
       group.classList.add("mf-out"); // letters evaporate, staggered
       window.setTimeout(() => {
-        group.classList.add("mf-shift"); // the word-space opens while invisible
+        group.classList.add("mf-shift"); // formation drops to its own line while invisible
+        h1?.classList.add("mf-grown"); // …and the headline swells to the original size
         group.classList.remove("mf-out");
         group.classList.add("mf-in"); // letters reform, staggered
       }, 720);
