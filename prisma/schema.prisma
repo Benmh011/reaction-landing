@@ -343,3 +343,67 @@ model Demo {
 
   @@index([active, sortOrder])
 }
+
+// ─────────────── ARTICLED (hosted demo) ───────────────
+// Ported 1:1 from Benmh011/articled, namespaced so it shares reaction's Neon
+// without colliding. pgvector setup (run once on Neon, before generating):
+//   CREATE EXTENSION IF NOT EXISTS vector;
+// After the tables exist, the similarity index:
+//   CREATE INDEX IF NOT EXISTS articled_kbchunk_embedding_idx
+//     ON "ArticledKbChunk" USING hnsw (embedding vector_cosine_ops);
+// Tables are created via raw SQL (db/articled.sql) — never prisma migrate/db push.
+
+model ArticledKbChunk {
+  id        String                       @id @default(cuid())
+  sourceId  String                       @unique
+  kind      String // "frs" | "firm" | "hmrc"
+  ref       String
+  title     String
+  category  String?
+  flag      Boolean                      @default(false)
+  content   String
+  embedding Unsupported("vector(1024)")?
+  createdAt DateTime                     @default(now())
+
+  @@index([kind])
+}
+
+model ArticledAuditTurn {
+  id             String   @id @default(cuid())
+  userId         String?
+  conversationId String?
+  question       String
+  answer         String
+  sourceRefs     String[]
+  model          String
+  latencyMs      Int
+  createdAt      DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([conversationId])
+}
+
+model ArticledConversation {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, updatedAt])
+}
+
+model ArticledChatFile {
+  id             String   @id @default(cuid())
+  auditTurnId    String?
+  conversationId String
+  userId         String
+  filename       String
+  mimeType       String
+  kind           String // "result" | "upload"
+  data           Bytes
+  createdAt      DateTime @default(now())
+
+  @@index([conversationId])
+  @@index([auditTurnId])
+}

@@ -21,7 +21,10 @@
     "react-dom": "19.2.3",
     "resend": "^4.0.1",
     "three": "^0.185.0",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "@aws-sdk/client-bedrock-runtime": "^3.700.0",
+    "exceljs": "^4.4.0",
+    "react-markdown": "^10.1.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
