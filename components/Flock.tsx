@@ -34,6 +34,7 @@ const LAUNCH_AT = 1.7;
 const STAGGER = 0.34;
 const ASSEMBLE_T = 0.85;
 const CRUISE = 2.3;
+const EXIT_SPEED = 5.2; // once the mark is whole, it gets on with it
 const FLY_K = 0.17;
 const DOCK_K = 0.26;
 const LAYER_DX = 0.12;
@@ -186,6 +187,7 @@ export default function Flock() {
       let assembled = false;
       let passedFired = false;
       let dockBlend = 0;
+      let carrierSpeed = CRUISE;
       let groupLeftX = 0; // world x of the word that will vaporise
 
       const dots = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
@@ -236,7 +238,8 @@ export default function Flock() {
 
       const step = (dt: number, t: number) => {
         if (phase === 1) {
-          carrier.x += CRUISE * dt;
+          if (assembled) carrierSpeed += (EXIT_SPEED - carrierSpeed) * Math.min(1, dt * 2.2);
+          carrier.x += carrierSpeed * dt;
           if (!assembled && t > activeAt[N - 1] + ASSEMBLE_T) {
             assembled = true;
             speedGroup.visible = true;

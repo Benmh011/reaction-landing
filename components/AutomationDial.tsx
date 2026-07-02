@@ -3,21 +3,19 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * The Automation Dial, second machining.
+ * The Automation Dial, third machining — glass, suspended in space.
  *
- * A walnut-bodied instrument: procedurally grained wood barrel, cream face,
- * a brass bezel around a recessed gallery sealed under glass. Inside the
- * glass, twelve paper darts live on an annular channel and never leave it.
- * The setting governs them: at Manual a skeleton crew circulates while the
- * rest sit parked at their home stations, dimmed; wind the dial and they
- * wake one by one, the stream quickening. The lead dart is vermilion, as is
- * the needle riding the graduations across the TOP arc (the first machining
- * put them at the bottom; y-up trigonometry, lesson learned).
+ * The woodshop is gone. What floats here is a lens: a thin ink frame ring
+ * holding a transparent glass puck, a glare stripe caught across its upper
+ * face, faint guide rings marking the channel where twelve paper darts
+ * live. The graduations and the vermilion needle sweep the BOTTOM arc.
+ * A soft shadow hangs beneath; the whole instrument bobs gently, an object
+ * at anchor in open air.
  *
- * Wood and brass are lit (one soft key + ambient) so the grain and metal
- * read as materials; the darts stay flat sumi-e ink under the glass, whose
- * presence is sold by a tinted disc and a fixed crescent highlight that
- * moves with the dial's idle sway.
+ * The squadron inside carries the site's colours now: reds, blues and
+ * greens among the ink, every dart a two-tone fold. The setting still
+ * governs them — at Manual a skeleton crew circulates while the rest park
+ * at their home stations, dimmed; wind the dial and they wake one by one.
  *
  * Draggable with detent snap: Manual · Assisted · Drafted · Automated.
  * Auto-cycles when idle; yields to the visitor's hand. Reduced motion gets
@@ -27,71 +25,33 @@ import { useEffect, useRef, useState } from "react";
 const DETENTS = [0, 1 / 3, 2 / 3, 1];
 const LABELS = ["Manual", "Assisted", "Drafted", "Automated"];
 const N_DARTS = 12;
-const ARC_START = Math.PI * 0.82; // upper-left …
-const ARC_SPAN = Math.PI * 0.64; // … sweeping to upper-right
+// bottom arc: Manual at lower-left, sweeping to Automated at lower-right
+const ARC_START = Math.PI * 1.18;
+const ARC_SPAN = Math.PI * 0.64;
 
 const INK = 0x1a1713;
-const CREAM = 0xeee9dc;
-const WELL = 0xe2dccb;
-const BRASS = 0xb08d4a;
-const BRASS_LIGHT = 0xd2af69;
 const VERM = 0xc93a17;
+const BLUE = 0x2565aa;
+const GREEN = 0x0d5a40;
+// reds and blues and greens among the ink
+const DART_COLORS = [VERM, INK, BLUE, INK, GREEN, INK, VERM, INK, BLUE, INK, GREEN, INK];
 const PAPER = { r: 247 / 255, g: 244 / 255, b: 236 / 255 };
-
-/** Procedural walnut: horizontal grain streaks that wrap the barrel. */
-function makeWoodCanvas(): HTMLCanvasElement {
-  const c = document.createElement("canvas");
-  c.width = 512;
-  c.height = 256;
-  const ctx = c.getContext("2d")!;
-  ctx.fillStyle = "#4a3626";
-  ctx.fillRect(0, 0, 512, 256);
-  let seed = 7;
-  const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-  const tones = ["#5e4630", "#3e2c1e", "#6c5238", "#38281c", "#544029"];
-  for (let i = 0; i < 120; i++) {
-    const y0 = rand() * 256;
-    const amp = 1 + rand() * 4;
-    const wl = 40 + rand() * 140;
-    const ph = rand() * Math.PI * 2;
-    ctx.strokeStyle = tones[(i * 13) % tones.length];
-    ctx.globalAlpha = 0.25 + rand() * 0.4;
-    ctx.lineWidth = 0.6 + rand() * 2.2;
-    ctx.beginPath();
-    for (let x = 0; x <= 512; x += 8) {
-      const y = y0 + Math.sin((x / wl) * Math.PI * 2 + ph) * amp;
-      x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-  }
-  // a few subtle knots
-  for (let k = 0; k < 3; k++) {
-    const x = rand() * 512, y = rand() * 256;
-    for (let r = 10; r > 1; r -= 2.5) {
-      ctx.strokeStyle = k % 2 ? "#38281c" : "#5e4630";
-      ctx.globalAlpha = 0.3;
-      ctx.beginPath();
-      ctx.ellipse(x, y, r * 1.6, r, 0.3, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-  }
-  ctx.globalAlpha = 1;
-  return c;
-}
 
 function StaticFallback() {
   return (
     <svg viewBox="-120 -120 240 240" width="100%" aria-hidden="true" focusable="false" style={{ display: "block" }}>
-      <circle r="110" fill="#4a3626" />
-      <circle r="88" fill="#eee9dc" />
-      <circle r="62" fill="#b08d4a" />
-      <circle r="56" fill="#e2dccb" />
-      <path d="M 0 -84 L 6 -60 L -6 -60 Z" fill="#c93a17" transform="rotate(20)" />
+      <ellipse cx="0" cy="108" rx="78" ry="12" fill="#1a1713" opacity="0.12" />
+      <circle r="100" fill="none" stroke="#1a1713" strokeWidth="5" />
+      <circle r="92" fill="#eef4f6" opacity="0.25" />
+      <circle r="58" fill="none" stroke="#1a1713" strokeWidth="1" opacity="0.3" />
+      <circle r="30" fill="none" stroke="#1a1713" strokeWidth="1" opacity="0.3" />
+      <path d="M 0 84 L 6 60 L -6 60 Z" fill="#c93a17" transform="rotate(-24)" />
       {[...Array(9)].map((_, i) => {
         const a = (i / 9) * Math.PI * 2;
-        return <path key={i} d="M0 -7 L4.5 5 L0 2.5 L-4.5 5 Z" transform={`translate(${Math.cos(a) * 40} ${Math.sin(a) * 40}) rotate(${(a * 180) / Math.PI + 180})`} fill={i === 0 ? "#c93a17" : "#1a1713"} />;
+        const cols = ["#c93a17", "#1a1713", "#2565aa", "#1a1713", "#0d5a40", "#1a1713", "#c93a17", "#1a1713", "#2565aa"];
+        return <path key={i} d="M0 -7 L4.5 5 L0 2.5 L-4.5 5 Z" transform={`translate(${Math.cos(a) * 44} ${Math.sin(a) * 44}) rotate(${(a * 180) / Math.PI + 180})`} fill={cols[i]} />;
       })}
-      <circle r="56" fill="#dfe9ee" opacity="0.25" />
+      <rect x="-64" y="-70" width="66" height="9" rx="4.5" fill="#ffffff" opacity="0.35" transform="rotate(-32)" />
     </svg>
   );
 }
@@ -132,104 +92,94 @@ export default function AutomationDial() {
       const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 30);
       camera.position.set(0, 0, 8.2);
 
-      // Material light: soft, warm, enough to read grain and brass.
-      scene.add(new THREE.AmbientLight(0xfff6e8, 0.95));
-      const key = new THREE.DirectionalLight(0xffffff, 0.85);
-      key.position.set(2.4, 3.2, 4.5);
-      scene.add(key);
-
       const dial = new THREE.Group();
-      dial.rotation.x = -0.4;
+      dial.rotation.x = -0.34;
       scene.add(dial);
 
       const mats: import("three").Material[] = [];
       const geos: import("three").BufferGeometry[] = [];
       const texs: import("three").Texture[] = [];
       const G = <T extends import("three").BufferGeometry>(g: T): T => { geos.push(g); return g; };
+      const M = <T extends import("three").Material>(m: T): T => { mats.push(m); return m; };
 
-      // ── Walnut barrel ──
-      const woodTex = new THREE.CanvasTexture(makeWoodCanvas());
-      woodTex.wrapS = THREE.RepeatWrapping;
-      woodTex.colorSpace = THREE.SRGBColorSpace;
-      texs.push(woodTex);
-      const woodMat = new THREE.MeshStandardMaterial({ map: woodTex, roughness: 0.72, metalness: 0.05 });
-      mats.push(woodMat);
-      const body = new THREE.Mesh(G(new THREE.CylinderGeometry(2.2, 2.2, 0.55, 96)), woodMat);
-      body.rotation.x = Math.PI / 2;
-      dial.add(body);
+      // ── The frame: one thin ink ring — a lens mount, nothing more ──
+      const frame = new THREE.Mesh(
+        G(new THREE.TorusGeometry(1.92, 0.055, 20, 96)),
+        M(new THREE.MeshBasicMaterial({ color: INK })),
+      );
+      dial.add(frame);
 
-      // grip ridges, carved from the same timber (darker)
-      const ridgeMat = new THREE.MeshStandardMaterial({ color: 0x33241a, roughness: 0.8 });
-      mats.push(ridgeMat);
-      const ridges = new THREE.InstancedMesh(G(new THREE.BoxGeometry(0.05, 0.1, 0.57)), ridgeMat, 40);
+      // ── The glass puck ──
+      const glass = new THREE.Mesh(
+        G(new THREE.CylinderGeometry(1.9, 1.9, 0.16, 96)),
+        M(new THREE.MeshBasicMaterial({ color: 0xeef4f6, transparent: true, opacity: 0.16 })),
+      );
+      glass.rotation.x = Math.PI / 2;
+      dial.add(glass);
+      // glass edge catch-light: a whisper-bright rim just inside the frame
+      const rimLight = new THREE.Mesh(
+        G(new THREE.TorusGeometry(1.84, 0.014, 12, 96)),
+        M(new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 })),
+      );
+      rimLight.position.z = 0.06;
+      dial.add(rimLight);
+      // glare: two soft stripes caught across the upper face, safely inside
+      // the disc radius (the old floating crescents are gone for good)
+      const glareMat = M(new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.16 }));
+      const glare1 = new THREE.Mesh(G(new THREE.PlaneGeometry(1.55, 0.17)), glareMat);
+      glare1.position.set(-0.42, 0.62, 0.1);
+      glare1.rotation.z = -0.58;
+      const glareMat2 = M(new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.1 }));
+      const glare2 = new THREE.Mesh(G(new THREE.PlaneGeometry(0.95, 0.07)), glareMat2);
+      glare2.position.set(-0.18, 0.4, 0.1);
+      glare2.rotation.z = -0.58;
+      dial.add(glare1, glare2);
+
+      // ── Guide rings: the channel the squadron lives in, drawn faintly ──
+      const guideMat = M(new THREE.MeshBasicMaterial({ color: INK, transparent: true, opacity: 0.22 }));
+      const guideOuter = new THREE.Mesh(G(new THREE.TorusGeometry(1.14, 0.008, 8, 80)), guideMat);
+      const guideInner = new THREE.Mesh(G(new THREE.TorusGeometry(0.52, 0.008, 8, 64)), guideMat);
+      guideOuter.position.z = 0.02;
+      guideInner.position.z = 0.02;
+      dial.add(guideOuter, guideInner);
+
+      // ── Graduations: BOTTOM arc, Manual lower-left → Automated lower-right ──
       const km = new THREE.Matrix4();
       const kq = new THREE.Quaternion();
       const zAxis = new THREE.Vector3(0, 0, 1);
-      for (let i = 0; i < 40; i++) {
-        const a = (i / 40) * Math.PI * 2;
-        kq.setFromAxisAngle(zAxis, a);
-        km.compose(new THREE.Vector3(Math.cos(a) * 2.2, Math.sin(a) * 2.2, 0), kq, new THREE.Vector3(1, 1, 1));
-        ridges.setMatrixAt(i, km);
-      }
-      dial.add(ridges);
-
-      // ── Cream face ──
-      const faceMat = new THREE.MeshStandardMaterial({ color: CREAM, roughness: 0.9 });
-      mats.push(faceMat);
-      const face = new THREE.Mesh(G(new THREE.CylinderGeometry(1.94, 1.94, 0.1, 96)), faceMat);
-      face.rotation.x = Math.PI / 2;
-      face.position.z = 0.3;
-      dial.add(face);
-
-      // ── Graduations, TOP arc ──
-      const tickMinorMat = new THREE.MeshBasicMaterial({ color: 0x8d8574 });
-      const tickMajorMat = new THREE.MeshBasicMaterial({ color: INK });
-      mats.push(tickMinorMat, tickMajorMat);
-      const tickMinor = new THREE.InstancedMesh(G(new THREE.BoxGeometry(0.02, 0.14, 0.02)), tickMinorMat, 21);
-      const tickMajor = new THREE.InstancedMesh(G(new THREE.BoxGeometry(0.035, 0.24, 0.03)), tickMajorMat, 4);
+      const tickMinor = new THREE.InstancedMesh(
+        G(new THREE.BoxGeometry(0.02, 0.13, 0.02)),
+        M(new THREE.MeshBasicMaterial({ color: 0x8d8574 })),
+        21,
+      );
+      const tickMajor = new THREE.InstancedMesh(
+        G(new THREE.BoxGeometry(0.034, 0.22, 0.03)),
+        M(new THREE.MeshBasicMaterial({ color: INK })),
+        4,
+      );
       let mi = 0, ma = 0;
       for (let i = 0; i < 25; i++) {
-        const a = ARC_START - (i / 24) * ARC_SPAN;
+        const a = ARC_START + (i / 24) * ARC_SPAN;
         const major = i % 8 === 0;
-        const r = major ? 1.66 : 1.71;
+        const r = major ? 1.6 : 1.65;
         kq.setFromAxisAngle(zAxis, a + Math.PI / 2);
-        km.compose(new THREE.Vector3(Math.cos(a) * r, Math.sin(a) * r, 0.37), kq, new THREE.Vector3(1, 1, 1));
+        km.compose(new THREE.Vector3(Math.cos(a) * r, Math.sin(a) * r, 0.1), kq, new THREE.Vector3(1, 1, 1));
         (major ? tickMajor : tickMinor).setMatrixAt(major ? ma++ : mi++, km);
       }
       dial.add(tickMinor, tickMajor);
 
-      // ── Needle ──
+      // ── Needle: vermilion, riding the bottom arc ──
       const needleGroup = new THREE.Group();
-      const needleMat = new THREE.MeshBasicMaterial({ color: VERM });
-      mats.push(needleMat);
-      const needle = new THREE.Mesh(G(new THREE.ConeGeometry(0.07, 0.32, 4)), needleMat);
-      needle.position.set(0, 1.48, 0.4);
+      const needle = new THREE.Mesh(
+        G(new THREE.ConeGeometry(0.068, 0.3, 4)),
+        M(new THREE.MeshBasicMaterial({ color: VERM })),
+      );
+      needle.position.set(0, 1.42, 0.12);
       needle.rotation.z = Math.PI;
       needleGroup.add(needle);
       dial.add(needleGroup);
 
-      // ── Brass bezel around the gallery ──
-      const brassMat = new THREE.MeshStandardMaterial({ color: BRASS, metalness: 0.68, roughness: 0.34 });
-      const brassLightMat = new THREE.MeshStandardMaterial({ color: BRASS_LIGHT, metalness: 0.6, roughness: 0.3 });
-      mats.push(brassMat, brassLightMat);
-      const bezel = new THREE.Mesh(G(new THREE.TorusGeometry(1.26, 0.075, 20, 72)), brassMat);
-      bezel.position.z = 0.4;
-      const bezelIn = new THREE.Mesh(G(new THREE.TorusGeometry(1.17, 0.028, 16, 72)), brassLightMat);
-      bezelIn.position.z = 0.43;
-      dial.add(bezel, bezelIn);
-
-      // ── Gallery well + hub ──
-      const wellMat = new THREE.MeshStandardMaterial({ color: WELL, roughness: 0.95 });
-      mats.push(wellMat);
-      const well = new THREE.Mesh(G(new THREE.CylinderGeometry(1.17, 1.17, 0.08, 72)), wellMat);
-      well.rotation.x = Math.PI / 2;
-      well.position.z = 0.3;
-      const hub = new THREE.Mesh(G(new THREE.CylinderGeometry(0.46, 0.46, 0.1, 48)), faceMat);
-      hub.rotation.x = Math.PI / 2;
-      hub.position.z = 0.32;
-      dial.add(well, hub);
-
-      // ── Darts under glass ──
+      // ── The squadron: two-tone folds in the site's colours ──
       const dartGeo = G(new THREE.BufferGeometry());
       dartGeo.setAttribute(
         "position",
@@ -238,9 +188,13 @@ export default function AutomationDial() {
           3,
         ),
       );
-      const dartMat = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
-      mats.push(dartMat);
-      const darts = new THREE.InstancedMesh(dartGeo, dartMat, N_DARTS);
+      const shade = [1, 1, 1, 1, 1, 1, 1, 1, 1, 0.78, 0.78, 0.78, 0.78, 0.78, 0.78, 0.78, 0.78, 0.78];
+      dartGeo.setAttribute("color", new THREE.Float32BufferAttribute(shade, 3));
+      const darts = new THREE.InstancedMesh(
+        dartGeo,
+        M(new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, vertexColors: true })),
+        N_DARTS,
+      );
       darts.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       dial.add(darts);
       const phases = new Float32Array(N_DARTS);
@@ -250,36 +204,39 @@ export default function AutomationDial() {
         HOME[i] = (i / N_DARTS) * Math.PI * 2;
         phases[i] = HOME[i];
       }
-
-      // ── Glass: tinted disc + crescent highlights riding the dial ──
-      const glassMat = new THREE.MeshPhysicalMaterial({
-        color: 0xdfe9ee, transparent: true, opacity: 0.2, roughness: 0.08, metalness: 0,
-      });
-      mats.push(glassMat);
-      const glass = new THREE.Mesh(G(new THREE.CylinderGeometry(1.165, 1.165, 0.04, 72)), glassMat);
-      glass.rotation.x = Math.PI / 2;
-      glass.position.z = 0.47;
-      dial.add(glass);
-      const hiMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.4 });
-      const hiMat2 = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.22 });
-      mats.push(hiMat, hiMat2);
-      const hi = new THREE.Mesh(G(new THREE.TorusGeometry(0.98, 0.022, 8, 48, Math.PI * 0.34)), hiMat);
-      hi.rotation.z = Math.PI * 0.62;
-      hi.position.z = 0.5;
-      const hi2 = new THREE.Mesh(G(new THREE.TorusGeometry(0.82, 0.014, 8, 40, Math.PI * 0.2)), hiMat2);
-      hi2.rotation.z = Math.PI * 0.7;
-      hi2.position.z = 0.5;
-      dial.add(hi, hi2);
-
-      // ── Colours for dart activity blend ──
-      const col = new THREE.Color();
-      const inkC = new THREE.Color(INK);
-      const vermC = new THREE.Color(VERM);
-      const dimC = new THREE.Color().setRGB(
-        inkC.r + (PAPER.r - inkC.r) * 0.58,
-        inkC.g + (PAPER.g - inkC.g) * 0.58,
-        inkC.b + (PAPER.b - inkC.b) * 0.58,
+      const baseCols = DART_COLORS.map((c) => new THREE.Color(c));
+      const dimOf = baseCols.map((c) =>
+        new THREE.Color().setRGB(
+          c.r + (PAPER.r - c.r) * 0.6,
+          c.g + (PAPER.g - c.g) * 0.6,
+          c.b + (PAPER.b - c.b) * 0.6,
+        ),
       );
+      const col = new THREE.Color();
+
+      // ── The shadow beneath: a soft breath of ink on the paper ──
+      const shCanvas = document.createElement("canvas");
+      shCanvas.width = 256;
+      shCanvas.height = 64;
+      const shCtx = shCanvas.getContext("2d")!;
+      const grad = shCtx.createRadialGradient(128, 32, 4, 128, 32, 120);
+      grad.addColorStop(0, "rgba(26,23,19,0.55)");
+      grad.addColorStop(0.55, "rgba(26,23,19,0.18)");
+      grad.addColorStop(1, "rgba(26,23,19,0)");
+      shCtx.save();
+      shCtx.scale(1, 0.26);
+      shCtx.translate(0, 96);
+      shCtx.fillStyle = grad;
+      shCtx.fillRect(0, -128, 256, 320);
+      shCtx.restore();
+      const shTex = new THREE.CanvasTexture(shCanvas);
+      texs.push(shTex);
+      const shadow = new THREE.Mesh(
+        G(new THREE.PlaneGeometry(3.6, 0.9)),
+        M(new THREE.MeshBasicMaterial({ map: shTex, transparent: true, opacity: 0.5, depthWrite: false })),
+      );
+      shadow.position.set(0, -2.45, -0.4);
+      scene.add(shadow);
 
       // ── Dial state ──
       let v = DETENTS[1];
@@ -334,10 +291,16 @@ export default function AutomationDial() {
         }
         v += (target - v) * Math.min(1, dt * 4.5);
 
-        needleGroup.rotation.z = (ARC_START - v * ARC_SPAN) - Math.PI / 2;
+        needleGroup.rotation.z = (ARC_START + v * ARC_SPAN) - Math.PI / 2;
 
-        dial.rotation.y = Math.sin(t * 0.26) * 0.1;
-        dial.rotation.x = -0.4 + Math.sin(t * 0.17) * 0.04;
+        // suspended: a slow bob and sway, the shadow answering underneath
+        const bob = Math.sin(t * 0.5) * 0.05;
+        dial.position.y = bob;
+        dial.rotation.y = Math.sin(t * 0.26) * 0.12;
+        dial.rotation.x = -0.34 + Math.sin(t * 0.17) * 0.04;
+        const shBreathe = 1 - (bob + 0.05) * 1.6;
+        shadow.scale.set(shBreathe, shBreathe, 1);
+        (shadow.material as import("three").MeshBasicMaterial).opacity = 0.36 + shBreathe * 0.14;
 
         const activeF = 3 + v * (N_DARTS - 3);
         for (let i = 0; i < N_DARTS; i++) {
@@ -347,22 +310,21 @@ export default function AutomationDial() {
           if (act > 0.05) {
             phases[i] += (0.16 + v * 1.15) * act * dt;
           } else {
-            // parked darts glide home to their station
             let dphi = HOME[i] - (phases[i] % (Math.PI * 2));
             while (dphi > Math.PI) dphi -= Math.PI * 2;
             while (dphi < -Math.PI) dphi += Math.PI * 2;
             phases[i] += dphi * Math.min(1, dt * 2);
           }
-          const r = 0.82 + Math.sin(phases[i] * 3 + i) * 0.03 * act;
+          const r = 0.83 + Math.sin(phases[i] * 3 + i) * 0.03 * act;
           q.setFromAxisAngle(zAxis, phases[i] + Math.PI);
           const s = 0.15 * (0.74 + 0.26 * act);
           m4.compose(
-            new THREE.Vector3(Math.cos(phases[i]) * r, Math.sin(phases[i]) * r, 0.37),
+            new THREE.Vector3(Math.cos(phases[i]) * r, Math.sin(phases[i]) * r, 0.04),
             q,
             new THREE.Vector3(s, s, s),
           );
           darts.setMatrixAt(i, m4);
-          col.copy(dimC).lerp(i === 0 ? vermC : inkC, act);
+          col.copy(dimOf[i]).lerp(baseCols[i], act);
           darts.setColorAt(i, col);
         }
         darts.instanceMatrix.needsUpdate = true;
