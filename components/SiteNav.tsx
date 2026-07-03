@@ -40,6 +40,11 @@ export default async function SiteNav({
           </Link>
         </div>
         <div className="nav-actions" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {/* Always visible, regardless of sign-in state, sitting between the
+              left brand and the right-hand primary action. */}
+          <Link href="/products" className="btn btn-ghost">
+            Our products
+          </Link>
           {loggedIn ? (
             <>
               <Link href="/auth/signout" className="btn btn-ghost">
