@@ -76,12 +76,81 @@ export default function ProductsPage() {
             </div>
           </div>
         </section>
+
+        {/* ── TEF: educational gains evidence ── */}
+        <section style={{ padding: "80px 0 100px", borderTop: "1px solid var(--rule)" }} id="tef-evidence">
+          <div className="container">
+            <div style={{ maxWidth: 760, marginBottom: 54 }}>
+              <div className="mono" style={{ fontSize: "0.68rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--reaction)", marginBottom: 16 }}>
+                Evidence · TEF educational gains
+              </div>
+              <h2 style={{ ...serif, fontStyle: "italic", fontWeight: 600, fontSize: "clamp(1.8rem, 3.4vw, 2.6rem)", lineHeight: 1.1, letterSpacing: "-0.02em", color: "var(--text)", margin: "0 0 20px" }}>
+                Distance travelled, measured<span style={{ color: "var(--reaction)" }}>.</span>
+              </h2>
+              <p style={{ fontSize: "1.06rem", lineHeight: 1.7, color: "var(--text-soft)", margin: "0 0 14px", maxWidth: "62ch" }}>
+                The Teaching Excellence Framework asks providers not just to intend educational
+                gains, but to evidence them, and confidence and personal development sit squarely
+                inside its definition. The catch is that these gains have no nationally comparable
+                dataset, so providers must find their own defensible evidence.
+              </p>
+              <p style={{ fontSize: "1.06rem", lineHeight: 1.7, color: "var(--text-soft)", margin: 0, maxWidth: "62ch" }}>
+                Campus Connect produces exactly that. Every student&rsquo;s journey up a ladder of
+                growing confidence, from watching, to taking part, to leading, is captured as
+                longitudinal behavioural data. Not a survey of opinion; a record of what students
+                actually did, term over term.
+              </p>
+            </div>
+
+            {/* the confidence ladder */}
+            <div className="tef-ladder" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20, marginBottom: 44 }}>
+              {[
+                { n: "01", stage: "Observer", color: "#c93a17", body: "Signs in, browses the feed, sees what campus life offers. The starting line: present, but on the edge." },
+                { n: "02", stage: "Participant", color: "#2565aa", body: "RSVPs, checks in, turns up. The first measurable step of the distance travelled, and the confidence behind it." },
+                { n: "03", stage: "Organiser", color: "#0d5a40", body: "Posts an event, runs a society, brings others in. Leadership and work readiness, evidenced by action." },
+              ].map((step, i) => (
+                <div key={step.n} style={{ position: "relative", padding: "26px 24px", background: "var(--paper-2, #fdfbf5)", border: "1px solid var(--rule)", borderRadius: 14, borderTop: `3px solid ${step.color}` }}>
+                  <div className="mono" style={{ fontSize: "0.66rem", letterSpacing: "0.14em", color: step.color, marginBottom: 10 }}>{step.n}</div>
+                  <div style={{ ...serif, fontStyle: "italic", fontWeight: 600, fontSize: "1.35rem", color: "var(--text)", marginBottom: 10 }}>{step.stage}</div>
+                  <p style={{ fontSize: "0.92rem", lineHeight: 1.6, color: "var(--text-soft)", margin: 0 }}>{step.body}</p>
+                  {i < 2 && (
+                    <span aria-hidden="true" className="tef-arrow" style={{ position: "absolute", right: -16, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", fontSize: "1.1rem", zIndex: 1 }}>&rarr;</span>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: "flex", gap: 24, flexWrap: "wrap", paddingTop: 26, borderTop: "1px solid var(--rule)" }}>
+              <div style={{ flex: "1 1 240px" }}>
+                <div className="mono" style={{ fontSize: "0.64rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 8 }}>
+                  The conversion metric
+                </div>
+                <p style={{ fontSize: "0.96rem", lineHeight: 1.6, color: "var(--text-soft)", margin: 0 }}>
+                  The observer-to-participant-to-organiser conversion rate becomes a headline
+                  figure a provider can put in front of the TEF panel: a cohort growing in
+                  confidence, tracked in the aggregate, term over term.
+                </p>
+              </div>
+              <div style={{ flex: "1 1 240px" }}>
+                <div className="mono" style={{ fontSize: "0.64rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 8 }}>
+                  Kept honest
+                </div>
+                <p style={{ fontSize: "0.96rem", lineHeight: 1.6, color: "var(--text-soft)", margin: 0 }}>
+                  TEF sets social experience aside; the evidence here is personal development and
+                  work readiness, the distance a student travels toward leading. That is the gain
+                  the framework asks providers to prove.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
 
       <style>{`
         @media (max-width: 900px) {
           .campus-grid { grid-template-columns: 1fr !important; gap: 44px !important; }
           .campus-visual { grid-template-columns: 1fr !important; gap: 36px !important; justify-items: center; }
+          .tef-ladder { grid-template-columns: 1fr !important; gap: 28px !important; }
+          .tef-arrow { display: none !important; }
         }
       `}</style>
     </>

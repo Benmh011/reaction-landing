@@ -5,29 +5,29 @@ import { useEffect, useRef, useState } from "react";
 /**
  * The Campus Connect loop — post · RSVP · check in · reflect.
  *
- * The product's engine, drawn as a ring: a bright token travels the cycle
- * endlessly, and each node lights as the token arrives, then dims as it
- * leaves. The mechanism, not a screenshot — the same editorial-diagram
- * language as the dial and the flock. Pure SVG + rAF; pauses off-screen;
- * reduced motion shows a still, evenly-lit ring.
+ * A glossy ring: a small dart (matching the page's captain darts) travels
+ * the cycle, and each node lights as it arrives. The track is masked so it
+ * never draws through the node discs or the centre caption. Nodes have a
+ * radial-gradient sheen and a soft highlight, not flat fills. rAF-driven,
+ * pauses off-screen, reduced-motion shows a still, evenly-lit ring.
  */
 
 const NODES = [
-  { label: "Post", color: "#c93a17" },
-  { label: "RSVP", color: "#2565aa" },
-  { label: "Check in", color: "#0d5a40" },
-  { label: "Reflect", color: "#1b3656" },
+  { label: "Post", color: "#c93a17", light: "#e8896c" },
+  { label: "RSVP", color: "#2565aa", light: "#6f9fd4" },
+  { label: "Check in", color: "#0d5a40", light: "#4f9c82" },
+  { label: "Reflect", color: "#1b3656", light: "#5a7699" },
 ];
-const R = 118; // ring radius
+const R = 118;
 const CX = 170;
 const CY = 170;
+const NODE_R = 33;
 
-// angle of node i (starting at top, clockwise)
 const nodeAngle = (i: number) => -Math.PI / 2 + (i / NODES.length) * Math.PI * 2;
 const pointAt = (a: number, r = R) => [CX + Math.cos(a) * r, CY + Math.sin(a) * r] as const;
 
 export default function CampusLoop() {
-  const tokenRef = useRef<SVGCircleElement | null>(null);
+  const dartRef = useRef<SVGGElement | null>(null);
   const nodeRefs = useRef<(SVGGElement | null)[]>([]);
   const [reduced, setReduced] = useState(false);
 
@@ -38,31 +38,30 @@ export default function CampusLoop() {
     }
     let raf = 0;
     let running = true;
-    const host = tokenRef.current?.ownerSVGElement ?? null;
+    const host = dartRef.current?.ownerSVGElement ?? null;
     const t0 = performance.now();
-    const PERIOD = 8000; // one full lap
+    const PERIOD = 9000;
 
     const tick = (now: number) => {
       if (!running) return;
-      const phase = (((now - t0) % PERIOD) / PERIOD) * Math.PI * 2 - Math.PI / 2; // token angle
+      const phase = (((now - t0) % PERIOD) / PERIOD) * Math.PI * 2 - Math.PI / 2;
       const [tx, ty] = pointAt(phase);
-      tokenRef.current?.setAttribute("cx", String(tx));
-      tokenRef.current?.setAttribute("cy", String(ty));
+      // dart points along the direction of travel (tangent, clockwise)
+      const deg = (phase * 180) / Math.PI + 90;
+      dartRef.current?.setAttribute("transform", `translate(${tx} ${ty}) rotate(${deg})`);
 
-      // each node's brightness = proximity of the token to that node
       for (let i = 0; i < NODES.length; i++) {
         const a = nodeAngle(i);
-        let da = Math.abs(((phase - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
-        const near = Math.max(0, 1 - da / 0.7); // 1 at node, fading over ~40°
+        const da = Math.abs(((phase - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+        const near = Math.max(0, 1 - da / 0.7);
         const g = nodeRefs.current[i];
         if (g) {
           const disc = g.querySelector<SVGCircleElement>("[data-disc]");
           const txt = g.querySelector<SVGTextElement>("[data-txt]");
-          if (disc) {
-            disc.setAttribute("fill-opacity", String(0.12 + near * 0.88));
-            disc.setAttribute("r", String(30 + near * 5));
-          }
-          if (txt) txt.setAttribute("fill", near > 0.5 ? "#f7f4ec" : NODES[i].color);
+          const halo = g.querySelector<SVGCircleElement>("[data-halo]");
+          if (disc) disc.setAttribute("opacity", String(0.35 + near * 0.65));
+          if (halo) halo.setAttribute("opacity", String(near * 0.5));
+          if (txt) txt.setAttribute("fill", near > 0.55 ? "#f7f4ec" : NODES[i].color);
         }
       }
       raf = requestAnimationFrame(tick);
@@ -78,41 +77,66 @@ export default function CampusLoop() {
       { threshold: 0.1 },
     );
     if (host) io.observe(host);
-
-    return () => {
-      running = false;
-      cancelAnimationFrame(raf);
-      io.disconnect();
-    };
+    return () => { running = false; cancelAnimationFrame(raf); io.disconnect(); };
   }, []);
 
   return (
     <svg viewBox="0 0 340 340" width="100%" role="img" aria-label="The Campus Connect loop: post, RSVP, check in, reflect" style={{ display: "block", maxWidth: 380, margin: "0 auto" }}>
-      {/* ring track */}
-      <circle cx={CX} cy={CY} r={R} fill="none" stroke="#e2dccd" strokeWidth="2.5" />
-      {/* faint directional arrows along the track */}
+      <defs>
+        {NODES.map((n, i) => (
+          <radialGradient key={i} id={`cc-node-${i}`} cx="38%" cy="32%" r="72%">
+            <stop offset="0%" stopColor={n.light} />
+            <stop offset="55%" stopColor={n.color} />
+            <stop offset="100%" stopColor={n.color} />
+          </radialGradient>
+        ))}
+        {/* mask: the ring track is white (visible) everywhere EXCEPT black
+            holes punched where the nodes and centre caption sit */}
+        <mask id="cc-track-mask">
+          <rect x="0" y="0" width="340" height="340" fill="white" />
+          {NODES.map((_, i) => {
+            const [x, y] = pointAt(nodeAngle(i));
+            return <circle key={i} cx={x} cy={y} r={NODE_R + 5} fill="black" />;
+          })}
+          <rect x={CX - 34} y={CY - 20} width="68" height="40" rx="8" fill="black" />
+        </mask>
+      </defs>
+
+      {/* ring track (masked so it never crosses nodes or the caption) */}
+      <circle cx={CX} cy={CY} r={R} fill="none" stroke="#d8d1c0" strokeWidth="2.5" mask="url(#cc-track-mask)" />
+
+      {/* faint direction chevrons on the open arcs */}
       {NODES.map((_, i) => {
         const a = nodeAngle(i) + Math.PI / NODES.length;
         const [ax, ay] = pointAt(a);
         const rot = (a * 180) / Math.PI + 90;
-        return <path key={i} d="M -5 4 L 0 -4 L 5 4" fill="none" stroke="#c8c0ad" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" transform={`translate(${ax} ${ay}) rotate(${rot})`} />;
+        return <path key={i} d="M -4 3.5 L 0 -3.5 L 4 3.5" fill="none" stroke="#c8c0ad" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" transform={`translate(${ax} ${ay}) rotate(${rot})`} />;
       })}
-      {/* the travelling token */}
-      <circle ref={tokenRef} cx={CX} cy={CY - R} r="8" fill="#c93a17" style={reduced ? { display: "none" } : undefined} />
-      {/* nodes */}
+
+      {/* nodes: glossy disc + top highlight + activity halo */}
       {NODES.map((n, i) => {
         const [x, y] = pointAt(nodeAngle(i));
         return (
           <g key={n.label} ref={(el) => { nodeRefs.current[i] = el; }}>
-            <circle data-disc cx={x} cy={y} r={30} fill={n.color} fillOpacity={reduced ? 0.85 : 0.12} stroke={n.color} strokeWidth="2.5" />
-            <text data-txt x={x} y={y + 4} textAnchor="middle" fontSize="12.5" fontWeight={600} fontFamily="'IBM Plex Mono', ui-monospace, monospace" fill={reduced ? "#f7f4ec" : n.color} style={{ letterSpacing: "0.02em" }}>
+            <circle data-halo cx={x} cy={y} r={NODE_R + 9} fill={n.color} opacity={0} />
+            <circle data-disc cx={x} cy={y} r={NODE_R} fill={`url(#cc-node-${i})`} opacity={reduced ? 1 : 0.35} />
+            {/* glass highlight */}
+            <ellipse cx={x - 8} cy={y - 11} rx="14" ry="8" fill="#ffffff" opacity="0.28" />
+            <circle cx={x} cy={y} r={NODE_R} fill="none" stroke={n.color} strokeWidth="1.5" strokeOpacity="0.4" />
+            <text data-txt x={x} y={y + 4} textAnchor="middle" fontSize="12" fontWeight={600} fontFamily="'IBM Plex Mono', ui-monospace, monospace" fill={reduced ? "#f7f4ec" : n.color} style={{ letterSpacing: "0.01em" }}>
               {n.label}
             </text>
           </g>
         );
       })}
-      {/* centre caption */}
-      <text x={CX} y={CY - 4} textAnchor="middle" fontSize="10" fontFamily="'IBM Plex Mono', ui-monospace, monospace" fill="#7a7266" style={{ letterSpacing: "0.16em" }}>THE</text>
+
+      {/* the travelling dart (matches the page's captain darts) */}
+      <g ref={dartRef} transform={`translate(${CX} ${CY - R}) rotate(0)`} style={reduced ? { display: "none" } : undefined}>
+        <path d="M 0 -9 L 7 8 L 0 3 L -7 8 Z" fill="#c93a17" />
+      </g>
+
+      {/* centre caption (sits in the masked-out hole) */}
+      <text x={CX} y={CY - 4} textAnchor="middle" fontSize="9.5" fontFamily="'IBM Plex Mono', ui-monospace, monospace" fill="#7a7266" style={{ letterSpacing: "0.18em" }}>THE</text>
       <text x={CX} y={CY + 12} textAnchor="middle" fontSize="14" fontStyle="italic" fontFamily="'Newsreader', Georgia, serif" fill="#4c463c">loop</text>
     </svg>
   );
