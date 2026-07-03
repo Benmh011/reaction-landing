@@ -39,29 +39,64 @@ export default function CampusLoop() {
     let raf = 0;
     let running = true;
     const host = dartRef.current?.ownerSVGElement ?? null;
+
+    // The hand ticks between the four nodes: a quick sweep, then a dwell.
+    const DWELL = 1500; // ms parked on a node
+    const SWEEP = 520; // ms to snap to the next
+    const STEP = DWELL + SWEEP;
     const t0 = performance.now();
-    const PERIOD = 9000;
+    // ease for a clock-like snap: fast off the mark, settling with a tiny overshoot
+    const easeTick = (t: number) => {
+      const c = 1.70158;
+      const u = t - 1;
+      return u * u * ((c + 1) * u + c) + 1; // easeOutBack
+    };
 
     const tick = (now: number) => {
       if (!running) return;
-      const phase = (((now - t0) % PERIOD) / PERIOD) * Math.PI * 2 - Math.PI / 2;
-      const [tx, ty] = pointAt(phase);
-      // dart points along the direction of travel (tangent, clockwise)
-      const deg = (phase * 180) / Math.PI + 90;
-      dartRef.current?.setAttribute("transform", `translate(${tx} ${ty}) rotate(${deg})`);
+      const elapsed = now - t0;
+      const idx = Math.floor(elapsed / STEP) % NODES.length; // node we are leaving
+      const local = elapsed % STEP;
+      const to = (idx + 1) % NODES.length; // node we are heading to
+
+      let ang: number;
+      let lit: number; // which node is currently lit
+      if (local < SWEEP) {
+        // sweeping from idx -> to
+        const p = easeTick(local / SWEEP);
+        const a0 = nodeAngle(idx);
+        let a1 = nodeAngle(to);
+        // always advance clockwise (increasing angle)
+        if (a1 <= a0) a1 += Math.PI * 2;
+        ang = a0 + (a1 - a0) * p;
+        lit = p > 0.6 ? to : idx;
+      } else {
+        // dwelling on `to`
+        ang = nodeAngle(to);
+        lit = to;
+      }
+
+      // point the hand outward along `ang` (hand pivots from the hub)
+      const deg = (ang * 180) / Math.PI + 90;
+      dartRef.current?.setAttribute("transform", `translate(${CX} ${CY}) rotate(${deg})`);
 
       for (let i = 0; i < NODES.length; i++) {
-        const a = nodeAngle(i);
-        const da = Math.abs(((phase - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
-        const near = Math.max(0, 1 - da / 0.7);
+        const on = i === lit ? 1 : 0;
         const g = nodeRefs.current[i];
         if (g) {
           const disc = g.querySelector<SVGCircleElement>("[data-disc]");
           const txt = g.querySelector<SVGTextElement>("[data-txt]");
           const halo = g.querySelector<SVGCircleElement>("[data-halo]");
-          if (disc) disc.setAttribute("opacity", String(0.35 + near * 0.65));
-          if (halo) halo.setAttribute("opacity", String(near * 0.5));
-          if (txt) txt.setAttribute("fill", near > 0.55 ? "#f7f4ec" : NODES[i].color);
+          // smooth the on/off a touch so it glows rather than blinks
+          const cur = disc ? parseFloat(disc.getAttribute("opacity") || "0.35") : 0.35;
+          const targetDisc = 0.35 + on * 0.65;
+          const nextDisc = cur + (targetDisc - cur) * 0.25;
+          if (disc) disc.setAttribute("opacity", String(nextDisc));
+          if (halo) {
+            const hc = parseFloat(halo.getAttribute("opacity") || "0");
+            halo.setAttribute("opacity", String(hc + (on * 0.5 - hc) * 0.25));
+          }
+          if (txt) txt.setAttribute("fill", nextDisc > 0.72 ? "#f7f4ec" : NODES[i].color);
         }
       }
       raf = requestAnimationFrame(tick);
@@ -108,7 +143,7 @@ export default function CampusLoop() {
             const [x, y] = pointAt(nodeAngle(i));
             return <circle key={i} cx={x} cy={y} r={NODE_R + 5} fill="black" />;
           })}
-          <rect x={CX - 34} y={CY - 20} width="68" height="40" rx="8" fill="black" />
+          <rect x={CX - 34} y={CY + 14} width="68" height="34" rx="8" fill="black" />
         </mask>
       </defs>
 
@@ -144,14 +179,22 @@ export default function CampusLoop() {
         );
       })}
 
-      {/* the travelling dart (matches the page's captain darts) */}
-      <g ref={dartRef} transform={`translate(${CX} ${CY - R}) rotate(0)`} style={reduced ? { display: "none" } : undefined}>
-        <path d="M 0 -9 L 7 8 L 0 3 L -7 8 Z" fill="#c93a17" />
+      {/* the clock hand — pivots from the hub, ticks node to node */}
+      <g ref={dartRef} transform={`translate(${CX} ${CY}) rotate(0)`} style={reduced ? { display: "none" } : undefined}>
+        {/* tail counterweight */}
+        <line x1="0" y1="0" x2="0" y2="18" stroke="#1a1713" strokeWidth="3" strokeLinecap="round" opacity="0.55" />
+        {/* main pointer, tapering to a point just short of the node ring */}
+        <path d={`M -3.4 0 L 0 -${R - NODE_R - 6} L 3.4 0 Z`} fill="#1a1713" />
+        {/* vermilion tip accent */}
+        <path d={`M -2 -${R - NODE_R - 20} L 0 -${R - NODE_R - 6} L 2 -${R - NODE_R - 20} Z`} fill="#c93a17" />
       </g>
+      {/* hub cap the hand pivots on */}
+      <circle cx={CX} cy={CY} r="6.5" fill="#1a1713" />
+      <circle cx={CX} cy={CY} r="2.6" fill="#f7f4ec" />
 
       {/* centre caption (sits in the masked-out hole) */}
-      <text x={CX} y={CY - 4} textAnchor="middle" fontSize="9.5" fontFamily="'IBM Plex Mono', ui-monospace, monospace" fill="#7a7266" style={{ letterSpacing: "0.18em" }}>THE</text>
-      <text x={CX} y={CY + 12} textAnchor="middle" fontSize="14" fontStyle="italic" fontFamily="'Newsreader', Georgia, serif" fill="#4c463c">loop</text>
+      <text x={CX} y={CY + 26} textAnchor="middle" fontSize="9.5" fontFamily="'IBM Plex Mono', ui-monospace, monospace" fill="#7a7266" style={{ letterSpacing: "0.18em" }}>THE</text>
+      <text x={CX} y={CY + 40} textAnchor="middle" fontSize="14" fontStyle="italic" fontFamily="'Newsreader', Georgia, serif" fill="#4c463c">loop</text>
     </svg>
   );
 }
