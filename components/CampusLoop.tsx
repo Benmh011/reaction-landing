@@ -13,10 +13,10 @@ import { useEffect, useRef, useState } from "react";
  */
 
 const NODES = [
-  { label: "Post", color: "#c93a17", light: "#e8896c" },
-  { label: "RSVP", color: "#2565aa", light: "#6f9fd4" },
-  { label: "Check in", color: "#0d5a40", light: "#4f9c82" },
-  { label: "Reflect", color: "#1b3656", light: "#5a7699" },
+  { label: "Post", color: "#c93a17", light: "#f0a184", dark: "#7c220d" },
+  { label: "RSVP", color: "#2565aa", light: "#7fabda", dark: "#143560" },
+  { label: "Check in", color: "#0d5a40", light: "#5aa88e", dark: "#073322" },
+  { label: "Reflect", color: "#1b3656", light: "#6683a3", dark: "#0e1c2f" },
 ];
 const R = 118;
 const CX = 170;
@@ -84,12 +84,22 @@ export default function CampusLoop() {
     <svg viewBox="0 0 340 340" width="100%" role="img" aria-label="The Campus Connect loop: post, RSVP, check in, reflect" style={{ display: "block", maxWidth: 380, margin: "0 auto" }}>
       <defs>
         {NODES.map((n, i) => (
-          <radialGradient key={i} id={`cc-node-${i}`} cx="38%" cy="32%" r="72%">
+          <radialGradient key={i} id={`cc-node-${i}`} cx="36%" cy="30%" r="80%">
+            {/* soft-shaded sphere: lit crown -> body -> shadowed base */}
             <stop offset="0%" stopColor={n.light} />
-            <stop offset="55%" stopColor={n.color} />
-            <stop offset="100%" stopColor={n.color} />
+            <stop offset="36%" stopColor={n.color} />
+            <stop offset="100%" stopColor={n.dark} />
           </radialGradient>
         ))}
+        {/* one large, very soft diffuse highlight, reused on every node */}
+        <radialGradient id="cc-sheen" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.5" />
+          <stop offset="55%" stopColor="#ffffff" stopOpacity="0.07" />
+          <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+        </radialGradient>
+        <filter id="cc-shadow" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="3.5" />
+        </filter>
         {/* mask: the ring track is white (visible) everywhere EXCEPT black
             holes punched where the nodes and centre caption sit */}
         <mask id="cc-track-mask">
@@ -113,16 +123,20 @@ export default function CampusLoop() {
         return <path key={i} d="M -4 3.5 L 0 -3.5 L 4 3.5" fill="none" stroke="#c8c0ad" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" transform={`translate(${ax} ${ay}) rotate(${rot})`} />;
       })}
 
-      {/* nodes: glossy disc + top highlight + activity halo */}
+      {/* nodes: soft-shaded spheres — contact shadow, sphere gradient, gentle
+          diffuse sheen (no hard glint, no outline) */}
       {NODES.map((n, i) => {
         const [x, y] = pointAt(nodeAngle(i));
         return (
           <g key={n.label} ref={(el) => { nodeRefs.current[i] = el; }}>
-            <circle data-halo cx={x} cy={y} r={NODE_R + 9} fill={n.color} opacity={0} />
+            {/* soft contact shadow beneath, offset down */}
+            <ellipse cx={x} cy={y + NODE_R * 0.62} rx={NODE_R * 0.82} ry={NODE_R * 0.34} fill="#1a1713" opacity="0.16" filter="url(#cc-shadow)" />
+            {/* activity halo (brightens as the dart passes) */}
+            <circle data-halo cx={x} cy={y} r={NODE_R + 9} fill={n.color} opacity={0} filter="url(#cc-shadow)" />
+            {/* the sphere */}
             <circle data-disc cx={x} cy={y} r={NODE_R} fill={`url(#cc-node-${i})`} opacity={reduced ? 1 : 0.35} />
-            {/* glass highlight */}
-            <ellipse cx={x - 8} cy={y - 11} rx="14" ry="8" fill="#ffffff" opacity="0.28" />
-            <circle cx={x} cy={y} r={NODE_R} fill="none" stroke={n.color} strokeWidth="1.5" strokeOpacity="0.4" />
+            {/* broad soft diffuse light in the upper-left — a lit surface, not a glint */}
+            <circle cx={x - NODE_R * 0.28} cy={y - NODE_R * 0.34} r={NODE_R * 0.72} fill="url(#cc-sheen)" pointerEvents="none" />
             <text data-txt x={x} y={y + 4} textAnchor="middle" fontSize="12" fontWeight={600} fontFamily="'IBM Plex Mono', ui-monospace, monospace" fill={reduced ? "#f7f4ec" : n.color} style={{ letterSpacing: "0.01em" }}>
               {n.label}
             </text>
