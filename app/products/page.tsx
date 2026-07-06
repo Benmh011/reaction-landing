@@ -1,15 +1,17 @@
 // The Products page. Leads with Campus Connect — South Hams Reaction's engine,
 // pointed at universities. Hero: the animated loop ring (the product's post ·
 // RSVP · check in · reflect cycle) beside a live phone mockup, with a text
-// column making the pitch. More products can be added as sections below.
+// column making the pitch. Product 02 follows: the bespoke practice management
+// LMAS, shown as a self-cycling desktop frame in the third captain's green.
 
 import SiteNav from "@/components/SiteNav";
 import CampusLoop from "@/components/CampusLoop";
 import CampusPhone from "@/components/CampusPhone";
+import PracticeFrame from "@/components/PracticeFrame";
 
 export const metadata = {
   title: "Products — Reaction",
-  description: "What we build at Reaction. Campus Connect: the community engine for universities.",
+  description: "What we build at Reaction. Campus Connect, the community engine for universities, and the bespoke practice management LMAS — personalised workflow on infrastructure you control.",
 };
 
 const serif = { fontFamily: "'Newsreader', Georgia, serif" } as const;
@@ -19,6 +21,14 @@ const FEATURES = [
   "Societies, sport and social in one filterable feed.",
   "Post, RSVP, check in, reflect — the engagement loop.",
   "Installs to the home screen. Push when it matters.",
+];
+
+const PRACTICE_FEATURES = [
+  "Grounded on your own documents — policies, contracts, client records — with the source cited beneath every answer.",
+  "Declines when it can't cite. Answers, clarifications and refusals are logged in plain sight, not hidden.",
+  "The whole working day in one place: diary, team, messages and approvals, shaped to your workflow rather than a template.",
+  "Every draft waits for human sign-off. Your team holds the dial.",
+  "Locally hosted. Your data lives on your infrastructure and never leaves the building.",
 ];
 
 export default function ProductsPage() {
@@ -143,12 +153,52 @@ export default function ProductsPage() {
             </div>
           </div>
         </section>
+
+        {/* ── Bespoke practice management LMAS ── */}
+        <section style={{ padding: "80px 0 110px", borderTop: "1px solid var(--rule)" }} id="practice-lmas">
+          <div className="container">
+            <div className="campus-grid" style={{ display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: 64, alignItems: "center" }}>
+              {/* left: the frame */}
+              <div className="practice-visual">
+                <PracticeFrame />
+              </div>
+
+              {/* right: pitch */}
+              <div style={{ maxWidth: 480 }}>
+                <div className="mono" style={{ fontSize: "0.68rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 16 }}>
+                  Product 02 · for working practices
+                </div>
+                <h2 style={{ ...serif, fontStyle: "italic", fontWeight: 600, fontSize: "clamp(1.9rem, 3.4vw, 2.7rem)", lineHeight: 1.08, letterSpacing: "-0.02em", color: "var(--text)", margin: "0 0 20px" }}>
+                  Bespoke practice management LMAS<span style={{ color: "var(--reaction)" }}>.</span>
+                </h2>
+                <p style={{ fontSize: "1.08rem", lineHeight: 1.7, color: "var(--text-soft)", margin: "0 0 28px", maxWidth: "52ch" }}>
+                  A formation of small, specialised agents fitted to one practice: yours.
+                  It learns the way your firm actually runs — the diary, the documents,
+                  the sign-offs — and works inside it, on infrastructure you control.
+                  Maximum personalised workflow; total data sovereignty.
+                </p>
+                <ul style={{ listStyle: "none", padding: 0, margin: "0 0 32px", display: "flex", flexDirection: "column", gap: 13 }}>
+                  {PRACTICE_FEATURES.map((f) => (
+                    <li key={f} style={{ display: "flex", gap: 12, alignItems: "flex-start", fontSize: "0.98rem", lineHeight: 1.5, color: "var(--text-soft)" }}>
+                      <span aria-hidden="true" style={{ flexShrink: 0, marginTop: 7, width: 7, height: 7, borderRadius: "50%", background: "#0d5a40" }} />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <div className="mono" style={{ fontSize: "0.66rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--text-muted)", paddingTop: 20, borderTop: "1px solid var(--rule)" }}>
+                  Built per practice · no two the same
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
 
       <style>{`
         @media (max-width: 900px) {
           .campus-grid { grid-template-columns: 1fr !important; gap: 44px !important; }
           .campus-visual { grid-template-columns: 1fr !important; gap: 36px !important; justify-items: center; }
+          .practice-visual { order: 2; }
           .tef-ladder { grid-template-columns: 1fr !important; gap: 28px !important; }
           .tef-arrow { display: none !important; }
         }
