@@ -408,9 +408,6 @@ export default function AutomationDial() {
           </span>
         ))}
       </div>
-      <div className="mono" style={{ textAlign: "center", marginTop: 8, fontSize: "0.62rem", letterSpacing: "0.12em", color: "var(--text-muted)" }}>
-        fig. 2 · the dial. drag it.
-      </div>
     </div>
   );
 }

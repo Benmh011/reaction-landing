@@ -142,21 +142,6 @@ export default async function HomePage() {
             )}
           </div>
 
-          <div
-            className="mono"
-            aria-hidden="true"
-            style={{
-              position: "absolute",
-              right: 0,
-              bottom: 8,
-              fontSize: "0.62rem",
-              letterSpacing: "0.16em",
-              textTransform: "uppercase",
-              color: "var(--text-muted)",
-            }}
-          >
-            fig. 1 · three captains, forming up
-          </div>
         </div>
       </section>
 
