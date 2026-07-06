@@ -184,8 +184,7 @@ export default async function HomePage() {
               <span className="ethos-cap-green">E</span>thos<span style={{ color: "var(--reaction)" }}>.</span>
             </h2>
             <p style={{ fontSize: "1.08rem", lineHeight: 1.7, color: "var(--text-soft)", margin: 0, maxWidth: "58ch" }}>
-              We build systems that make your people more capable, never cheaper to remove.
-              That isn&rsquo;t a slogan; it&rsquo;s a design constraint we accept in every engagement.
+              At a time when businesses are rushing to replace, we want to react to AI in a way that preserves roles, reinvents workflows, and creates meaningful, person-led growth. After all, an agentic system is only as effective as the team making use of it.
             </p>
             </div>
             <AutomationDial />
@@ -195,10 +194,10 @@ export default async function HomePage() {
             {
               num: "01",
               name: "Augment, don't replace",
-              head: "Enhancement over headcount.",
+              head: "Enhancing your team.",
               body: [
                 "Our agents take the repetitive weight out of a role so the person in it can do more of what they're actually for: judgement, care, relationships, craft. The measure of a deployment isn't who it makes redundant. It's how much more the same team can carry.",
-                "If a proposal only makes sense as a redundancy plan, we decline the work. An augmented team compounds; a hollowed-out one just gets quieter.",
+                "If a proposal only makes sense as a redundancy plan, we decline the work.",
               ],
             },
             {
@@ -207,7 +206,7 @@ export default async function HomePage() {
               head: "You control the degree of automation.",
               body: [
                 "Automation isn't all-or-nothing. Every workflow we build carries a dial: fully manual, agent-assisted, agent-drafted with human sign-off, or fully automated. Set per task, by your team, and reversible at any time.",
-                "Trust in a system is earned in increments. So the system is built to be dialled, never surrendered to.",
+                "Trust in a system is earned in increments, so our systems are built to be dialled, not diluted.",
               ],
             },
             {
