@@ -85,7 +85,7 @@ export default function ProductsPage() {
                 Evidence · TEF educational gains
               </div>
               <h2 style={{ ...serif, fontStyle: "italic", fontWeight: 600, fontSize: "clamp(1.8rem, 3.4vw, 2.6rem)", lineHeight: 1.1, letterSpacing: "-0.02em", color: "var(--text)", margin: "0 0 20px" }}>
-                Distance travelled, measured<span style={{ color: "var(--reaction)" }}>.</span>
+                Distance travelled<span style={{ color: "var(--reaction)" }}>.</span>
               </h2>
               <p style={{ fontSize: "1.06rem", lineHeight: 1.7, color: "var(--text-soft)", margin: "0 0 14px", maxWidth: "62ch" }}>
                 The Teaching Excellence Framework asks providers not just to intend educational

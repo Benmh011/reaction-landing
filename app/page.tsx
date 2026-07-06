@@ -339,7 +339,7 @@ export default async function HomePage() {
             className="mono"
             style={{ fontSize: "0.7rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 26 }}
           >
-            Philosophiæ Naturalis · adapted
+            Philosophiæ Naturalis
           </div>
           <blockquote
             style={{
@@ -355,9 +355,6 @@ export default async function HomePage() {
           >
             Every <span style={{ color: "#2565aa" }}>a</span>ct<span style={{ color: "#0d5a40" }}>i</span>on has an equal and opposite <span style={{ color: "var(--reaction)" }}>Reaction</span>.
           </blockquote>
-          <p style={{ fontSize: "1.02rem", lineHeight: 1.6, color: "var(--text-soft)", maxWidth: "44ch", margin: "0 auto 44px" }}>
-            A demonstration takes half an hour. The Reaction is immediate.
-          </p>
           <Link href="/demo" className="btn btn-primary btn-large">
             Set things in motion
             <span className="arrow" aria-hidden="true">→</span>
