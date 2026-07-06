@@ -26,7 +26,7 @@ const CHIPBG = "#161513";
 const HAIR = "#3a3833";
 const PAPER = "#f4efe4";
 const BODY = "#d8d4c8";
-const MUTED = "#8a8578";
+const MUTED = "#948e7d";
 
 const GREEN = "#479a74";
 const GREEN_SOFT = "#6dbe97";
@@ -40,9 +40,9 @@ const SANS = "ui-sans-serif, system-ui, sans-serif";
 const NAV = ["Assistant", "Messages", "Team", "Agent viewer", "File search", "Approvals"];
 const ACTIVE_NAV = [0, 2, 3]; // per scene
 const TABS = [
-  { label: "ASK", w: 26 },
-  { label: "RUN THE DAY", w: 74 },
-  { label: "TRUST", w: 38 },
+  { label: "ASK", w: 28 },
+  { label: "RUN THE DAY", w: 80 },
+  { label: "TRUST", w: 42 },
 ];
 const SCENE_MS = 4200;
 
@@ -59,9 +59,9 @@ const TEAM = [
 ];
 
 const LOG = [
-  { badge: "ANSWERED", bw: 58, q: "Draft a renewal reminder for Bowden Ltd", t: "14:02", kind: "ok" },
-  { badge: "ASKED TO CLARIFY", bw: 92, q: "Notice period — which contract version?", t: "11:37", kind: "clarify" },
-  { badge: "REFUSED · UNGROUNDED", bw: 112, q: "Figures the practice doesn't hold", t: "10:20", kind: "refused" },
+  { badge: "ANSWERED", bw: 64, q: "Draft a renewal reminder for Bowden Ltd", t: "14:02", kind: "ok" },
+  { badge: "ASKED TO CLARIFY", bw: 100, q: "Notice period — which version?", t: "11:37", kind: "clarify" },
+  { badge: "REFUSED · UNGROUNDED", bw: 120, q: "Figures the practice doesn't hold", t: "10:20", kind: "refused" },
 ];
 
 export default function PracticeFrame() {
@@ -89,10 +89,10 @@ export default function PracticeFrame() {
   const el = (d: number) => ({ className: "pf-el", style: { animationDelay: `${d}s` } });
   const activeNav = reduced ? 0 : ACTIVE_NAV[scene];
 
-  let tabX = 252;
+  let tabX = 239;
 
   return (
-    <div ref={hostRef} style={{ position: "relative", width: "100%", maxWidth: 560, margin: "0 auto" }}>
+    <div ref={hostRef} style={{ position: "relative", width: "100%", maxWidth: 640, margin: "0 auto" }}>
       <svg
         viewBox="0 0 560 380"
         width="100%"
@@ -108,117 +108,117 @@ export default function PracticeFrame() {
         <circle cx="30" cy="28" r="3" fill={HAIR} />
         <circle cx="42" cy="28" r="3" fill={HAIR} />
         <circle cx="54" cy="28" r="3" fill={HAIR} />
-        <text x="76" y="33" fontSize="13" fontStyle="italic" fontWeight="600" fontFamily={SERIF} fill={PAPER}>
+        <text x="76" y="33" fontSize="14.5" fontStyle="italic" fontWeight="600" fontFamily={SERIF} fill={PAPER}>
           Practice Assistant<tspan fill={GREEN}>.</tspan>
         </text>
-        <circle cx="396" cy="28" r="2.5" fill={GREEN_SOFT} />
-        <text x="404" y="31" fontSize="6.5" fontFamily={MONO} fill={GREEN_SOFT} letterSpacing="0.12em">ON YOUR INFRASTRUCTURE</text>
+        <circle cx="424" cy="28" r="2.5" fill={GREEN_SOFT} />
+        <text x="534" y="31" textAnchor="end" fontSize="7" fontFamily={MONO} fill={GREEN_SOFT} letterSpacing="0.1em">ON YOUR INFRASTRUCTURE</text>
         <line x1="12" y1="44" x2="548" y2="44" stroke={HAIR} strokeWidth="1" />
 
         {/* sidebar */}
         <rect x="12" y="44" width="120" height="324" fill={SIDE} />
         <line x1="132" y1="44" x2="132" y2="368" stroke={HAIR} strokeWidth="1" />
         {NAV.map((item, i) => {
-          const y = 62 + i * 26;
+          const y = 64 + i * 27;
           const on = i === activeNav;
           return (
             <g key={item}>
-              {on && <rect x="18" y={y - 12} width="108" height="20" rx="6" fill="#1e2822" style={{ transition: "y 0.4s ease" }} />}
-              {on && <rect x="18" y={y - 12} width="2.5" height="20" rx="1.25" fill={GREEN} />}
-              <text x="30" y={y + 2} fontSize="9" fontFamily={SANS} fill={on ? PAPER : MUTED}>{item}</text>
+              {on && <rect x="18" y={y - 13} width="108" height="21" rx="6" fill="#1e2822" />}
+              {on && <rect x="18" y={y - 13} width="2.5" height="21" rx="1.25" fill={GREEN} />}
+              <text x="30" y={y + 2} fontSize="10" fontFamily={SANS} fill={on ? PAPER : MUTED}>{item}</text>
             </g>
           );
         })}
 
         {/* ── SCENE 1 · ASK — answered from source ── */}
         <g className={cls(0)}>
-          <text {...el(0.05)} x="152" y="82" fontSize="15" fontStyle="italic" fontWeight="600" fontFamily={SERIF} fill={PAPER}>How can I help today?</text>
+          <text {...el(0.05)} x="152" y="84" fontSize="17" fontStyle="italic" fontWeight="600" fontFamily={SERIF} fill={PAPER}>How can I help today?</text>
           <g {...el(0.15)}>
-            <rect x="310" y="94" width="222" height="22" rx="11" fill={GREEN_DEEP} />
-            <text x="421" y="108" textAnchor="middle" fontSize="8.5" fontFamily={SANS} fill="#cfe8db">What&rsquo;s our policy on late cancellations?</text>
+            <rect x="292" y="96" width="240" height="24" rx="12" fill={GREEN_DEEP} />
+            <text x="412" y="111.5" textAnchor="middle" fontSize="9.5" fontFamily={SANS} fill="#cfe8db">What&rsquo;s our policy on late cancellations?</text>
           </g>
           <g {...el(0.35)}>
-            <rect x="152" y="128" width="380" height="118" rx="12" fill={CARD} />
-            <text x="168" y="150" fontSize="7" fontFamily={MONO} fill={GREEN_SOFT} letterSpacing="0.16em">ANSWERED FROM SOURCE</text>
-            <text x="168" y="170" fontSize="9.5" fontFamily={SANS} fill={BODY}>Clients may cancel up to 24 hours ahead without charge.</text>
-            <text x="168" y="186" fontSize="9.5" fontFamily={SANS} fill={BODY}>Inside 24 hours a 50% fee applies &mdash; waived once per client</text>
-            <text x="168" y="202" fontSize="9.5" fontFamily={SANS} fill={BODY}>per year at the team&rsquo;s discretion.</text>
-            <rect x="168" y="216" width="158" height="18" rx="9" fill={CHIPBG} stroke={HAIR} strokeWidth="1" />
-            <text x="247" y="228" textAnchor="middle" fontSize="7" fontFamily={MONO} fill={GREEN_SOFT} letterSpacing="0.08em">POLICY &mdash; CANCELLATIONS V3</text>
-            <rect x="334" y="216" width="118" height="18" rx="9" fill={CHIPBG} stroke={HAIR} strokeWidth="1" />
-            <text x="393" y="228" textAnchor="middle" fontSize="7" fontFamily={MONO} fill={GREEN_SOFT} letterSpacing="0.08em">CLIENT TERMS &middot; 2026</text>
+            <rect x="152" y="132" width="380" height="122" rx="12" fill={CARD} />
+            <text x="168" y="154" fontSize="7.5" fontFamily={MONO} fill={GREEN_SOFT} letterSpacing="0.14em">ANSWERED FROM SOURCE</text>
+            <text x="168" y="176" fontSize="10.5" fontFamily={SANS} fill={BODY}>Clients may cancel up to 24 hours ahead without charge.</text>
+            <text x="168" y="193" fontSize="10.5" fontFamily={SANS} fill={BODY}>Inside 24 hours a 50% fee applies &mdash; waived once per</text>
+            <text x="168" y="210" fontSize="10.5" fontFamily={SANS} fill={BODY}>client per year at the team&rsquo;s discretion.</text>
+            <rect x="168" y="222" width="170" height="19" rx="9.5" fill={CHIPBG} stroke={HAIR} strokeWidth="1" />
+            <text x="253" y="235" textAnchor="middle" fontSize="7.5" fontFamily={MONO} fill={GREEN_SOFT} letterSpacing="0.06em">POLICY &mdash; CANCELLATIONS V3</text>
+            <rect x="348" y="222" width="126" height="19" rx="9.5" fill={CHIPBG} stroke={HAIR} strokeWidth="1" />
+            <text x="411" y="235" textAnchor="middle" fontSize="7.5" fontFamily={MONO} fill={GREEN_SOFT} letterSpacing="0.06em">CLIENT TERMS &middot; 2026</text>
           </g>
           <g {...el(0.55)}>
-            <rect x="152" y="262" width="380" height="26" rx="13" fill={CARD} />
-            <text x="168" y="278" fontSize="9" fontFamily={SANS} fill={MUTED}>Message the assistant&hellip;</text>
-            <circle cx="519" cy="275" r="9" fill={GREEN} />
-            <path d="M 519 279 L 519 272 M 516 275 L 519 271.5 L 522 275" stroke="#f7f4ec" strokeWidth="1.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            <rect x="152" y="266" width="380" height="27" rx="13.5" fill={CARD} />
+            <text x="168" y="283" fontSize="10" fontFamily={SANS} fill={MUTED}>Message the assistant&hellip;</text>
+            <circle cx="519" cy="279.5" r="9.5" fill={GREEN} />
+            <path d="M 519 284 L 519 276.5 M 515.5 279.5 L 519 275.5 L 522.5 279.5" stroke="#f7f4ec" strokeWidth="1.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
           </g>
         </g>
 
         {/* ── SCENE 2 · RUN THE DAY — diary, team, sign-off ── */}
         <g className={cls(1)}>
-          <text {...el(0.05)} x="152" y="82" fontSize="14" fontStyle="italic" fontWeight="600" fontFamily={SERIF} fill={PAPER}>The working day.</text>
+          <text {...el(0.05)} x="152" y="84" fontSize="16.5" fontStyle="italic" fontWeight="600" fontFamily={SERIF} fill={PAPER}>The working day.</text>
           <g {...el(0.1)}>
-            <rect x="400" y="66" width="132" height="20" rx="10" fill={CARD} />
-            <circle cx="412" cy="76" r="2.5" fill={GREEN_SOFT} />
-            <text x="420" y="79" fontSize="6.5" fontFamily={MONO} fill={BODY} letterSpacing="0.1em">UP NEXT &middot; HARTLEY &amp; CO</text>
+            <rect x="392" y="68" width="140" height="21" rx="10.5" fill={CARD} />
+            <circle cx="404" cy="78.5" r="2.5" fill={GREEN_SOFT} />
+            <text x="412" y="81.5" fontSize="7" fontFamily={MONO} fill={BODY} letterSpacing="0.08em">UP NEXT &middot; HARTLEY &amp; CO</text>
           </g>
           {DIARY.map((d, i) => (
             <g key={d.name} {...el(0.2 + i * 0.12)}>
-              <rect x="152" y={96 + i * 54} width="260" height="46" rx="10" fill={CARD} />
-              <text x="166" y={114 + i * 54} fontSize="8" fontFamily={MONO} fill={MUTED}>{d.time}</text>
-              <text x="202" y={114 + i * 54} fontSize="6.5" fontFamily={MONO} fill={GREEN_SOFT} letterSpacing="0.12em">{d.tag}</text>
-              <text x="166" y={131 + i * 54} fontSize="10" fontWeight="600" fontFamily={SANS} fill={PAPER}>{d.name}
-                <tspan fontWeight="400" fill={MUTED}> &mdash; {d.desc}</tspan>
+              <rect x="152" y={98 + i * 56} width="260" height="48" rx="10" fill={CARD} />
+              <text x="166" y={116 + i * 56} fontSize="9" fontFamily={MONO} fill={MUTED}>{d.time}</text>
+              <text x="206" y={116 + i * 56} fontSize="7.5" fontFamily={MONO} fill={GREEN_SOFT} letterSpacing="0.1em">{d.tag}</text>
+              <text x="166" y={134 + i * 56} fontSize="11.5" fontWeight="600" fontFamily={SANS} fill={PAPER}>{d.name}
+                <tspan fontWeight="400" fontSize="9.5" fill={MUTED}> &mdash; {d.desc}</tspan>
               </text>
             </g>
           ))}
           <g {...el(0.45)}>
-            <text x="424" y="104" fontSize="7" fontFamily={MONO} fill={MUTED} letterSpacing="0.16em">TEAM</text>
+            <text x="424" y="106" fontSize="7.5" fontFamily={MONO} fill={MUTED} letterSpacing="0.14em">TEAM</text>
             {TEAM.map((m, i) => (
               <g key={m.name}>
-                <circle cx="432" cy={122 + i * 28} r="7" fill={m.kind === "in" ? "#3fa375" : m.kind === "oncall" ? GREEN_DEEP : "#2a2926"} />
-                <text x="446" y={125 + i * 28} fontSize="8.5" fontFamily={SANS} fill={BODY}>{m.name}</text>
-                <text x="532" y={125 + i * 28} textAnchor="end" fontSize="6" fontFamily={MONO} fill={m.kind === "off" ? MUTED : GREEN_SOFT} letterSpacing="0.08em">{m.chip}</text>
+                <circle cx="432" cy={126 + i * 29} r="7.5" fill={m.kind === "in" ? "#3fa375" : m.kind === "oncall" ? GREEN_DEEP : "#2a2926"} />
+                <text x="448" y={129 + i * 29} fontSize="9.5" fontFamily={SANS} fill={BODY}>{m.name}</text>
+                <text x="532" y={129 + i * 29} textAnchor="end" fontSize="6.5" fontFamily={MONO} fill={m.kind === "off" ? MUTED : GREEN_SOFT} letterSpacing="0.06em">{m.chip}</text>
               </g>
             ))}
           </g>
           <g {...el(0.6)}>
-            <rect x="152" y="262" width="380" height="26" rx="13" fill={CARD} stroke={AMBER} strokeOpacity="0.35" strokeWidth="1" />
-            <circle cx="168" cy="275" r="2.5" fill={AMBER} />
-            <text x="178" y="278" fontSize="7" fontFamily={MONO} fill={AMBER} letterSpacing="0.1em">1 DRAFT AWAITING SIGN-OFF &middot; RENEWAL REMINDER &mdash; BOWDEN LTD</text>
+            <rect x="152" y="268" width="380" height="26" rx="13" fill={CARD} stroke={AMBER} strokeOpacity="0.35" strokeWidth="1" />
+            <circle cx="168" cy="281" r="2.5" fill={AMBER} />
+            <text x="178" y="284" fontSize="7.5" fontFamily={MONO} fill={AMBER} letterSpacing="0.06em">1 DRAFT AWAITING SIGN-OFF &middot; RENEWAL REMINDER &mdash; BOWDEN LTD</text>
           </g>
         </g>
 
         {/* ── SCENE 3 · TRUST — the agent viewer ── */}
         <g className={cls(2)}>
-          <text {...el(0.05)} x="152" y="82" fontSize="13" fontStyle="italic" fontWeight="600" fontFamily={SERIF} fill={PAPER}>Every answer shows its working.</text>
+          <text {...el(0.05)} x="152" y="84" fontSize="15.5" fontStyle="italic" fontWeight="600" fontFamily={SERIF} fill={PAPER}>Every answer shows its working.</text>
           {[
-            { n: "14", l: "interactions" },
-            { n: "11", l: "from source" },
-            { n: "2", l: "clarified" },
-            { n: "1", l: "refused" },
+            { n: "14", l: "INTERACTIONS" },
+            { n: "11", l: "FROM SOURCE" },
+            { n: "2", l: "CLARIFIED" },
+            { n: "1", l: "REFUSED" },
           ].map((s, i) => (
             <g key={s.l} {...el(0.15 + i * 0.08)}>
-              <rect x={152 + i * 97} y="94" width="89" height="44" rx="10" fill={CARD} />
-              <text x={166 + i * 97} y="114" fontSize="14" fontWeight="600" fontFamily={SANS} fill={PAPER}>{s.n}</text>
-              <text x={166 + i * 97} y="128" fontSize="6.5" fontFamily={MONO} fill={MUTED} letterSpacing="0.08em">{s.l.toUpperCase()}</text>
+              <rect x={152 + i * 97} y="96" width="89" height="46" rx="10" fill={CARD} />
+              <text x={166 + i * 97} y="118" fontSize="16" fontWeight="600" fontFamily={SANS} fill={PAPER}>{s.n}</text>
+              <text x={166 + i * 97} y="133" fontSize="7" fontFamily={MONO} fill={MUTED} letterSpacing="0.06em">{s.l}</text>
             </g>
           ))}
           {LOG.map((r, i) => (
             <g key={r.q} {...el(0.45 + i * 0.12)}>
-              <rect x="152" y={152 + i * 38} width="380" height="30" rx="8" fill={CARD} />
-              <rect x="164" y={158 + i * 38} width={r.bw} height="18" rx="9"
+              <rect x="152" y={156 + i * 40} width="380" height="32" rx="8" fill={CARD} />
+              <rect x="164" y={162 + i * 40} width={r.bw} height="19" rx="9.5"
                 fill={r.kind === "ok" ? GREEN_DEEP : r.kind === "clarify" ? "#2a241a" : "#2a2926"} />
-              <text x={164 + r.bw / 2} y={170 + i * 38} textAnchor="middle" fontSize="6"
-                fontFamily={MONO} letterSpacing="0.06em"
+              <text x={164 + r.bw / 2} y={175 + i * 40} textAnchor="middle" fontSize="6.5"
+                fontFamily={MONO} letterSpacing="0.04em"
                 fill={r.kind === "ok" ? GREEN_SOFT : r.kind === "clarify" ? AMBER : MUTED}>{r.badge}</text>
-              <text x={288} y={171 + i * 38} fontSize="8.5" fontFamily={SANS} fill={BODY}>{r.q}</text>
-              <text x="520" y={171 + i * 38} textAnchor="end" fontSize="7" fontFamily={MONO} fill={MUTED}>{r.t}</text>
+              <text x={296} y={176 + i * 40} fontSize="9.5" fontFamily={SANS} fill={BODY}>{r.q}</text>
+              <text x="520" y={176 + i * 40} textAnchor="end" fontSize="7.5" fontFamily={MONO} fill={MUTED}>{r.t}</text>
             </g>
           ))}
-          <text {...el(0.85)} x="152" y="282" fontSize="7" fontFamily={MONO} fill={GREEN_SOFT} letterSpacing="0.14em">
+          <text {...el(0.85)} x="152" y="292" fontSize="7.5" fontFamily={MONO} fill={GREEN_SOFT} letterSpacing="0.12em">
             ANSWERS ONLY FROM YOUR DOCUMENTS &mdash; DECLINES WHEN IT CAN&rsquo;T CITE
           </text>
         </g>
@@ -230,8 +230,8 @@ export default function PracticeFrame() {
           const on = (reduced ? 0 : scene) === i;
           return (
             <g key={t.label}>
-              <text x={x + t.w / 2} y="349" textAnchor="middle" fontSize="7" fontFamily={MONO}
-                fill={on ? GREEN_SOFT : MUTED} letterSpacing="0.14em" style={{ transition: "fill 0.45s ease" }}>{t.label}</text>
+              <text x={x + t.w / 2} y="349" textAnchor="middle" fontSize="7.5" fontFamily={MONO}
+                fill={on ? GREEN_SOFT : MUTED} letterSpacing="0.12em" style={{ transition: "fill 0.45s ease" }}>{t.label}</text>
               <rect x={x} y="355" width={t.w} height="2" rx="1"
                 fill={on ? GREEN : HAIR} style={{ transition: "fill 0.45s ease" }} />
             </g>

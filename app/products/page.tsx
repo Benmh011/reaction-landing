@@ -157,7 +157,7 @@ export default function ProductsPage() {
         {/* ── Bespoke practice management LMAS ── */}
         <section style={{ padding: "80px 0 110px", borderTop: "1px solid var(--rule)" }} id="practice-lmas">
           <div className="container">
-            <div className="campus-grid" style={{ display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: 64, alignItems: "center" }}>
+            <div className="campus-grid" style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 56, alignItems: "center" }}>
               {/* left: the frame */}
               <div className="practice-visual">
                 <PracticeFrame />
