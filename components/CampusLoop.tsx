@@ -8,10 +8,11 @@ import { useEffect, useRef, useState } from "react";
  * A vertical route with four typographic stations: Post, RSVP, Check in,
  * Reflect. Each station is an open metro-style ring on a hairline, with a
  * mono numeral, an italic serif name, and a one-line explanation. A small
- * flat vermilion dart ticks down the line station to station (dwell, then
- * slide), and when it reaches Reflect it rides a thin return path that curls
- * up the left margin back to Post — the line literally loops, with
- * "the loop" set vertically along the way home.
+ * fluid line of colour flows down the route station to station (dwell,
+ * then slide), taking on each station's colour as it arrives — the old hue
+ * trailing away along its length as the new one takes the head. At Reflect
+ * it rides the thin return path up the left margin back to Post, gathering
+ * itself at the top to begin again. "the loop" is set along the way home.
  *
  * No gradients, no gloss, no shadows. Ink, paper, hairlines, and the
  * captain colours — the same editorial language as the rest of the site.
@@ -34,10 +35,20 @@ const DWELL = 1600;
 const SLIDE = 550;
 const RETURN_T = 1400;
 
+const TRAIL_N = 18; // points of history the flowing line carries
+
+const hexToRgb = (h: string) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)] as const;
+const lerpHex = (a: string, b: string, t: number) => {
+  const A = hexToRgb(a), B = hexToRgb(b);
+  const c = A.map((v, i) => Math.round(v + (B[i] - v) * t));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+};
+
 const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 
 export default function CampusLoop() {
   const dartRef = useRef<SVGGElement | null>(null);
+  const segRefs = useRef<(SVGLineElement | null)[]>([]);
   const returnRef = useRef<SVGPathElement | null>(null);
   const stationRefs = useRef<(SVGGElement | null)[]>([]);
   const [reduced, setReduced] = useState(false);
@@ -56,6 +67,7 @@ export default function CampusLoop() {
     // one full cycle: 4 dwells + 3 slides + 1 return
     const CYCLE = 4 * DWELL + 3 * SLIDE + RETURN_T;
     const t0 = performance.now();
+    const hist: { x: number; y: number; c: string }[] = [];
 
     const setStation = (active: number) => {
       for (let i = 0; i < STATIONS.length; i++) {
@@ -79,13 +91,14 @@ export default function CampusLoop() {
       let t = (now - t0) % CYCLE;
       let x = LINE_X;
       let y = STATION_Y[0];
-      let ang = 180; // nose down while descending
+      let color = STATIONS[0].color;
       let active = 0;
 
       let placed = false;
       for (let i = 0; i < 4 && !placed; i++) {
         if (t < DWELL) {
           y = STATION_Y[i];
+          color = STATIONS[i].color;
           active = i;
           placed = true;
           break;
@@ -95,6 +108,7 @@ export default function CampusLoop() {
           if (t < SLIDE) {
             const p = easeInOut(t / SLIDE);
             y = STATION_Y[i] + (STATION_Y[i + 1] - STATION_Y[i]) * p;
+            color = lerpHex(STATIONS[i].color, STATIONS[i + 1].color, p);
             active = p > 0.6 ? i + 1 : i;
             placed = true;
             break;
@@ -106,14 +120,30 @@ export default function CampusLoop() {
         // the return leg: Reflect back up to Post along the curl
         const p = easeInOut(Math.min(1, t / RETURN_T));
         const pt = returnPath!.getPointAtLength(returnLen * p);
-        const ahead = returnPath!.getPointAtLength(Math.min(returnLen, returnLen * p + 2));
         x = pt.x;
         y = pt.y;
-        ang = (Math.atan2(ahead.y - pt.y, ahead.x - pt.x) * 180) / Math.PI + 90;
+        color = lerpHex(STATIONS[3].color, STATIONS[0].color, p);
         active = p > 0.9 ? 0 : 3;
       }
 
-      dartRef.current?.setAttribute("transform", `translate(${x} ${y}) rotate(${ang})`);
+      // the flowing line: a history of positions, each remembering its colour,
+      // so a stage change travels visibly along the line's length
+      hist.unshift({ x, y, c: color });
+      if (hist.length > TRAIL_N) hist.pop();
+      for (let k = 0; k < TRAIL_N - 1; k++) {
+        const seg = segRefs.current[k];
+        if (!seg) continue;
+        const a = hist[k], b = hist[k + 1];
+        if (!a || !b) { seg.setAttribute("opacity", "0"); continue; }
+        seg.setAttribute("x1", String(a.x));
+        seg.setAttribute("y1", String(a.y));
+        seg.setAttribute("x2", String(b.x));
+        seg.setAttribute("y2", String(b.y));
+        seg.setAttribute("stroke", a.c);
+        const f = 1 - k / (TRAIL_N - 1);
+        seg.setAttribute("opacity", String(0.95 * f));
+        seg.setAttribute("stroke-width", String(1.6 + 3.2 * f));
+      }
       setStation(active);
       raf = requestAnimationFrame(tick);
     };
@@ -166,9 +196,11 @@ export default function CampusLoop() {
         </g>
       ))}
 
-      {/* the dart: flat fold, nose leading */}
-      <g ref={dartRef} transform={`translate(${LINE_X} ${STATION_Y[0]}) rotate(180)`} style={reduced ? { display: "none" } : undefined}>
-        <path d="M 0 -9 L 7 6 L 0 1.5 L -7 6 Z" fill="#c93a17" />
+      {/* the flowing line: segments of remembered colour, tapering away */}
+      <g ref={dartRef} style={reduced ? { display: "none" } : undefined}>
+        {Array.from({ length: TRAIL_N - 1 }).map((_, k) => (
+          <line key={k} ref={(el) => { segRefs.current[k] = el; }} strokeLinecap="round" opacity="0" />
+        ))}
       </g>
     </svg>
   );
