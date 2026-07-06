@@ -17,6 +17,11 @@ import { useEffect, useRef, useState } from "react";
  * No gradients, no gloss, no shadows. Ink, paper, hairlines, and the
  * captain colours — the same editorial language as the rest of the site.
  * Pauses off-screen; reduced motion shows all stations lit and no dart.
+ *
+ * Whenever the line arrives at a new station, the loop broadcasts
+ * rx:campus-stage with the station index — the CampusPhone beside it
+ * listens and turns its screen to match, the two instruments reading
+ * from the same clock.
  */
 
 const LINE_X = 92;
@@ -68,6 +73,14 @@ export default function CampusLoop() {
     const CYCLE = 4 * DWELL + 3 * SLIDE + RETURN_T;
     const t0 = performance.now();
     const hist: { x: number; y: number; c: string }[] = [];
+
+    // tell the phone which station the line has reached (fires on change only)
+    let lastStage = -1;
+    const announce = (s: number) => {
+      if (s === lastStage) return;
+      lastStage = s;
+      window.dispatchEvent(new CustomEvent("rx:campus-stage", { detail: { stage: s } }));
+    };
 
     const setStation = (active: number) => {
       for (let i = 0; i < STATIONS.length; i++) {
@@ -145,6 +158,7 @@ export default function CampusLoop() {
         seg.setAttribute("stroke-width", String(1.6 + 3.2 * f));
       }
       setStation(active);
+      announce(active);
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
