@@ -8,7 +8,7 @@ import SiteNav from "@/components/SiteNav";
 import CampusLoop from "@/components/CampusLoop";
 import CampusPhone from "@/components/CampusPhone";
 import PracticeFrame from "@/components/PracticeFrame";
-import PracticeOrbit from "@/components/PracticeOrbit";
+import PracticeBuild from "@/components/PracticeBuild";
 
 export const metadata = {
   title: "Products — Reaction",
@@ -170,7 +170,7 @@ export default function ProductsPage() {
               <div className="practice-visual">
                 <PracticeFrame />
               </div>
-              <PracticeOrbit />
+              <PracticeBuild />
             </div>
 
             {/* the pitch, beneath the pair */}
