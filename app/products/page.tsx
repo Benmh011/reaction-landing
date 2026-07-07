@@ -8,7 +8,7 @@ import SiteNav from "@/components/SiteNav";
 import CampusLoop from "@/components/CampusLoop";
 import CampusPhone from "@/components/CampusPhone";
 import PracticeFrame from "@/components/PracticeFrame";
-import EngineBlock from "@/components/EngineBlock";
+import ReactionCradle from "@/components/ReactionCradle";
 
 export const metadata = {
   title: "Products — Reaction",
@@ -170,7 +170,7 @@ export default function ProductsPage() {
               <div className="practice-visual">
                 <PracticeFrame />
               </div>
-              <EngineBlock />
+              <ReactionCradle />
             </div>
 
             {/* the pitch, beneath the pair */}
