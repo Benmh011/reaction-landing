@@ -8,6 +8,7 @@ import SiteNav from "@/components/SiteNav";
 import CampusLoop from "@/components/CampusLoop";
 import CampusPhone from "@/components/CampusPhone";
 import PracticeFrame from "@/components/PracticeFrame";
+import PracticeOrbit from "@/components/PracticeOrbit";
 
 export const metadata = {
   title: "Products — Reaction",
@@ -24,11 +25,8 @@ const FEATURES = [
 ];
 
 const PRACTICE_FEATURES = [
-  "Grounded on your own documents — policies, contracts, client records — with the source cited beneath every answer.",
-  "Declines when it can't cite. Answers, clarifications and refusals are logged in plain sight, not hidden.",
-  "The whole working day in one place: diary, team, messages and approvals, shaped to your workflow rather than a template.",
+  "Grounded on your own documents — and it declines when it can't cite. Every answer names its source.",
   "Every draft waits for human sign-off. Your team holds the dial.",
-  "Locally hosted. Your data lives on your infrastructure and never leaves the building.",
 ];
 
 export default function ProductsPage() {
@@ -157,9 +155,9 @@ export default function ProductsPage() {
         {/* ── Bespoke practice management LMAS ── */}
         <section style={{ padding: "80px 0 110px", borderTop: "1px solid var(--rule)" }} id="practice-lmas">
           <div className="container">
-            <div className="campus-grid" style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 56, alignItems: "center" }}>
-              {/* left: the frame */}
-              <div className="practice-visual">
+            <div className="campus-grid" style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 88, alignItems: "center" }}>
+              {/* left: the frame, bled into the margin for room */}
+              <div className="practice-visual" style={{ marginLeft: -48 }}>
                 <PracticeFrame />
               </div>
 
@@ -185,6 +183,9 @@ export default function ProductsPage() {
                     </li>
                   ))}
                 </ul>
+                <div style={{ margin: "6px 0 30px" }}>
+                  <PracticeOrbit />
+                </div>
                 <div className="mono" style={{ fontSize: "0.66rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--text-muted)", paddingTop: 20, borderTop: "1px solid var(--rule)" }}>
                   Built per practice · no two the same
                 </div>
@@ -198,7 +199,7 @@ export default function ProductsPage() {
         @media (max-width: 900px) {
           .campus-grid { grid-template-columns: 1fr !important; gap: 44px !important; }
           .campus-visual { grid-template-columns: 1fr !important; gap: 36px !important; justify-items: center; }
-          .practice-visual { order: 2; }
+          .practice-visual { order: 2; margin-left: 0 !important; }
           .tef-ladder { grid-template-columns: 1fr !important; gap: 28px !important; }
           .tef-arrow { display: none !important; }
         }
