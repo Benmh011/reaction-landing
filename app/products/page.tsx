@@ -155,27 +155,34 @@ export default function ProductsPage() {
         {/* ── Bespoke practice management LMAS ── */}
         <section style={{ padding: "80px 0 110px", borderTop: "1px solid var(--rule)" }} id="practice-lmas">
           <div className="container">
-            <div className="campus-grid" style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 88, alignItems: "center" }}>
-              {/* left: the frame, bled into the margin for room */}
-              <div className="practice-visual" style={{ marginLeft: -48 }}>
+            {/* header */}
+            <div style={{ maxWidth: 760, marginBottom: 48 }}>
+              <div className="mono" style={{ fontSize: "0.68rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 16 }}>
+                Product 02 · for working practices
+              </div>
+              <h2 style={{ ...serif, fontStyle: "italic", fontWeight: 600, fontSize: "clamp(1.9rem, 3.4vw, 2.7rem)", lineHeight: 1.08, letterSpacing: "-0.02em", color: "var(--text)", margin: 0 }}>
+                Bespoke practice management LMAS<span style={{ color: "var(--reaction)" }}>.</span>
+              </h2>
+            </div>
+
+            {/* dual hero: the frame, the orbit at its side */}
+            <div className="practice-hero" style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 64, alignItems: "center", marginBottom: 56 }}>
+              <div className="practice-visual">
                 <PracticeFrame />
               </div>
+              <PracticeOrbit />
+            </div>
 
-              {/* right: pitch */}
-              <div style={{ maxWidth: 480 }}>
-                <div className="mono" style={{ fontSize: "0.68rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 16 }}>
-                  Product 02 · for working practices
-                </div>
-                <h2 style={{ ...serif, fontStyle: "italic", fontWeight: 600, fontSize: "clamp(1.9rem, 3.4vw, 2.7rem)", lineHeight: 1.08, letterSpacing: "-0.02em", color: "var(--text)", margin: "0 0 20px" }}>
-                  Bespoke practice management LMAS<span style={{ color: "var(--reaction)" }}>.</span>
-                </h2>
-                <p style={{ fontSize: "1.08rem", lineHeight: 1.7, color: "var(--text-soft)", margin: "0 0 28px", maxWidth: "52ch" }}>
-                  A formation of small, specialised agents fitted to one practice: yours.
-                  It learns the way your firm actually runs — the diary, the documents,
-                  the sign-offs — and works inside it, on infrastructure you control.
-                  Maximum personalised workflow; total data sovereignty.
-                </p>
-                <ul style={{ listStyle: "none", padding: 0, margin: "0 0 32px", display: "flex", flexDirection: "column", gap: 13 }}>
+            {/* the pitch, beneath the pair */}
+            <div className="practice-copy" style={{ display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: 64, alignItems: "start", paddingTop: 36, borderTop: "1px solid var(--rule)" }}>
+              <p style={{ fontSize: "1.08rem", lineHeight: 1.7, color: "var(--text-soft)", margin: 0, maxWidth: "56ch" }}>
+                A formation of small, specialised agents fitted to one practice: yours.
+                It learns the way your firm actually runs — the diary, the documents,
+                the sign-offs — and works inside it, on infrastructure you control.
+                Maximum personalised workflow; total data sovereignty.
+              </p>
+              <div>
+                <ul style={{ listStyle: "none", padding: 0, margin: "0 0 26px", display: "flex", flexDirection: "column", gap: 13 }}>
                   {PRACTICE_FEATURES.map((f) => (
                     <li key={f} style={{ display: "flex", gap: 12, alignItems: "flex-start", fontSize: "0.98rem", lineHeight: 1.5, color: "var(--text-soft)" }}>
                       <span aria-hidden="true" style={{ flexShrink: 0, marginTop: 7, width: 7, height: 7, borderRadius: "50%", background: "#0d5a40" }} />
@@ -183,10 +190,7 @@ export default function ProductsPage() {
                     </li>
                   ))}
                 </ul>
-                <div style={{ margin: "6px 0 30px" }}>
-                  <PracticeOrbit />
-                </div>
-                <div className="mono" style={{ fontSize: "0.66rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--text-muted)", paddingTop: 20, borderTop: "1px solid var(--rule)" }}>
+                <div className="mono" style={{ fontSize: "0.66rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--text-muted)" }}>
                   Built per practice · no two the same
                 </div>
               </div>
@@ -199,7 +203,8 @@ export default function ProductsPage() {
         @media (max-width: 900px) {
           .campus-grid { grid-template-columns: 1fr !important; gap: 44px !important; }
           .campus-visual { grid-template-columns: 1fr !important; gap: 36px !important; justify-items: center; }
-          .practice-visual { order: 2; margin-left: 0 !important; }
+          .practice-hero { grid-template-columns: 1fr !important; gap: 44px !important; justify-items: center; }
+          .practice-copy { grid-template-columns: 1fr !important; gap: 28px !important; }
           .tef-ladder { grid-template-columns: 1fr !important; gap: 28px !important; }
           .tef-arrow { display: none !important; }
         }

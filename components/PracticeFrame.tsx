@@ -92,7 +92,7 @@ export default function PracticeFrame() {
   let tabX = 239;
 
   return (
-    <div ref={hostRef} style={{ position: "relative", width: "100%", maxWidth: 700, margin: "0 auto" }}>
+    <div ref={hostRef} style={{ position: "relative", width: "100%", maxWidth: 760, margin: 0 }}>
       <svg
         viewBox="0 0 560 380"
         width="100%"
