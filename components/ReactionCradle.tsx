@@ -3,34 +3,43 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * The Reaction cradle — the company's name, as an object.
+ * The Reaction cradle, Nocturne — the company's name, as an object at night.
  *
- * A Newton's cradle in ink and paper: five balls under a drawn frame,
- * standing on a base plate edged in green — on your infrastructure. The
- * vermilion ball is the action: a request arriving from the practice. It
- * swings in, and the impulse passes through the three middle balls — the
- * agent chain, each flashing its captain-colour band as the work moves
- * through it without drama — and the green ball swings out the other
- * side: the Reaction, the finished work. At its apex it is held — an
- * amber ring, sign-off — and only when the ring turns green does it
- * release and carry the impulse home. Nothing sends itself.
+ * A Newton's cradle on a dark field, drawn in light: five balls under a
+ * paper-line frame, standing on a base plate edged in green — on your
+ * infrastructure. The vermilion ball is the action: a request arriving
+ * from the practice, glowing like a lamp. It swings in, and the impulse
+ * passes through the three middle balls — the agent chain, each flashing
+ * its band as the work moves through it without drama — and the green
+ * ball swings out the other side: the Reaction, the finished work. At its
+ * apex it is held — an amber ring, sign-off — and only when the ring
+ * turns green does it release and carry the impulse home. Nothing sends
+ * itself.
  *
  * Every action has an equal and opposite Reaction: the homepage's coda,
- * demonstrated in perpetuity on the products page.
+ * demonstrated in perpetuity on the products page. The panel shares the
+ * PracticeFrame's night materials, so the two sit together as a pair.
  *
  * Three.js on the Flock's patterns: import guards, unlit vertex-shaded
- * spheres with inverted-hull ink rims, DPR capped, pauses off-screen,
- * reduced motion holds the sign-off moment.
+ * spheres, additive glow sprites, DPR capped, pauses off-screen, reduced
+ * motion holds the sign-off moment.
  */
 
-const INKC = 0x1a1713;
-const PAPER2C = 0xfdfbf5;
-const GREENC = 0x0d5a40;
-const GREEN_SOFTC = 0x46a37e;
-const AMBERC = 0xb98a3a;
-const VERMC = 0xc93a17;
+/* night materials, shared with the PracticeFrame beside this */
+const FIELD = "#1b1712";
+const FIELD_LO = "#14110d";
+const HAIR = "#3a3833";
+const BODY = "#d8d4c8";
+const MUTED = "#948e7d";
 
-const BANDS = [0x2565aa, 0xe8896c, 0x1b3656]; // records → drafting → compliance
+const LINEC = 0xefe7d6;
+const GREENC = 0x479a74;
+const GREEN_GLOWC = 0x46caa0;
+const AMBERC = 0xd2a757;
+const VERMC = 0xc93a17;
+const VERM_GLOWC = 0xe8865a;
+
+const BANDS = [0x4f8fd6, 0xe8896c, 0x7ea8d8]; // records → drafting → compliance, lifted for the dark
 
 const R = 0.42;
 const XS = [-1.68, -0.84, 0, 0.84, 1.68];
@@ -62,22 +71,22 @@ function cradleState(t: number): CradleSt {
 }
 
 const stripState = (st: CradleSt, sent: boolean) => {
-  if (st.hold >= 0 && st.hold < 0.78) return { text: "HELD FOR SIGN-OFF", color: "#b98a3a", border: "#b98a3a" };
-  if ((st.hold >= 0.78) || sent) return { text: "SIGNED OFF \u2713 \u00b7 SENT", color: "#0d5a40", border: "#0d5a40" };
-  return { text: "HUMAN SIGN-OFF \u2014 YOUR TEAM HOLDS THE DIAL", color: "#8a8175", border: "#d8d1bf" };
+  if (st.hold >= 0 && st.hold < 0.78) return { text: "HELD FOR SIGN-OFF", color: "#d2a757", border: "#d2a757" };
+  if ((st.hold >= 0.78) || sent) return { text: "SIGNED OFF \u2713 \u00b7 SENT", color: "#6dbe97", border: "#6dbe97" };
+  return { text: "HUMAN SIGN-OFF \u2014 YOUR TEAM HOLDS THE DIAL", color: MUTED, border: HAIR };
 };
 
 function StaticFallback() {
   return (
-    <svg viewBox="0 0 100 70" width="100%" aria-hidden="true" style={{ display: "block", opacity: 0.9 }}>
-      <line x1="14" y1="14" x2="86" y2="14" stroke="#1a1713" strokeWidth="2" />
+    <svg viewBox="0 0 100 70" width="100%" aria-hidden="true" style={{ display: "block", opacity: 0.95 }}>
+      <line x1="14" y1="14" x2="86" y2="14" stroke="#efe7d6" strokeOpacity="0.55" strokeWidth="2" />
       {[0, 1, 2, 3, 4].map((i) => (
         <g key={i}>
-          <line x1={26 + i * 12} y1="14" x2={26 + i * 12} y2="40" stroke="#1a1713" strokeOpacity="0.5" strokeWidth="0.8" />
-          <circle cx={26 + i * 12} cy="44" r="5.4" fill={i === 0 ? "#c93a17" : i === 4 ? "#0d5a40" : "#fdfbf5"} stroke="#1a1713" strokeOpacity="0.7" />
+          <line x1={26 + i * 12} y1="14" x2={26 + i * 12} y2="40" stroke="#efe7d6" strokeOpacity="0.3" strokeWidth="0.8" />
+          <circle cx={26 + i * 12} cy="44" r="5.4" fill={i === 0 ? "#c93a17" : i === 4 ? "#479a74" : "#332e28"} stroke="#efe7d6" strokeOpacity="0.35" />
         </g>
       ))}
-      <rect x="10" y="54" width="80" height="5" rx="1" fill="#fdfbf5" stroke="#1a1713" strokeOpacity="0.6" />
+      <rect x="10" y="54" width="80" height="5" rx="1" fill="#221d17" stroke="#efe7d6" strokeOpacity="0.4" />
     </svg>
   );
 }
@@ -129,7 +138,7 @@ export default function ReactionCradle() {
       const cA = new THREE.Color(), cB = new THREE.Color(), cM = new THREE.Color();
 
       // vertically shaded sphere geometry (unlit, hand-shaded like the darts)
-      const shadedSphere = (baseHex: number, lightHex: number, darkHex: number) => {
+      const shadedSphere = (lightHex: number, darkHex: number) => {
         const g = new THREE.SphereGeometry(R, 30, 22);
         const pos = g.getAttribute("position");
         const cols = new Float32Array(pos.count * 3);
@@ -144,20 +153,48 @@ export default function ReactionCradle() {
         return g;
       };
       const ballMat = new THREE.MeshBasicMaterial({ vertexColors: true });
-      const rimGeo = new THREE.SphereGeometry(R * 1.045, 30, 22);
-      const rimMat = new THREE.MeshBasicMaterial({ color: INKC, side: THREE.BackSide });
+      // inverted hull, now a whisper of light instead of ink
+      const rimGeo = new THREE.SphereGeometry(R * 1.04, 30, 22);
+      const rimMat = new THREE.MeshBasicMaterial({ color: LINEC, side: THREE.BackSide, transparent: true, opacity: 0.3 });
       disposables.push(ballMat, rimGeo, rimMat);
 
-      const ballSpecs: [number, number, number][] = [
-        [VERMC, 0xe06a48, 0x8f2408],
-        [PAPER2C, 0xffffff, 0xddd5c2],
-        [PAPER2C, 0xffffff, 0xddd5c2],
-        [PAPER2C, 0xffffff, 0xddd5c2],
-        [GREENC, 0x3f8f6c, 0x062b1e],
+      // white radial glow texture, tinted per sprite
+      const glowCanvas = document.createElement("canvas");
+      glowCanvas.width = glowCanvas.height = 128;
+      const gctx = glowCanvas.getContext("2d");
+      if (gctx) {
+        const grad = gctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+        grad.addColorStop(0, "rgba(255,255,255,0.55)");
+        grad.addColorStop(0.55, "rgba(255,255,255,0.16)");
+        grad.addColorStop(1, "rgba(255,255,255,0)");
+        gctx.fillStyle = grad;
+        gctx.fillRect(0, 0, 128, 128);
+      }
+      const glowTex = new THREE.CanvasTexture(glowCanvas);
+      disposables.push(glowTex);
+      const makeGlow = (hex: number, scale: number) => {
+        const m = new THREE.SpriteMaterial({ map: glowTex, color: hex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+        disposables.push(m);
+        const s = new THREE.Sprite(m);
+        s.scale.setScalar(scale);
+        rig.add(s);
+        return s;
+      };
+      const glowVerm = makeGlow(VERM_GLOWC, R * 5.4);
+      const glowGreen = makeGlow(GREEN_GLOWC, R * 5.4);
+      const glowRing = makeGlow(AMBERC, R * 4.4);
+      glowRing.material.opacity = 0;
+
+      const ballSpecs: [number, number][] = [
+        [0xf0754a, 0x6e1c06],
+        [0x57514a, 0x1d1913],
+        [0x57514a, 0x1d1913],
+        [0x57514a, 0x1d1913],
+        [0x7cd3ab, 0x0e3a28],
       ];
       const balls: import("three").Group[] = [];
       const bandMats: import("three").MeshBasicMaterial[] = [];
-      const bandGeo = new THREE.TorusGeometry(R * 0.99, 0.024, 8, 44);
+      const bandGeo = new THREE.TorusGeometry(R * 0.99, 0.026, 8, 44);
       disposables.push(bandGeo);
 
       for (let i = 0; i < 5; i++) {
@@ -176,44 +213,43 @@ export default function ReactionCradle() {
         balls.push(g);
       }
 
-      // strings: two per ball, endpoints updated each frame
-      const stringMat = new THREE.LineBasicMaterial({ color: INKC, transparent: true, opacity: 0.5 });
+      // strings: two per ball, light thread, endpoints updated each frame
+      const stringMat = new THREE.LineBasicMaterial({ color: LINEC, transparent: true, opacity: 0.34 });
       disposables.push(stringMat);
       const stringGeos: import("three").BufferGeometry[] = [];
-      const strings: import("three").Line[] = [];
       for (let i = 0; i < 5; i++) {
         for (const zr of [-Z_RAIL, Z_RAIL]) {
           const g = new THREE.BufferGeometry();
           g.setAttribute("position", new THREE.Float32BufferAttribute([XS[i], TOP_Y + 0.1, zr, XS[i], TOP_Y - L, 0], 3));
-          const line = new THREE.Line(g, stringMat);
-          rig.add(line);
+          rig.add(new THREE.Line(g, stringMat));
           stringGeos.push(g);
-          strings.push(line);
           disposables.push(g);
         }
       }
 
-      // frame: rails and legs, ink
-      const inkMat = new THREE.MeshBasicMaterial({ color: INKC });
+      // frame: rails and legs, paper light
+      const lineMat = new THREE.MeshBasicMaterial({ color: LINEC, transparent: true, opacity: 0.62 });
+      const backLineMat = new THREE.MeshBasicMaterial({ color: LINEC, transparent: true, opacity: 0.34 });
       const railGeo = new THREE.CylinderGeometry(0.045, 0.045, 4.6, 10);
       const legGeo = new THREE.CylinderGeometry(0.042, 0.042, TOP_Y + 0.12 - BASE_Y, 10);
-      disposables.push(inkMat, railGeo, legGeo);
+      disposables.push(lineMat, backLineMat, railGeo, legGeo);
       for (const zr of [-Z_RAIL, Z_RAIL]) {
-        const rail = new THREE.Mesh(railGeo, inkMat);
+        const m = zr < 0 ? backLineMat : lineMat;
+        const rail = new THREE.Mesh(railGeo, m);
         rail.rotation.z = Math.PI / 2;
         rail.position.set(0, TOP_Y + 0.12, zr);
         rig.add(rail);
         for (const lx of [-2.3, 2.3]) {
-          const leg = new THREE.Mesh(legGeo, inkMat);
+          const leg = new THREE.Mesh(legGeo, m);
           leg.position.set(lx, (TOP_Y + 0.12 + BASE_Y) / 2, zr);
           rig.add(leg);
         }
       }
 
-      // base plate: shaded paper slab, ink edges, green sovereignty border
+      // base plate: dark slab, light edges, green sovereignty border
       const baseGeo = new THREE.BoxGeometry(5.7, 0.14, 2.7);
       {
-        const cols = [0xf6f0e2, 0xf6f0e2, PAPER2C, 0xe6dfcf, 0xefe9da, 0xefe9da];
+        const cols = [0x1e1a14, 0x1e1a14, 0x221d17, 0x15110c, 0x191510, 0x191510];
         const arr = new Float32Array(24 * 3);
         for (let f = 0; f < 6; f++) {
           cM.setHex(cols[f]);
@@ -229,7 +265,7 @@ export default function ReactionCradle() {
       base.position.y = BASE_Y - 0.07;
       rig.add(base);
       const baseEdges = new THREE.EdgesGeometry(baseGeo);
-      const edgeMat = new THREE.LineBasicMaterial({ color: INKC, transparent: true, opacity: 0.7 });
+      const edgeMat = new THREE.LineBasicMaterial({ color: LINEC, transparent: true, opacity: 0.45 });
       const baseLines = new THREE.LineSegments(baseEdges, edgeMat);
       baseLines.position.copy(base.position);
       rig.add(baseLines);
@@ -238,7 +274,7 @@ export default function ReactionCradle() {
       const bx = 5.7 / 2 - 0.16, bz = 2.7 / 2 - 0.16;
       const bordGeo = new THREE.BufferGeometry();
       bordGeo.setAttribute("position", new THREE.Float32BufferAttribute([-bx, 0, bz, bx, 0, bz, bx, 0, -bz, -bx, 0, -bz, -bx, 0, bz], 3));
-      const bordMat = new THREE.LineDashedMaterial({ color: GREENC, transparent: true, opacity: 0.65, dashSize: 0.05, gapSize: 0.22 });
+      const bordMat = new THREE.LineDashedMaterial({ color: GREENC, transparent: true, opacity: 0.85, dashSize: 0.05, gapSize: 0.22 });
       const border = new THREE.Line(bordGeo, bordMat);
       border.computeLineDistances();
       border.position.y = BASE_Y + 0.002;
@@ -306,6 +342,12 @@ export default function ReactionCradle() {
             attr.needsUpdate = true;
           }
         }
+        // the lamps follow their balls
+        glowVerm.position.copy(balls[0].position);
+        glowGreen.position.copy(balls[4].position);
+        // the reaction burns a little brighter as it carries the work
+        glowGreen.material.opacity = st.thR > 0.02 || st.hold >= 0 ? 0.85 : 0.6;
+        glowVerm.material.opacity = st.thL < -0.02 ? 0.85 : 0.6;
 
         // chain bands flash as the impulse passes
         for (let b = 0; b < 3; b++) {
@@ -321,15 +363,19 @@ export default function ReactionCradle() {
         // sign-off ring
         if (st.hold >= 0) {
           const amber = st.hold < 0.78;
-          ringMat.color.setHex(amber ? AMBERC : GREEN_SOFTC);
+          ringMat.color.setHex(amber ? AMBERC : GREEN_GLOWC);
           ringMat.dashSize = amber ? 0.09 : 40;
           ringMat.gapSize = amber ? 0.09 : 0.001;
-          ringMat.opacity = 0.85 * Math.min(1, st.hold / 0.12);
+          ringMat.opacity = 0.9 * Math.min(1, st.hold / 0.12);
           ring.position.copy(balls[4].position);
           ring.rotation.z = t * 0.8;
+          glowRing.position.copy(balls[4].position);
+          glowRing.material.color.setHex(amber ? AMBERC : GREEN_GLOWC);
+          glowRing.material.opacity = 0.5 * Math.min(1, st.hold / 0.12);
           if (!amber) sentUntil = t + 1.4;
         } else {
           ringMat.opacity = 0;
+          glowRing.material.opacity = 0;
         }
 
         // strip
@@ -386,30 +432,41 @@ export default function ReactionCradle() {
   }, []);
 
   return (
-    <div style={{ width: "100%", maxWidth: 380, margin: "0 auto" }}>
+    <div
+      style={{
+        width: "100%",
+        maxWidth: 380,
+        margin: "0 auto",
+        padding: "22px 18px 20px",
+        borderRadius: 18,
+        border: `1px solid ${HAIR}`,
+        background: `radial-gradient(120% 90% at 50% 38%, ${FIELD} 0%, ${FIELD_LO} 100%)`,
+        boxShadow: "0 18px 50px rgba(20, 15, 8, 0.28)",
+      }}
+    >
       <div ref={frameRef} style={{ position: "relative", width: "100%", aspectRatio: "1.095" }} aria-hidden="true">
         {fallback ? (
           <StaticFallback />
         ) : (
           <>
             <div ref={hostRef} style={{ position: "absolute", inset: 0 }} />
-            <div ref={actionRef} className="mono" style={{ position: "absolute", top: 0, left: 0, fontSize: "0.56rem", letterSpacing: "0.26em", color: "#c93a17", pointerEvents: "none" }}>ACTION</div>
-            <div ref={reactionRef} className="mono" style={{ position: "absolute", top: 0, left: 0, fontSize: "0.56rem", letterSpacing: "0.26em", color: "#0d5a40", pointerEvents: "none" }}>REACTION</div>
+            <div ref={actionRef} className="mono" style={{ position: "absolute", top: 0, left: 0, fontSize: "0.56rem", letterSpacing: "0.26em", color: "#e8865a", pointerEvents: "none" }}>ACTION</div>
+            <div ref={reactionRef} className="mono" style={{ position: "absolute", top: 0, left: 0, fontSize: "0.56rem", letterSpacing: "0.26em", color: "#46caa0", pointerEvents: "none" }}>REACTION</div>
           </>
         )}
       </div>
-      <div style={{ textAlign: "center", marginTop: 6 }}>
-        <div style={{ fontFamily: "'Newsreader', Georgia, serif", fontStyle: "italic", fontWeight: 600, fontSize: "0.95rem", color: "var(--text)", opacity: 0.85 }}>
+      <div style={{ textAlign: "center", marginTop: 8 }}>
+        <div style={{ fontFamily: "'Newsreader', Georgia, serif", fontStyle: "italic", fontWeight: 600, fontSize: "0.95rem", color: BODY }}>
           Every action has an equal and opposite Reaction.
         </div>
-        <div className="mono" style={{ fontSize: "0.58rem", letterSpacing: "0.26em", textTransform: "uppercase", color: "#0d5a40", opacity: 0.85, marginTop: 7 }}>
+        <div className="mono" style={{ fontSize: "0.58rem", letterSpacing: "0.26em", textTransform: "uppercase", color: "#479a74", marginTop: 7 }}>
           On your infrastructure
         </div>
       </div>
       <div
         ref={stripRef}
         className="mono"
-        style={{ margin: "12px auto 0", maxWidth: 320, textAlign: "center", fontSize: "0.58rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "#8a8175", border: "1px solid #d8d1bf", borderRadius: 999, padding: "7px 12px", transition: "color 0.3s, border-color 0.3s" }}
+        style={{ margin: "13px auto 0", maxWidth: 320, textAlign: "center", fontSize: "0.58rem", letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED, border: `1px solid ${HAIR}`, borderRadius: 999, padding: "7px 12px", transition: "color 0.3s, border-color 0.3s" }}
       >
         HUMAN SIGN-OFF — YOUR TEAM HOLDS THE DIAL
       </div>
