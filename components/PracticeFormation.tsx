@@ -6,13 +6,13 @@ import { useEffect, useRef, useState } from "react";
  * The practice formation, drawn as a line.
  *
  * A vertical route with four typographic stations: Ask, Carry, Sign-off,
- * Headroom. Each station is a glyph on a hairline — a person, a flight of
+ * Focus. Each station is a glyph on a hairline — a person, a flight of
  * agents, a person inside a held ring, a person with an agent at their
  * shoulder — with a mono numeral, an italic serif name, and a one-line
  * explanation. A small fluid line of colour flows down the route station
  * to station (dwell, then slide), taking on each station's colour as it
  * arrives, the old hue trailing away along its length as the new one takes
- * the head. At Headroom it rides the thin return path up the left margin
+ * the head. At Focus it rides the thin return path up the left margin
  * back to Ask. "IN FORMATION" is set along the way home.
  *
  * Deliberately the same instrument as CampusLoop: no gradients, no gloss,
@@ -43,7 +43,7 @@ const STATIONS = [
   { name: "Ask", color: VERM, desc: "Work starts with a person." },
   { name: "Carry", color: BLUE, desc: "The formation takes the weight." },
   { name: "Sign-off", color: BRASS, desc: "Nothing sends itself." },
-  { name: "Headroom", color: GREEN, desc: "The hours come back." },
+  { name: "Focus", color: GREEN, desc: "Dedicate your time to the big stuff." },
 ];
 
 const DWELL = 1600;
@@ -189,7 +189,7 @@ export default function PracticeFormation() {
         }
       }
       if (!placed) {
-        // the return leg: Headroom back up to Ask along the curl
+        // the return leg: Focus back up to Ask along the curl
         const p = easeInOut(Math.min(1, t / RETURN_T));
         const pt = returnPath!.getPointAtLength(returnLen * p);
         x = pt.x;
@@ -238,15 +238,15 @@ export default function PracticeFormation() {
 
   return (
     <svg
-      viewBox="0 0 320 500"
+      viewBox="0 0 344 500"
       width="100%"
       role="img"
-      aria-label="How the practice formation works: a person asks, agents carry the work, a person signs off, and the hours return as headroom"
-      style={{ display: "block", maxWidth: 300, margin: "0 auto" }}
+      aria-label="How the practice formation works: a person asks, agents carry the work, a person signs off, and their time goes to the work that matters"
+      style={{ display: "block", maxWidth: 320, margin: "0 auto" }}
     >
       {/* main line */}
       <line x1={LINE_X} y1={STATION_Y[0]} x2={LINE_X} y2={STATION_Y[3]} stroke={RULE} strokeWidth="1.6" />
-      {/* the way home: Headroom curls up the margin back to Ask */}
+      {/* the way home: Focus curls up the margin back to Ask */}
       <path ref={returnRef} d={RETURN_D} fill="none" stroke={RULE} strokeWidth="1.6" />
       {/* arrowhead re-entering Ask */}
       <path
