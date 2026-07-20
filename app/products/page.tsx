@@ -5,14 +5,20 @@
 // LMAS, shown as a self-cycling desktop frame in the third captain's green.
 
 import SiteNav from "@/components/SiteNav";
+import SiteFooter from "@/components/SiteFooter";
 import CampusLoop from "@/components/CampusLoop";
 import CampusPhone from "@/components/CampusPhone";
 import PracticeFrame from "@/components/PracticeFrame";
-import ReactionCradle from "@/components/ReactionCradle";
+import PracticeFormation from "@/components/PracticeFormation";
 
 export const metadata = {
   title: "Products — Reaction",
   description: "What we build at Reaction. Campus Connect, the community engine for universities, and the bespoke practice management LMAS — personalised workflow on infrastructure you control.",
+  // Without this the page inherits the root layout's canonical and tells
+  // Google it is a duplicate of the homepage. Must be self-referential.
+  alternates: {
+    canonical: "https://reaction.org.uk/products",
+  },
 };
 
 const serif = { fontFamily: "'Newsreader', Georgia, serif" } as const;
@@ -165,12 +171,12 @@ export default function ProductsPage() {
               </h2>
             </div>
 
-            {/* dual hero: the frame, the orbit at its side */}
+            {/* dual hero: the frame, the formation at its side */}
             <div className="practice-hero" style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 64, alignItems: "center", marginBottom: 56 }}>
               <div className="practice-visual">
                 <PracticeFrame />
               </div>
-              <ReactionCradle />
+              <PracticeFormation />
             </div>
 
             {/* the pitch, beneath the pair */}
@@ -198,6 +204,7 @@ export default function ProductsPage() {
           </div>
         </section>
       </main>
+      <SiteFooter />
 
       <style>{`
         @media (max-width: 900px) {
