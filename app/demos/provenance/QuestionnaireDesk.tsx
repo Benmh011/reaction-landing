@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { ANSWER_BANK } from "./data";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ANSWER_BANK, QUESTIONNAIRES } from "./data";
 
 // ————————————————————————————————————————————————————————————————
 // The questionnaire desk — the working piece of the demo.
@@ -28,6 +28,23 @@ const MUTED = "#77705f";
 
 const mono: React.CSSProperties = { fontFamily: "'JetBrains Mono', monospace" };
 
+const th: React.CSSProperties = {
+  textAlign: "left",
+  fontSize: 11,
+  ...mono,
+  letterSpacing: "0.1em",
+  color: MUTED,
+  padding: "0 12px 10px 0",
+  borderBottom: "1px solid var(--rule)",
+  fontWeight: 500,
+};
+const td: React.CSSProperties = {
+  fontSize: 13.5,
+  padding: "11px 12px 11px 0",
+  borderBottom: "1px solid var(--rule)",
+  verticalAlign: "top",
+};
+
 type Chunk = {
   id: number;
   sheet: string;
@@ -44,6 +61,73 @@ type Stage =
   | { name: "parsing"; fileName: string }
   | { name: "review"; fileName: string; fileBuf: ArrayBuffer; chunks: Chunk[] }
   | { name: "done"; fileName: string; fileBuf: ArrayBuffer; chunks: Chunk[] };
+
+// ————— the record of completed questionnaires —————
+// Persisted per browser in localStorage: metadata always, the completed
+// workbook itself when it fits comfortably inside the storage quota.
+
+type ArchiveRow = {
+  id: string;
+  ref: string;
+  name: string;
+  fileName: string;
+  date: string;
+  total: number;
+  approved: number;
+  b64?: string; // completed workbook, when small enough to keep
+};
+
+const ARCHIVE_KEY = "pv-questionnaire-archive";
+const MAX_STORED_BYTES = 2_500_000;
+
+const loadArchive = (): ArchiveRow[] => {
+  try {
+    const raw = localStorage.getItem(ARCHIVE_KEY);
+    return raw ? (JSON.parse(raw) as ArchiveRow[]) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveArchive = (rows: ArchiveRow[]) => {
+  try {
+    localStorage.setItem(ARCHIVE_KEY, JSON.stringify(rows));
+  } catch {
+    // quota exceeded — drop stored files, keep metadata
+    try {
+      localStorage.setItem(ARCHIVE_KEY, JSON.stringify(rows.map(({ b64, ...r }) => r)));
+    } catch {
+      /* storage unavailable — session-only */
+    }
+  }
+};
+
+const nextRef = (rows: ArchiveRow[]) => {
+  const seeded = QUESTIONNAIRES.map((q) => parseInt(q.id.replace(/\D/g, ""), 10));
+  const archived = rows.map((r) => parseInt(r.ref.replace(/\D/g, ""), 10)).filter((n) => !isNaN(n));
+  const max = Math.max(0, ...seeded, ...archived);
+  return "SPQ-" + String(max + 1).padStart(4, "0");
+};
+
+const bufToB64 = (buf: ArrayBuffer) => {
+  const bytes = new Uint8Array(buf);
+  let s = "";
+  for (let i = 0; i < bytes.length; i += 0x8000)
+    s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+};
+
+const b64Download = (b64: string, name: string) => {
+  const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  const blob = new Blob([bytes], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name.replace(/\.xlsx?$/i, "") + " — completed.xlsx";
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
 
 // ————— extraction heuristics —————
 
@@ -124,7 +208,8 @@ async function extractChunks(buf: ArrayBuffer): Promise<Chunk[]> {
   return chunks;
 }
 
-async function writeBack(buf: ArrayBuffer, chunks: Chunk[], fileName: string) {
+/** Write approved answers into the buyer's workbook; return the bytes. */
+async function writeBackBuffer(buf: ArrayBuffer, chunks: Chunk[]): Promise<ArrayBuffer> {
   const ExcelJS = (await import("exceljs")).default ?? (await import("exceljs"));
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(buf);
@@ -136,7 +221,11 @@ async function writeBack(buf: ArrayBuffer, chunks: Chunk[], fileName: string) {
     cell.value = c.answer;
     cell.alignment = { wrapText: true, vertical: "top" };
   }
-  const out = await wb.xlsx.writeBuffer();
+  return (await wb.xlsx.writeBuffer()) as ArrayBuffer;
+}
+
+async function writeBack(buf: ArrayBuffer, chunks: Chunk[], fileName: string) {
+  const out = await writeBackBuffer(buf, chunks);
   const blob = new Blob([out], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
@@ -145,13 +234,41 @@ async function writeBack(buf: ArrayBuffer, chunks: Chunk[], fileName: string) {
   a.download = fileName.replace(/\.xlsx?$/i, "") + " — completed.xlsx";
   a.click();
   URL.revokeObjectURL(a.href);
+  return out;
 }
 
 // ————— the desk —————
 
 export default function QuestionnaireDesk() {
   const [stage, setStage] = useState<Stage>({ name: "intake" });
+  const [archive, setArchive] = useState<ArchiveRow[]>([]);
+  const [search, setSearch] = useState("");
+  const [recordName, setRecordName] = useState("");
+  const [savedRef, setSavedRef] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // localStorage exists only in the browser; load after mount
+  useEffect(() => setArchive(loadArchive()), []);
+
+  const saveToRecord = async () => {
+    if (stage.name !== "done" || savedRef) return;
+    const buf = await writeBackBuffer(stage.fileBuf, stage.chunks);
+    const b64 = buf.byteLength <= MAX_STORED_BYTES ? bufToB64(buf) : undefined;
+    const row: ArchiveRow = {
+      id: String(Date.now()),
+      ref: nextRef(archive),
+      name: recordName.trim() || stage.fileName.replace(/\.xlsx?$/i, ""),
+      fileName: stage.fileName,
+      date: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+      total: stage.chunks.length,
+      approved: stage.chunks.filter((c) => c.state === "approved").length,
+      b64,
+    };
+    const rows = [row, ...archive];
+    setArchive(rows);
+    saveArchive(rows);
+    setSavedRef(row.ref);
+  };
 
   const takeFile = useCallback(async (file: File) => {
     if (!/\.xlsx?$/i.test(file.name)) {
@@ -171,6 +288,16 @@ export default function QuestionnaireDesk() {
       setStage({ name: "intake", error: "Couldn't read that workbook. Try the sample file to see the desk working." });
     }
   }, []);
+
+  useEffect(() => {
+    if (stage.name !== "done") {
+      setSavedRef(null);
+      setRecordName("");
+    } else {
+      setRecordName(stage.fileName.replace(/\.xlsx?$/i, ""));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage.name]);
 
   const update = (id: number, patch: Partial<Chunk>) =>
     setStage((s) =>
@@ -238,6 +365,7 @@ export default function QuestionnaireDesk() {
           </a>{" "}
           — a typical hotel group supplier approval workbook — and drop it in.
         </p>
+      <RecordList archive={archive} search={search} setSearch={setSearch} />
       </div>
     );
   }
@@ -251,6 +379,7 @@ export default function QuestionnaireDesk() {
   // ————— done —————
   if (stage.name === "done") {
     return (
+      <>
       <div
         style={{
           background: "var(--bg-elevated)",
@@ -271,9 +400,33 @@ export default function QuestionnaireDesk() {
           place — their layout, their formatting. Anything you left unanswered
           stays blank for them to see.
         </p>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 16 }}>
+          <label htmlFor="record-name" style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>
+            Name this record
+          </label>
+          <input
+            id="record-name"
+            value={recordName}
+            onChange={(e) => setRecordName(e.target.value)}
+            disabled={!!savedRef}
+            placeholder="e.g. Harbourline — new listing 2026"
+            style={{
+              flex: "1 1 260px",
+              minWidth: 220,
+              padding: "9px 12px",
+              fontSize: 14,
+              border: "1px solid var(--rule-strong)",
+              borderRadius: 9,
+              background: savedRef ? "var(--bg-surface)" : "#fff",
+            }}
+          />
+          <button className="btn btn-primary" onClick={saveToRecord} disabled={!!savedRef}>
+            {savedRef ? `Saved as ${savedRef} ✓` : "Save to the record"}
+          </button>
+        </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <button
-            className="btn btn-primary"
+            className="btn btn-ghost"
             onClick={() => writeBack(stage.fileBuf, chunks, stage.fileName)}
           >
             Download completed workbook
@@ -293,6 +446,8 @@ export default function QuestionnaireDesk() {
           </button>
         </div>
       </div>
+        <RecordList archive={archive} search={search} setSearch={setSearch} />
+      </>
     );
   }
 
@@ -456,6 +611,115 @@ export default function QuestionnaireDesk() {
         <p style={{ fontSize: 12.5, color: MUTED }}>
           Nothing sends itself — only approved answers are written back.
         </p>
+      </div>
+      <RecordList archive={archive} search={search} setSearch={setSearch} />
+    </div>
+  );
+}
+
+// ————— the record: every completed questionnaire, searchable —————
+function RecordList({
+  archive,
+  search,
+  setSearch,
+}: {
+  archive: ArchiveRow[];
+  search: string;
+  setSearch: (s: string) => void;
+}) {
+  const q = search.trim().toLowerCase();
+  const live = archive.filter(
+    (r) => !q || r.name.toLowerCase().includes(q) || r.ref.toLowerCase().includes(q) || r.fileName.toLowerCase().includes(q),
+  );
+  const seeded = QUESTIONNAIRES.filter(
+    (r) => !q || r.from.toLowerCase().includes(q) || r.id.toLowerCase().includes(q),
+  );
+
+  return (
+    <div style={{ marginTop: 34 }}>
+      <div style={{ display: "flex", gap: 14, alignItems: "baseline", flexWrap: "wrap", marginBottom: 12 }}>
+        <span style={{ ...mono, fontSize: 11, letterSpacing: "0.14em", color: MUTED }}>
+          THE RECORD
+        </span>
+        <span style={{ flex: 1 }} />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search the record…"
+          aria-label="Search completed questionnaires"
+          style={{
+            width: 230,
+            padding: "8px 12px",
+            fontSize: 13.5,
+            border: "1px solid var(--rule-strong)",
+            borderRadius: 99,
+            background: "var(--bg-elevated)",
+          }}
+        />
+      </div>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 620 }}>
+          <thead>
+            <tr>
+              <th style={th}>REF</th>
+              <th style={th}>NAME</th>
+              <th style={th}>DATE</th>
+              <th style={th}>ANSWERS</th>
+              <th style={th}>FILE</th>
+            </tr>
+          </thead>
+          <tbody>
+            {live.map((r) => (
+              <tr key={r.id}>
+                <td style={{ ...td, ...mono, fontSize: 12.5 }}>{r.ref}</td>
+                <td style={{ ...td, fontWeight: 600, color: "var(--text)" }}>{r.name}</td>
+                <td style={{ ...td, ...mono, fontSize: 12.5 }}>{r.date}</td>
+                <td style={{ ...td, ...mono, fontSize: 12.5 }}>
+                  {r.approved}/{r.total}
+                </td>
+                <td style={td}>
+                  {r.b64 ? (
+                    <button
+                      onClick={() => b64Download(r.b64!, r.name)}
+                      style={{
+                        ...mono,
+                        fontSize: 12,
+                        color: TEAL,
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        padding: 0,
+                        textDecoration: "underline",
+                      }}
+                    >
+                      Download ↓
+                    </button>
+                  ) : (
+                    <span style={{ ...mono, fontSize: 12, color: MUTED }}>{r.fileName}</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {seeded.map((r) => (
+              <tr key={r.id}>
+                <td style={{ ...td, ...mono, fontSize: 12.5 }}>{r.id}</td>
+                <td style={td}>{r.from}</td>
+                <td style={{ ...td, ...mono, fontSize: 12.5 }}>{r.received}</td>
+                <td style={{ ...td, ...mono, fontSize: 12.5 }}>
+                  {r.drafted}/{r.questions}
+                </td>
+                <td style={{ ...td, ...mono, fontSize: 12, color: MUTED }}>{r.state}</td>
+              </tr>
+            ))}
+            {live.length + seeded.length === 0 && (
+              <tr>
+                <td colSpan={5} style={{ ...td, color: MUTED }}>
+                  Nothing in the record matches "{search}".
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );

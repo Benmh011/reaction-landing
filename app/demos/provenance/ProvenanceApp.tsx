@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import {
-  QUESTIONNAIRES,
   DOCUMENTS,
   TRAINING,
   TRACE,
@@ -156,38 +155,7 @@ function Questionnaires() {
         title="Spec questionnaires"
         sub="New stockists send these before they order — their workbook, their layout, their phrasing. The desk drafts every answer it can stand behind from your controlled documents, cites the source, and holds the rest for a person."
       />
-
       <QuestionnaireDesk />
-
-      <p style={{ ...mono, fontSize: 11, letterSpacing: "0.14em", color: MUTED, margin: "30px 0 12px" }}>
-        RECENT QUESTIONNAIRES
-      </p>
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 560 }}>
-          <thead>
-            <tr>
-              <th style={th}>REF</th>
-              <th style={th}>FROM</th>
-              <th style={th}>RECEIVED</th>
-              <th style={th}>ANSWERS</th>
-              <th style={th}>STATE</th>
-            </tr>
-          </thead>
-          <tbody>
-            {QUESTIONNAIRES.map((q) => (
-              <tr key={q.id}>
-                <td style={{ ...td, ...mono, fontSize: 12.5 }}>{q.id}</td>
-                <td style={td}>{q.from}</td>
-                <td style={{ ...td, ...mono, fontSize: 12.5 }}>{q.received}</td>
-                <td style={{ ...td, ...mono, fontSize: 12.5 }}>
-                  {q.drafted}/{q.questions}
-                </td>
-                <td style={{ ...td, fontSize: 13, color: q.open ? BLUE : MUTED }}>{q.state}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
     </>
   );
 }
@@ -426,77 +394,75 @@ function ColdChain() {
   );
 }
 
-// ————————————————————————— start page —————————————————————————
+// ————————————————————————— welcome —————————————————————————
 
-/** Three hairline swells — the waterline under the headline. */
-function Waterline() {
-  const wave = (y: number) =>
-    `M 0 ${y} C 22 ${y - 7}, 44 ${y - 7}, 66 ${y} S 110 ${y + 7}, 132 ${y} S 176 ${y - 7}, 198 ${y} S 242 ${y + 7}, 264 ${y}`;
+/**
+ * The welcome page: a Salcombe estuary at golden hour, drawn flat.
+ * A honey sun on the waterline, six bands of water from foam mist to
+ * deep estuary, the wordmark above, and one action — sign in.
+ * The two middle bands drift a few pixels on a slow tide unless the
+ * visitor prefers reduced motion.
+ */
+
+const SEA_BANDS = [
+  { base: 210, amp: 12, color: "#dfeee3" },
+  { base: 258, amp: 16, color: "#bcdccb", drift: "pv-drift-a" },
+  { base: 308, amp: 14, color: "#8fc3ae" },
+  { base: 360, amp: 18, color: "#4f9d8b", drift: "pv-drift-b" },
+  { base: 414, amp: 12, color: "#1f6b68" },
+  { base: 462, amp: 8, color: "#0d3f47" },
+];
+
+const wavePath = (base: number, amp: number) => {
+  // a gentle swell across an over-wide canvas so drift never shows an edge
+  const W = 1680;
+  const seg = 210;
+  let d = `M -120 ${base}`;
+  for (let x = -120; x < W; x += seg) {
+    d += ` C ${x + seg * 0.33} ${base - amp}, ${x + seg * 0.66} ${base + amp}, ${x + seg} ${base}`;
+  }
+  d += ` L ${W} 560 L -120 560 Z`;
+  return d;
+};
+
+function EstuarySea() {
   return (
-    <svg viewBox="0 0 264 40" width="220" height="34" aria-hidden style={{ display: "block", margin: "18px auto 0" }}>
-      <path d={wave(10)} fill="none" stroke={TEAL} strokeWidth="1.5" opacity="0.55" />
-      <path d={wave(20)} fill="none" stroke={TEAL} strokeWidth="1.5" opacity="0.32" />
-      <path d={wave(30)} fill="none" stroke={TEAL} strokeWidth="1.5" opacity="0.16" />
+    <svg
+      className="pv-sea"
+      viewBox="0 0 1440 520"
+      preserveAspectRatio="xMidYMax slice"
+      aria-hidden
+    >
+      {/* the sun, sitting on the waterline */}
+      <circle cx="1020" cy="168" r="64" fill="#e9be7a" />
+      <circle cx="1020" cy="168" r="82" fill="none" stroke="#e9be7a" strokeOpacity="0.35" strokeWidth="1.5" />
+      <circle cx="1020" cy="168" r="102" fill="none" stroke="#e9be7a" strokeOpacity="0.15" strokeWidth="1.5" />
+      {SEA_BANDS.map((b) => (
+        <path key={b.base} className={b.drift} d={wavePath(b.base, b.amp)} fill={b.color} />
+      ))}
     </svg>
   );
 }
 
-const START_CARDS: { id: SectionId; name: string; line: string; flag: number }[] = [
-  { id: "overview", name: "Overview", line: "The morning's exceptions, one glance.", flag: 3 },
-  { id: "questionnaires", name: "Questionnaires", line: "Trade due diligence, drafted and cited.", flag: 1 },
-  { id: "documents", name: "Documents & audit", line: "The controlled register, always in date.", flag: 3 },
-  { id: "trace", name: "Traceability", line: "Any batch, both directions, in minutes.", flag: 0 },
-  { id: "production", name: "Production records", line: "Spoken on the floor, filed as records.", flag: 0 },
-  { id: "coldchain", name: "Cold chain", line: "Factory to freezer, watched throughout.", flag: 0 },
-];
-
 function StartPage({ onEnter }: { onEnter: (s: SectionId) => void }) {
   return (
-    <main className="pv-start">
-      <div className="pv-start-hero">
-        <p style={{ ...mono, fontSize: 11, letterSpacing: "0.22em", color: TEAL, marginBottom: 16 }}>
-          ESTUARY CREAMERY · SAMPLE PRACTICE
+    <main className="pv-welcome">
+      <div className="pv-welcome-inner">
+        <p style={{ ...mono, fontSize: 11, letterSpacing: "0.26em", color: TEAL, marginBottom: 14 }}>
+          REACTION
         </p>
-        <h1 className="pv-start-title" style={serifItal}>
-          Every record in the practice, on one ledger.
+        <h1 className="pv-wordmark" style={serifItal}>
+          Provenance
         </h1>
-        <Waterline />
-        <p className="pv-start-sub">
-          Provenance runs the working spine of a small food producer — the
-          questionnaires that win trade accounts, the registers an auditor
-          reads, the checks spoken on the factory floor, and the cold chain
-          between the two. This is a demonstration practice: an ice cream and
-          chocolate maker with one factory, its own shops, and a wholesale
-          book. Everything in it is sample data.
+        <p className="pv-welcome-line">
+          The ledger for everything Estuary Creamery signs its name to.
         </p>
-        <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", marginTop: 30 }}>
-          <button className="btn btn-primary" onClick={() => onEnter("overview")}>
-            Enter the practice <span className="arrow">→</span>
-          </button>
-          <a className="btn btn-ghost" href="/demo">
-            Book a walkthrough
-          </a>
-        </div>
+        <button className="btn btn-primary pv-signin" onClick={() => onEnter("overview")}>
+          Sign in
+        </button>
       </div>
-
-      <div className="pv-start-grid">
-        {START_CARDS.map((c, i) => (
-          <button key={c.id} className="pv-start-card" onClick={() => onEnter(c.id)}>
-            <span style={{ ...mono, fontSize: 10.5, letterSpacing: "0.16em", color: TEAL }}>
-              {`0${i + 1}`}
-            </span>
-            <span style={{ ...serifItal, fontSize: 20, lineHeight: 1.1, display: "flex", alignItems: "center", gap: 8 }}>
-              {c.name}
-              {c.flag > 0 && <span className="pv-flag">{c.flag}</span>}
-            </span>
-            <span style={{ fontSize: 13, color: "var(--text-muted)" }}>{c.line}</span>
-          </button>
-        ))}
-      </div>
-
-      <p style={{ ...mono, fontSize: 10.5, letterSpacing: "0.18em", color: MUTED, textAlign: "center", padding: "0 20px 40px" }}>
-        DEMONSTRATION ENVIRONMENT · ALL DATA IS SAMPLE DATA · BUILT BY REACTION
-      </p>
+      <EstuarySea />
+      <p className="pv-welcome-foot">DEMONSTRATION ENVIRONMENT · ALL DATA IS SAMPLE DATA</p>
     </main>
   );
 }
@@ -642,58 +608,63 @@ function ThemeStyles() {
           line-height: 1.4;
         }
 
-        /* start page */
-        .pv-start {
+        /* welcome */
+        .pv-welcome {
           min-height: 100vh;
+          position: relative;
           display: flex;
           flex-direction: column;
-          justify-content: center;
-          justify-content: safe center; /* short viewports: never clip the top */
-          gap: 44px;
-          padding: 32px 0;
+          overflow: hidden;
         }
-        .pv-start-hero {
-          max-width: 660px;
-          margin: 0 auto;
-          padding: 64px 24px 0;
+        .pv-welcome-inner {
+          position: relative;
+          z-index: 2;
           text-align: center;
+          padding: clamp(64px, 14vh, 150px) 24px 0;
         }
-        .pv-start-title { font-size: clamp(34px, 5vw, 54px); line-height: 1.04; color: var(--text); }
-        .pv-start-sub {
-          font-size: 15px;
-          line-height: 1.65;
-          color: var(--text-soft);
-          margin-top: 22px;
-          max-width: 520px;
-          margin-left: auto;
-          margin-right: auto;
-        }
-        .pv-start-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 12px;
-          max-width: 880px;
-          width: 100%;
-          margin: 0 auto;
-          padding: 0 24px;
-        }
-        .pv-start-card {
-          display: grid;
-          gap: 7px;
-          text-align: left;
-          background: var(--bg-elevated);
-          border: 1px solid var(--rule);
-          border-radius: 14px;
-          padding: 18px;
-          cursor: pointer;
+        .pv-wordmark {
+          font-size: clamp(56px, 9vw, 108px);
+          line-height: 0.98;
           color: var(--text);
-          transition: border-color 160ms ease, transform 160ms ease;
+          letter-spacing: -0.01em;
         }
-        .pv-start-card:hover { border-color: ${TEAL}; transform: translateY(-2px); }
-        .pv-start-card:focus-visible { outline: 2px solid ${TEAL}; outline-offset: 2px; }
-        @media (max-width: 860px) {
-          .pv-start { gap: 32px; }
-          .pv-start-grid { grid-template-columns: 1fr; }
+        .pv-welcome-line {
+          font-size: 15.5px;
+          color: var(--text-soft);
+          margin-top: 16px;
+        }
+        .pv-signin {
+          margin-top: 30px;
+          padding: 13px 44px;
+          font-size: 15px;
+        }
+        .pv-sea {
+          position: absolute;
+          inset: auto 0 0 0;
+          width: 100%;
+          height: clamp(260px, 46vh, 480px);
+          display: block;
+          z-index: 1;
+        }
+        .pv-welcome-foot {
+          position: absolute;
+          bottom: 18px;
+          left: 0;
+          right: 0;
+          text-align: center;
+          z-index: 2;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 10px;
+          letter-spacing: 0.22em;
+          color: #cfe4d6;
+        }
+        @media (prefers-reduced-motion: no-preference) {
+          .pv-drift-a { animation: pvdrift 16s ease-in-out infinite alternate; }
+          .pv-drift-b { animation: pvdrift 22s ease-in-out infinite alternate-reverse; }
+        }
+        @keyframes pvdrift {
+          from { transform: translateX(-26px); }
+          to { transform: translateX(26px); }
         }
 
         .prov-shell {
