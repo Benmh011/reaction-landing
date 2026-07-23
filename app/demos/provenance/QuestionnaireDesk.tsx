@@ -1,26 +1,26 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ANSWER_BANK, QUESTIONNAIRES } from "./data";
+import { QUESTIONNAIRES } from "./data";
+import {
+  parseIncoming,
+  downloadCompleted,
+  buildCompletedBytes,
+  scoreAgainstBank,
+  type Chunk,
+  type Intake,
+  type IntakeReport,
+  type WriteCtx,
+} from "./intake";
 
 // ————————————————————————————————————————————————————————————————
-// The questionnaire desk — the working piece of the demo.
-//
-// A trade questionnaire arrives as an email attachment: someone's own
-// Excel workbook, their layout, their phrasing. Drop it here and the
-// desk extracts the questions, drafts what it can stand behind from the
-// controlled-document answer bank, and queues the rest for a person.
-// Approve the drafts, answer the held ones, and download the buyer's
-// own workbook back with the answers written in — formatting intact,
-// because exceljs edits the original file rather than rebuilding it.
-//
-// Drafting here is deterministic keyword matching against ANSWER_BANK:
-// predictable by design, and honest when it doesn't know. In production
-// the same desk drafts from the client's real document corpus.
+// The questionnaire desk. Intake and output live in intake.ts; this
+// file is the review workflow: report what was read, approve or hold
+// each answer, promote anything the extractor wasn't sure about, and
+// hand back whichever output the file can safely take.
 // ————————————————————————————————————————————————————————————————
 
 const TEAL = "#0e5560";
-const DEEP = "#0d3f47";
 const SEA = "#167a5b";
 const HONEY = "#a3772a";
 const RASP = "#c22f4e";
@@ -45,26 +45,13 @@ const td: React.CSSProperties = {
   verticalAlign: "top",
 };
 
-type Chunk = {
-  id: number;
-  sheet: string;
-  rowNumber: number;
-  answerCol: number;
-  question: string;
-  answer: string;
-  source: string | null; // null = no bank match, needs a person
-  state: "draft" | "approved" | "editing";
-};
-
 type Stage =
   | { name: "intake"; error?: string }
   | { name: "parsing"; fileName: string }
-  | { name: "review"; fileName: string; fileBuf: ArrayBuffer; chunks: Chunk[] }
-  | { name: "done"; fileName: string; fileBuf: ArrayBuffer; chunks: Chunk[] };
+  | { name: "review"; fileName: string; intake: Intake }
+  | { name: "done"; fileName: string; intake: Intake };
 
 // ————— the record of completed questionnaires —————
-// Persisted per browser in localStorage: metadata always, the completed
-// workbook itself when it fits comfortably inside the storage quota.
 
 type ArchiveRow = {
   id: string;
@@ -74,7 +61,7 @@ type ArchiveRow = {
   date: string;
   total: number;
   approved: number;
-  b64?: string; // completed workbook, when small enough to keep
+  b64?: string;
 };
 
 const ARCHIVE_KEY = "pv-questionnaire-archive";
@@ -93,7 +80,6 @@ const saveArchive = (rows: ArchiveRow[]) => {
   try {
     localStorage.setItem(ARCHIVE_KEY, JSON.stringify(rows));
   } catch {
-    // quota exceeded — drop stored files, keep metadata
     try {
       localStorage.setItem(ARCHIVE_KEY, JSON.stringify(rows.map(({ b64, ...r }) => r)));
     } catch {
@@ -124,117 +110,72 @@ const b64Download = (b64: string, name: string) => {
   });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = name.replace(/\.xlsx?$/i, "") + " — completed.xlsx";
+  a.download = name + ".xlsx";
   a.click();
   URL.revokeObjectURL(a.href);
 };
 
-// ————— extraction heuristics —————
+// ————— report card —————
 
-const looksLikeQuestion = (t: string) => {
-  const s = t.trim();
-  if (s.length < 12 || s.length > 400) return false;
-  if (/^(question|answer|ref|section|no\.?|item)$/i.test(s)) return false;
-  return s.includes("?") || /^\d+(\.\d+)*[.):\-—]\s/.test(s);
-};
-
-// a cell like "1.2" or "2.4" — the ref column of a questionnaire row.
-// Imperative questions ("Describe your…") carry no question mark; the ref
-// cell beside them is what identifies the row, and testing for imperative
-// verbs alone would catch instruction rows ("Please complete in full…").
-const isRefCell = (v: unknown) =>
-  (typeof v === "string" && /^\d+(\.\d+)+\s*$/.test(v.trim())) ||
-  (typeof v === "number" && v > 0 && v < 1000 && !Number.isInteger(v));
-
-const scoreAgainstBank = (q: string) => {
-  const low = q.toLowerCase();
-  let best: { score: number; entry: (typeof ANSWER_BANK)[number] } | null = null;
-  for (const entry of ANSWER_BANK) {
-    const score = entry.keywords.filter((k) => low.includes(k)).length;
-    if (score > 0 && (!best || score > best.score)) best = { score, entry };
-  }
-  return best && best.score >= 1 && (best.score >= 2 || best.entry.keywords.some((k) => k.length >= 5 && low.includes(k)))
-    ? best.entry
-    : null;
-};
-
-async function extractChunks(buf: ArrayBuffer): Promise<Chunk[]> {
-  const ExcelJS = (await import("exceljs")).default ?? (await import("exceljs"));
-  const wb = new ExcelJS.Workbook();
-  await wb.xlsx.load(buf);
-  const chunks: Chunk[] = [];
-  let id = 0;
-
-  wb.eachSheet((ws) => {
-    ws.eachRow((row, rowNumber) => {
-      let qCol = 0;
-      let qText = "";
-      let hasRef = false;
-      row.eachCell({ includeEmpty: false }, (cell, col) => {
-        const v = cell.value;
-        if (isRefCell(v)) hasRef = true;
-        const text =
-          typeof v === "string"
-            ? v
-            : v && typeof v === "object" && "richText" in (v as object)
-              ? (v as { richText: { text: string }[] }).richText.map((r) => r.text).join("")
-              : "";
-        if (text && text.trim().length >= 12 && text.length > qText.length) {
-          qText = text.trim();
-          qCol = Number(col);
-        }
-      });
-      // a row qualifies if its longest text reads as a question, or the row
-      // carries a ref cell (1.2, 2.4…) — the layout every supplier pack uses
-      if (!qCol || !(looksLikeQuestion(qText) || (hasRef && qText.length >= 12))) return;
-
-      // answers land in the first empty cell to the right of the question
-      let answerCol = qCol + 1;
-      while (row.getCell(answerCol).value != null && answerCol < qCol + 6) answerCol += 1;
-
-      const hit = scoreAgainstBank(qText);
-      chunks.push({
-        id: id++,
-        sheet: ws.name,
-        rowNumber,
-        answerCol,
-        question: qText,
-        answer: hit ? hit.answer : "",
-        source: hit ? hit.source : null,
-        state: "draft",
-      });
-    });
-  });
-  return chunks;
-}
-
-/** Write approved answers into the buyer's workbook; return the bytes. */
-async function writeBackBuffer(buf: ArrayBuffer, chunks: Chunk[]): Promise<ArrayBuffer> {
-  const ExcelJS = (await import("exceljs")).default ?? (await import("exceljs"));
-  const wb = new ExcelJS.Workbook();
-  await wb.xlsx.load(buf);
-  for (const c of chunks) {
-    if (c.state !== "approved" || !c.answer.trim()) continue;
-    const ws = wb.getWorksheet(c.sheet);
-    if (!ws) continue;
-    const cell = ws.getRow(c.rowNumber).getCell(c.answerCol);
-    cell.value = c.answer;
-    cell.alignment = { wrapText: true, vertical: "top" };
-  }
-  return (await wb.xlsx.writeBuffer()) as ArrayBuffer;
-}
-
-async function writeBack(buf: ArrayBuffer, chunks: Chunk[], fileName: string) {
-  const out = await writeBackBuffer(buf, chunks);
-  const blob = new Blob([out], {
-    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = fileName.replace(/\.xlsx?$/i, "") + " — completed.xlsx";
-  a.click();
-  URL.revokeObjectURL(a.href);
-  return out;
+function ReportCard({ report, onPromote }: { report: IntakeReport; onPromote: (i: number) => void }) {
+  return (
+    <div
+      style={{
+        border: "1px solid var(--rule)",
+        borderLeft: `3px solid ${TEAL}`,
+        borderRadius: 12,
+        background: "var(--bg-elevated)",
+        padding: "14px 18px",
+        marginBottom: 16,
+      }}
+    >
+      <p style={{ ...mono, fontSize: 11, letterSpacing: "0.14em", color: TEAL, marginBottom: 6 }}>
+        WHAT THE DESK READ
+      </p>
+      <p style={{ fontSize: 13.5, marginBottom: 4 }}>
+        {report.sheetCount} sheet{report.sheetCount !== 1 ? "s" : ""} · {report.rowsScanned} rows scanned ·{" "}
+        {report.questionsFound} questions extracted · <strong>{report.routeReason}</strong>
+      </p>
+      {report.notes.map((n, i) => (
+        <p key={i} style={{ fontSize: 12.5, color: MUTED, marginTop: 4 }}>
+          {n}
+        </p>
+      ))}
+      {report.ambiguous.length > 0 && (
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--rule)" }}>
+          <p style={{ fontSize: 12.5, color: HONEY, marginBottom: 6 }}>
+            {report.ambiguous.length} row{report.ambiguous.length > 1 ? "s" : ""} looked question-ish
+            but {report.ambiguous.length > 1 ? "weren't" : "wasn't"} extracted — check them against the
+            original:
+          </p>
+          {report.ambiguous.map((a, i) => (
+            <div key={i} style={{ display: "flex", gap: 10, alignItems: "baseline", padding: "3px 0" }}>
+              <span style={{ ...mono, fontSize: 11, color: MUTED, flexShrink: 0 }}>
+                {a.sheet} · row {a.rowNumber}
+              </span>
+              <span style={{ fontSize: 12.5, flex: 1 }}>{a.text.slice(0, 110)}</span>
+              <button
+                onClick={() => onPromote(i)}
+                style={{
+                  ...mono,
+                  fontSize: 11,
+                  color: TEAL,
+                  background: "none",
+                  border: `1px solid ${TEAL}`,
+                  borderRadius: 99,
+                  padding: "3px 10px",
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              >
+                Add as question
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ————— the desk —————
@@ -247,21 +188,95 @@ export default function QuestionnaireDesk() {
   const [savedRef, setSavedRef] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // localStorage exists only in the browser; load after mount
   useEffect(() => setArchive(loadArchive()), []);
+
+  useEffect(() => {
+    if (stage.name !== "done") {
+      setSavedRef(null);
+      setRecordName("");
+    } else {
+      setRecordName(stage.fileName.replace(/\.(xlsx|xlsm|xls|csv)$/i, ""));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage.name]);
+
+  const takeFile = useCallback(async (file: File) => {
+    setStage({ name: "parsing", fileName: file.name });
+    try {
+      const intake = await parseIncoming(file);
+      if (intake.chunks.length === 0 && intake.report.ambiguous.length === 0) {
+        setStage({
+          name: "intake",
+          error: "No questions found in that file. Try the sample pack to see the desk working.",
+        });
+        return;
+      }
+      setStage({ name: "review", fileName: file.name, intake });
+    } catch (e) {
+      setStage({
+        name: "intake",
+        error: e instanceof Error ? e.message : "Couldn't read that file. Try the sample pack to see the desk working.",
+      });
+    }
+  }, []);
+
+  const update = (id: number, patch: Partial<Chunk>) =>
+    setStage((s) =>
+      s.name === "review"
+        ? {
+            ...s,
+            intake: {
+              ...s.intake,
+              chunks: s.intake.chunks.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+            },
+          }
+        : s,
+    );
+
+  const promote = (i: number) =>
+    setStage((s) => {
+      if (s.name !== "review") return s;
+      const a = s.intake.report.ambiguous[i];
+      if (!a) return s;
+      const hit = scoreAgainstBank(a.text);
+      const chunk: Chunk = {
+        id: Math.max(0, ...s.intake.chunks.map((c) => c.id + 1)),
+        sheet: a.sheet,
+        rowNumber: a.rowNumber,
+        answerCol: a.answerCol,
+        question: a.text,
+        answer: hit ? hit.answer : "",
+        source: hit ? hit.source : null,
+        state: "draft",
+        transcriptOnly: s.intake.writeCtx.route === "transcript" ? true : undefined,
+      };
+      return {
+        ...s,
+        intake: {
+          ...s.intake,
+          chunks: [...s.intake.chunks, chunk],
+          report: {
+            ...s.intake.report,
+            questionsFound: s.intake.report.questionsFound + 1,
+            ambiguous: s.intake.report.ambiguous.filter((_, j) => j !== i),
+          },
+        },
+      };
+    });
 
   const saveToRecord = async () => {
     if (stage.name !== "done" || savedRef) return;
-    const buf = await writeBackBuffer(stage.fileBuf, stage.chunks);
-    const b64 = buf.byteLength <= MAX_STORED_BYTES ? bufToB64(buf) : undefined;
+    const { bytes } = await buildCompletedBytes(stage.intake.writeCtx, stage.intake.chunks, stage.fileName);
+    const b64 = bytes.byteLength <= MAX_STORED_BYTES ? bufToB64(bytes) : undefined;
+    const chunks = stage.intake.chunks;
     const row: ArchiveRow = {
       id: String(Date.now()),
       ref: nextRef(archive),
-      name: recordName.trim() || stage.fileName.replace(/\.xlsx?$/i, ""),
+      name: recordName.trim() || stage.fileName.replace(/\.(xlsx|xlsm|xls|csv)$/i, ""),
       fileName: stage.fileName,
       date: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
-      total: stage.chunks.length,
-      approved: stage.chunks.filter((c) => c.state === "approved").length,
+      total: chunks.length,
+      approved: chunks.filter((c) => c.state === "approved").length,
       b64,
     };
     const rows = [row, ...archive];
@@ -269,40 +284,6 @@ export default function QuestionnaireDesk() {
     saveArchive(rows);
     setSavedRef(row.ref);
   };
-
-  const takeFile = useCallback(async (file: File) => {
-    if (!/\.xlsx?$/i.test(file.name)) {
-      setStage({ name: "intake", error: "That isn't an Excel workbook — questionnaires arrive as .xlsx files." });
-      return;
-    }
-    setStage({ name: "parsing", fileName: file.name });
-    try {
-      const buf = await file.arrayBuffer();
-      const chunks = await extractChunks(buf);
-      if (chunks.length === 0) {
-        setStage({ name: "intake", error: "No questions found in that workbook. Try the sample file to see the desk working." });
-        return;
-      }
-      setStage({ name: "review", fileName: file.name, fileBuf: buf, chunks });
-    } catch {
-      setStage({ name: "intake", error: "Couldn't read that workbook. Try the sample file to see the desk working." });
-    }
-  }, []);
-
-  useEffect(() => {
-    if (stage.name !== "done") {
-      setSavedRef(null);
-      setRecordName("");
-    } else {
-      setRecordName(stage.fileName.replace(/\.xlsx?$/i, ""));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage.name]);
-
-  const update = (id: number, patch: Partial<Chunk>) =>
-    setStage((s) =>
-      s.name === "review" ? { ...s, chunks: s.chunks.map((c) => (c.id === id ? { ...c, ...patch } : c)) } : s,
-    );
 
   // ————— intake —————
   if (stage.name === "intake" || stage.name === "parsing") {
@@ -330,23 +311,22 @@ export default function QuestionnaireDesk() {
           }}
         >
           <p style={{ ...mono, fontSize: 11, letterSpacing: "0.16em", color: TEAL, marginBottom: 10 }}>
-            {parsing ? "READING THE WORKBOOK…" : "A QUESTIONNAIRE ARRIVES"}
+            {parsing ? "READING THE FILE…" : "A QUESTIONNAIRE ARRIVES"}
           </p>
           <p style={{ fontSize: 15, color: "var(--text)", marginBottom: 6 }}>
-            {parsing
-              ? stage.fileName
-              : "Drop the buyer's workbook here, exactly as it landed in the inbox."}
+            {parsing ? stage.fileName : "Drop the buyer's file here, exactly as it landed in the inbox."}
           </p>
           {!parsing && (
             <p style={{ fontSize: 13, color: MUTED }}>
-              The desk extracts the questions, drafts what your documents can
-              stand behind, and queues the rest for a person.
+              .xlsx, .xls, .xlsm and .csv. The desk extracts the questions, drafts what your
+              documents can stand behind, reports anything it wasn't sure of, and queues the
+              rest for a person.
             </p>
           )}
           <input
             ref={inputRef}
             type="file"
-            accept=".xlsx,.xls"
+            accept=".xlsx,.xls,.xlsm,.csv"
             style={{ display: "none" }}
             onChange={(e) => {
               const f = e.target.files?.[0];
@@ -365,87 +345,88 @@ export default function QuestionnaireDesk() {
           </a>{" "}
           — a typical hotel group supplier approval workbook — and drop it in.
         </p>
-      <RecordList archive={archive} search={search} setSearch={setSearch} />
+        <RecordList archive={archive} search={search} setSearch={setSearch} />
       </div>
     );
   }
 
-  // ————— shared counts —————
-  const chunks = stage.chunks;
+  const { intake } = stage;
+  const chunks = intake.chunks;
   const drafted = chunks.filter((c) => c.source !== null).length;
   const held = chunks.length - drafted;
   const approved = chunks.filter((c) => c.state === "approved").length;
+  const isTranscript = intake.report.route === "transcript";
 
   // ————— done —————
   if (stage.name === "done") {
     return (
       <>
-      <div
-        style={{
-          background: "var(--bg-elevated)",
-          border: "1px solid var(--rule)",
-          borderRadius: 16,
-          padding: 28,
-        }}
-      >
-        <p style={{ ...mono, fontSize: 11, letterSpacing: "0.16em", color: SEA, marginBottom: 10 }}>
-          REVIEW COMPLETE
-        </p>
-        <p style={{ fontSize: 15.5, color: "var(--text)", marginBottom: 6 }}>
-          {approved} of {chunks.length} answers approved and written back into{" "}
-          <span style={{ ...mono, fontSize: 13.5 }}>{stage.fileName}</span>.
-        </p>
-        <p style={{ fontSize: 13.5, color: MUTED, marginBottom: 20 }}>
-          The download is the buyer's own workbook with your approved answers in
-          place — their layout, their formatting. Anything you left unanswered
-          stays blank for them to see.
-        </p>
-        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 16 }}>
-          <label htmlFor="record-name" style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>
-            Name this record
-          </label>
-          <input
-            id="record-name"
-            value={recordName}
-            onChange={(e) => setRecordName(e.target.value)}
-            disabled={!!savedRef}
-            placeholder="e.g. Harbourline — new listing 2026"
-            style={{
-              flex: "1 1 260px",
-              minWidth: 220,
-              padding: "9px 12px",
-              fontSize: 14,
-              border: "1px solid var(--rule-strong)",
-              borderRadius: 9,
-              background: savedRef ? "var(--bg-surface)" : "#fff",
-            }}
-          />
-          <button className="btn btn-primary" onClick={saveToRecord} disabled={!!savedRef}>
-            {savedRef ? `Saved as ${savedRef} ✓` : "Save to the record"}
-          </button>
+        <div
+          style={{
+            background: "var(--bg-elevated)",
+            border: "1px solid var(--rule)",
+            borderRadius: 16,
+            padding: 28,
+          }}
+        >
+          <p style={{ ...mono, fontSize: 11, letterSpacing: "0.16em", color: SEA, marginBottom: 10 }}>
+            REVIEW COMPLETE
+          </p>
+          <p style={{ fontSize: 15.5, color: "var(--text)", marginBottom: 6 }}>
+            {approved} of {chunks.length} answers approved from{" "}
+            <span style={{ ...mono, fontSize: 13.5 }}>{stage.fileName}</span>.
+          </p>
+          <p style={{ fontSize: 13.5, color: MUTED, marginBottom: 20 }}>
+            {isTranscript
+              ? intake.report.routeReason + " Anything you left unanswered is simply absent from the transcript."
+              : "The download is the buyer's own workbook with your approved answers in place — their layout, their formatting. Anything you left unanswered stays blank for them to see."}
+          </p>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 16 }}>
+            <label htmlFor="record-name" style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>
+              Name this record
+            </label>
+            <input
+              id="record-name"
+              value={recordName}
+              onChange={(e) => setRecordName(e.target.value)}
+              disabled={!!savedRef}
+              placeholder="e.g. Harbourline — new listing 2026"
+              style={{
+                flex: "1 1 260px",
+                minWidth: 220,
+                padding: "9px 12px",
+                fontSize: 14,
+                border: "1px solid var(--rule-strong)",
+                borderRadius: 9,
+                background: savedRef ? "var(--bg-surface)" : "#fff",
+              }}
+            />
+            <button className="btn btn-primary" onClick={saveToRecord} disabled={!!savedRef}>
+              {savedRef ? `Saved as ${savedRef} ✓` : "Save to the record"}
+            </button>
+          </div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button
+              className="btn btn-ghost"
+              onClick={() => downloadCompleted(intake.writeCtx, chunks, stage.fileName)}
+            >
+              {isTranscript ? "Download answer transcript" : "Download completed workbook"}
+            </button>
+            <a
+              className="btn btn-ghost"
+              href={`mailto:procurement@harbourline-hotels.example?subject=${encodeURIComponent(
+                "Supplier questionnaire — completed: " + stage.fileName,
+              )}&body=${encodeURIComponent(
+                "Please find our completed supplier questionnaire attached.\n\nKind regards\nEstuary Creamery",
+              )}`}
+            >
+              Draft the return email
+            </a>
+            <button className="btn btn-ghost" onClick={() => setStage({ name: "intake" })}>
+              Start another
+            </button>
+          </div>
         </div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button
-            className="btn btn-ghost"
-            onClick={() => writeBack(stage.fileBuf, chunks, stage.fileName)}
-          >
-            Download completed workbook
-          </button>
-          <a
-            className="btn btn-ghost"
-            href={`mailto:procurement@harbourline-hotels.example?subject=${encodeURIComponent(
-              "Supplier questionnaire — completed: " + stage.fileName,
-            )}&body=${encodeURIComponent(
-              "Please find our completed supplier questionnaire attached.\n\nKind regards\nEstuary Creamery",
-            )}`}
-          >
-            Draft the return email
-          </a>
-          <button className="btn btn-ghost" onClick={() => setStage({ name: "intake" })}>
-            Start another
-          </button>
-        </div>
-      </div>
         <RecordList archive={archive} search={search} setSearch={setSearch} />
       </>
     );
@@ -454,15 +435,7 @@ export default function QuestionnaireDesk() {
   // ————— review —————
   return (
     <div>
-      <div
-        style={{
-          display: "flex",
-          gap: 14,
-          alignItems: "baseline",
-          flexWrap: "wrap",
-          marginBottom: 14,
-        }}
-      >
+      <div style={{ display: "flex", gap: 14, alignItems: "baseline", flexWrap: "wrap", marginBottom: 12 }}>
         <span style={{ ...mono, fontSize: 12.5, color: "var(--text)" }}>{stage.fileName}</span>
         <span style={{ ...mono, fontSize: 11.5, color: MUTED }}>
           {chunks.length} questions · {drafted} drafted · {held} for a person · {approved} approved
@@ -476,6 +449,8 @@ export default function QuestionnaireDesk() {
           Discard
         </button>
       </div>
+
+      <ReportCard report={intake.report} onPromote={promote} />
 
       <div style={{ display: "grid", gap: 10 }}>
         {chunks.map((c) => {
@@ -494,6 +469,7 @@ export default function QuestionnaireDesk() {
             >
               <p style={{ ...mono, fontSize: 10.5, color: MUTED, marginBottom: 6 }}>
                 {c.sheet} · row {c.rowNumber}
+                {c.transcriptOnly && !isTranscript ? " · answer goes to the transcript" : ""}
               </p>
               <p style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)", marginBottom: 8 }}>
                 {c.question}
@@ -553,9 +529,7 @@ export default function QuestionnaireDesk() {
                     Needs a person
                   </span>
                 )}
-                {isApproved && (
-                  <span style={{ ...mono, fontSize: 11, color: SEA }}>Approved ✓</span>
-                )}
+                {isApproved && <span style={{ ...mono, fontSize: 11, color: SEA }}>Approved ✓</span>}
                 <span style={{ flex: 1 }} />
                 {!isApproved && (
                   <>
@@ -592,15 +566,7 @@ export default function QuestionnaireDesk() {
         })}
       </div>
 
-      <div
-        style={{
-          display: "flex",
-          gap: 12,
-          alignItems: "center",
-          marginTop: 18,
-          flexWrap: "wrap",
-        }}
-      >
+      <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 18, flexWrap: "wrap" }}>
         <button
           className="btn btn-primary"
           disabled={approved === 0}
@@ -609,7 +575,7 @@ export default function QuestionnaireDesk() {
           Finish review ({approved}/{chunks.length})
         </button>
         <p style={{ fontSize: 12.5, color: MUTED }}>
-          Nothing sends itself — only approved answers are written back.
+          Nothing sends itself — only approved answers leave the desk.
         </p>
       </div>
       <RecordList archive={archive} search={search} setSearch={setSearch} />
