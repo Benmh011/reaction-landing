@@ -19,11 +19,18 @@ import {
 // colours, mono for anything that is a record) tightened into a tool.
 // ————————————————————————————————————————————————————————————————
 
-const GREEN = "#0d5a40";
-const BRASS = "#b08d4a";
-const VERM = "#c93a17";
-const BLUE = "#2565aa";
-const MUTED = "#6d6759";
+// ————— Salcombe palette: estuary teal, seafoam, cream, cacao, raspberry —————
+const GREEN = "#167a5b"; // sea green — in date / passing
+const BRASS = "#a3772a"; // honey — due soon
+const VERM = "#c22f4e"; // raspberry ripple — overdue / alerts
+const BLUE = "#2c6e8a"; // harbour — informational
+const MUTED = "#77705f";
+
+const DEEP = "#0d3f47"; // dark estuary — sidebar
+const TEAL = "#0e5560"; // primary actions
+const FOAM = "#d8ebdf"; // seafoam — highlights on dark
+const MINT = "#63b89a"; // active markers on dark
+const DARK_MUTED = "#8fb0ab"; // muted text on dark estuary
 
 const STATUS_COLOR: Record<Status, string> = { ok: GREEN, due: BRASS, overdue: VERM };
 const STATUS_WORD: Record<Status, string> = { ok: "In date", due: "Due soon", overdue: "Overdue" };
@@ -465,6 +472,81 @@ function ColdChain() {
   );
 }
 
+// ————————————————————————— start page —————————————————————————
+
+/** Three hairline swells — the waterline under the headline. */
+function Waterline() {
+  const wave = (y: number) =>
+    `M 0 ${y} C 22 ${y - 7}, 44 ${y - 7}, 66 ${y} S 110 ${y + 7}, 132 ${y} S 176 ${y - 7}, 198 ${y} S 242 ${y + 7}, 264 ${y}`;
+  return (
+    <svg viewBox="0 0 264 40" width="220" height="34" aria-hidden style={{ display: "block", margin: "18px auto 0" }}>
+      <path d={wave(10)} fill="none" stroke={TEAL} strokeWidth="1.5" opacity="0.55" />
+      <path d={wave(20)} fill="none" stroke={TEAL} strokeWidth="1.5" opacity="0.32" />
+      <path d={wave(30)} fill="none" stroke={TEAL} strokeWidth="1.5" opacity="0.16" />
+    </svg>
+  );
+}
+
+const START_CARDS: { id: SectionId; name: string; line: string; flag: number }[] = [
+  { id: "overview", name: "Overview", line: "The morning's exceptions, one glance.", flag: 3 },
+  { id: "questionnaires", name: "Questionnaires", line: "Trade due diligence, drafted and cited.", flag: 1 },
+  { id: "documents", name: "Documents & audit", line: "The controlled register, always in date.", flag: 3 },
+  { id: "trace", name: "Traceability", line: "Any batch, both directions, in minutes.", flag: 0 },
+  { id: "production", name: "Production records", line: "Spoken on the floor, filed as records.", flag: 0 },
+  { id: "coldchain", name: "Cold chain", line: "Factory to freezer, watched throughout.", flag: 0 },
+];
+
+function StartPage({ onEnter }: { onEnter: (s: SectionId) => void }) {
+  return (
+    <main className="pv-start">
+      <div className="pv-start-hero">
+        <p style={{ ...mono, fontSize: 11, letterSpacing: "0.22em", color: TEAL, marginBottom: 16 }}>
+          ESTUARY CREAMERY · SAMPLE PRACTICE
+        </p>
+        <h1 className="pv-start-title" style={serifItal}>
+          Every record in the practice, on one ledger.
+        </h1>
+        <Waterline />
+        <p className="pv-start-sub">
+          Provenance runs the working spine of a small food producer — the
+          questionnaires that win trade accounts, the registers an auditor
+          reads, the checks spoken on the factory floor, and the cold chain
+          between the two. This is a demonstration practice: an ice cream and
+          chocolate maker with one factory, its own shops, and a wholesale
+          book. Everything in it is sample data.
+        </p>
+        <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", marginTop: 30 }}>
+          <button className="btn btn-primary" onClick={() => onEnter("overview")}>
+            Enter the practice <span className="arrow">→</span>
+          </button>
+          <a className="btn btn-ghost" href="/demo">
+            Book a walkthrough
+          </a>
+        </div>
+      </div>
+
+      <div className="pv-start-grid">
+        {START_CARDS.map((c, i) => (
+          <button key={c.id} className="pv-start-card" onClick={() => onEnter(c.id)}>
+            <span style={{ ...mono, fontSize: 10.5, letterSpacing: "0.16em", color: TEAL }}>
+              {`0${i + 1}`}
+            </span>
+            <span style={{ ...serifItal, fontSize: 20, lineHeight: 1.1, display: "flex", alignItems: "center", gap: 8 }}>
+              {c.name}
+              {c.flag > 0 && <span className="pv-flag">{c.flag}</span>}
+            </span>
+            <span style={{ fontSize: 13, color: "var(--text-muted)" }}>{c.line}</span>
+          </button>
+        ))}
+      </div>
+
+      <p style={{ ...mono, fontSize: 10.5, letterSpacing: "0.18em", color: MUTED, textAlign: "center", padding: "0 20px 40px" }}>
+        DEMONSTRATION ENVIRONMENT · ALL DATA IS SAMPLE DATA · BUILT BY REACTION
+      </p>
+    </main>
+  );
+}
+
 // ————————————————————————— shell —————————————————————————
 
 const SECTIONS = [
@@ -479,88 +561,187 @@ const SECTIONS = [
 type SectionId = (typeof SECTIONS)[number]["id"];
 
 export default function ProvenanceApp() {
-  const [active, setActive] = useState<SectionId>("overview");
+  const [view, setView] = useState<"start" | SectionId>("start");
+
+  if (view === "start") {
+    return (
+      <div className="pv-root">
+        <StartPage onEnter={setView} />
+        <ThemeStyles />
+      </div>
+    );
+  }
+  const active = view;
 
   return (
-    <div className="prov-shell">
-      <aside className="prov-side">
-        <div style={{ marginBottom: 30 }}>
-          <p style={{ ...mono, fontSize: 10, letterSpacing: "0.2em", color: MUTED, marginBottom: 4 }}>
-            REACTION
-          </p>
-          <p style={{ ...serifItal, fontSize: 27, lineHeight: 1 }}>Provenance</p>
-        </div>
+    <div className="pv-root">
+      <div className="prov-shell">
+        <aside className="prov-side">
+          <button
+            onClick={() => setView("start")}
+            style={{
+              background: "none",
+              border: "none",
+              padding: 0,
+              cursor: "pointer",
+              textAlign: "left",
+              marginBottom: 30,
+            }}
+            aria-label="Back to start"
+          >
+            <p style={{ ...mono, fontSize: 10, letterSpacing: "0.2em", color: DARK_MUTED, marginBottom: 4 }}>
+              REACTION
+            </p>
+            <p style={{ ...serifItal, fontSize: 27, lineHeight: 1, color: "#f2efe4" }}>Provenance</p>
+          </button>
 
-        <nav aria-label="Sections" style={{ display: "grid", gap: 2 }}>
-          {SECTIONS.map((s) => {
-            const on = s.id === active;
-            return (
-              <button
-                key={s.id}
-                onClick={() => setActive(s.id)}
-                className="prov-navitem"
-                aria-current={on ? "page" : undefined}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  width: "100%",
-                  textAlign: "left",
-                  fontSize: 14,
-                  fontWeight: on ? 600 : 400,
-                  color: on ? "var(--text, #1a1713)" : MUTED,
-                  background: on ? "var(--bg-surface)" : "transparent",
-                  border: "none",
-                  borderLeft: `2px solid ${on ? VERM : "transparent"}`,
-                  borderRadius: "0 9px 9px 0",
-                  padding: "9px 12px 9px 14px",
-                  cursor: "pointer",
-                }}
-              >
-                <span style={{ flex: 1 }}>{s.label}</span>
-                {s.flag > 0 && (
-                  <span
-                    style={{
-                      ...mono,
-                      fontSize: 10.5,
-                      minWidth: 18,
-                      textAlign: "center",
-                      padding: "2px 5px",
-                      borderRadius: 99,
-                      color: "var(--bg)",
-                      background: VERM,
-                    }}
-                  >
-                    {s.flag}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
+          <nav aria-label="Sections" style={{ display: "grid", gap: 2 }}>
+            {SECTIONS.map((s) => {
+              const on = s.id === active;
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => setView(s.id)}
+                  className="prov-navitem"
+                  aria-current={on ? "page" : undefined}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    width: "100%",
+                    textAlign: "left",
+                    fontSize: 14,
+                    fontWeight: on ? 600 : 400,
+                    color: on ? FOAM : DARK_MUTED,
+                    background: on ? "rgba(255,255,255,0.07)" : "transparent",
+                    border: "none",
+                    borderLeft: `2px solid ${on ? MINT : "transparent"}`,
+                    borderRadius: "0 9px 9px 0",
+                    padding: "9px 12px 9px 14px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <span style={{ flex: 1 }}>{s.label}</span>
+                  {s.flag > 0 && <span className="pv-flag">{s.flag}</span>}
+                </button>
+              );
+            })}
+          </nav>
 
-        <div style={{ marginTop: "auto", paddingTop: 26 }}>
-          <p style={{ fontSize: 11.5, color: MUTED, lineHeight: 1.5 }}>
-            Demonstration environment.
-            <br />
-            All data is sample data.
-          </p>
-          <a href="/demo" style={{ fontSize: 12, color: VERM }}>
-            Book a walkthrough →
-          </a>
-        </div>
-      </aside>
+          <div style={{ marginTop: "auto", paddingTop: 26 }}>
+            <p style={{ fontSize: 11.5, color: DARK_MUTED, lineHeight: 1.5 }}>
+              Demonstration environment.
+              <br />
+              All data is sample data.
+            </p>
+            <a href="/demo" style={{ fontSize: 12, color: FOAM }}>
+              Book a walkthrough →
+            </a>
+          </div>
+        </aside>
 
-      <main className="prov-main">
-        {active === "overview" && <Overview />}
-        {active === "questionnaires" && <Questionnaires />}
-        {active === "documents" && <Documents />}
-        {active === "trace" && <Traceability />}
-        {active === "production" && <ProductionLog />}
-        {active === "coldchain" && <ColdChain />}
-      </main>
+        <main className="prov-main">
+          {active === "overview" && <Overview />}
+          {active === "questionnaires" && <Questionnaires />}
+          {active === "documents" && <Documents />}
+          {active === "trace" && <Traceability />}
+          {active === "production" && <ProductionLog />}
+          {active === "coldchain" && <ColdChain />}
+        </main>
+      </div>
+      <ThemeStyles />
+    </div>
+  );
+}
 
-      <style>{`
+function ThemeStyles() {
+  return (
+    <style>{`
+        /* Salcombe theme, scoped — the rest of the site keeps its own palette */
+        .pv-root {
+          --bg:           #f6f2e7;
+          --bg-surface:   #ebe5d3;
+          --bg-elevated:  #fdfaf1;
+          --text:         #251d15;
+          --text-soft:    #4d4437;
+          --text-muted:   #77705f;
+          --rule:         #e2dbc6;
+          --rule-strong:  #c9c0a6;
+          --accent:       ${TEAL};
+          background: var(--bg);
+          color: var(--text-soft);
+          min-height: 100vh;
+        }
+        .pv-root .btn-primary { background: ${TEAL}; color: #f2efe4; }
+        .pv-root .btn-primary:hover:not(:disabled) { background: ${DEEP}; }
+        .pv-root .btn-ghost { color: ${TEAL}; }
+        .pv-flag {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 10.5px;
+          min-width: 18px;
+          text-align: center;
+          padding: 2px 5px;
+          border-radius: 99px;
+          color: #fdfaf1;
+          background: ${VERM};
+          display: inline-block;
+          line-height: 1.4;
+        }
+
+        /* start page */
+        .pv-start {
+          min-height: 100vh;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          justify-content: safe center; /* short viewports: never clip the top */
+          gap: 44px;
+          padding: 32px 0;
+        }
+        .pv-start-hero {
+          max-width: 660px;
+          margin: 0 auto;
+          padding: 64px 24px 0;
+          text-align: center;
+        }
+        .pv-start-title { font-size: clamp(34px, 5vw, 54px); line-height: 1.04; color: var(--text); }
+        .pv-start-sub {
+          font-size: 15px;
+          line-height: 1.65;
+          color: var(--text-soft);
+          margin-top: 22px;
+          max-width: 520px;
+          margin-left: auto;
+          margin-right: auto;
+        }
+        .pv-start-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 12px;
+          max-width: 880px;
+          width: 100%;
+          margin: 0 auto;
+          padding: 0 24px;
+        }
+        .pv-start-card {
+          display: grid;
+          gap: 7px;
+          text-align: left;
+          background: var(--bg-elevated);
+          border: 1px solid var(--rule);
+          border-radius: 14px;
+          padding: 18px;
+          cursor: pointer;
+          color: var(--text);
+          transition: border-color 160ms ease, transform 160ms ease;
+        }
+        .pv-start-card:hover { border-color: ${TEAL}; transform: translateY(-2px); }
+        .pv-start-card:focus-visible { outline: 2px solid ${TEAL}; outline-offset: 2px; }
+        @media (max-width: 860px) {
+          .pv-start { gap: 32px; }
+          .pv-start-grid { grid-template-columns: 1fr; }
+        }
+
         .prov-shell {
           display: grid;
           grid-template-columns: 232px 1fr;
@@ -571,7 +752,8 @@ export default function ProvenanceApp() {
           display: flex;
           flex-direction: column;
           padding: 26px 14px 26px 20px;
-          border-right: 1px solid var(--rule);
+          background: #0d3f47;
+          border-right: 1px solid rgba(255,255,255,0.06);
           position: sticky;
           top: 0;
           height: 100vh;
@@ -581,7 +763,7 @@ export default function ProvenanceApp() {
           max-width: 980px;
         }
         .prov-navitem:focus-visible {
-          outline: 2px solid ${BLUE};
+          outline: 2px solid ${MINT};
           outline-offset: 2px;
         }
         .prov-chain {
@@ -617,7 +799,7 @@ export default function ProvenanceApp() {
           .prov-side > div:first-child { margin-bottom: 0; flex-shrink: 0; }
           .prov-side nav { display: flex; gap: 4px; }
           .prov-side .prov-navitem { white-space: nowrap; border-left: none; border-bottom: 2px solid transparent; border-radius: 8px; }
-          .prov-side .prov-navitem[aria-current="page"] { border-bottom-color: ${VERM}; }
+          .prov-side .prov-navitem[aria-current="page"] { border-bottom-color: ${MINT}; }
           .prov-side > div:last-child { display: none; }
           .prov-chain { grid-template-columns: 1fr; }
           .prov-node { transform: rotate(90deg); width: 120px; margin: 0 auto; }
@@ -630,6 +812,5 @@ export default function ProvenanceApp() {
           to { opacity: 1; transform: none; }
         }
       `}</style>
-    </div>
   );
 }
