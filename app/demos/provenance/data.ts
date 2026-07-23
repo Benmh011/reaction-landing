@@ -19,31 +19,88 @@ export const QUESTIONNAIRES = [
   { id: "SPQ-0336", from: "The Anchor & Hope, Dartmouth", received: "11 Jul 2026", questions: 22, drafted: 22, state: "Sent", open: false },
 ];
 
-export const DRAFT_ANSWERS = [
+// The controlled-document answer bank. The questionnaire desk scores each
+// extracted question against these entries; two or more keyword hits drafts
+// the answer, anything below queues for a person. Every entry cites its
+// source document — an answer with no source does not exist.
+export type BankEntry = {
+  keywords: string[];
+  answer: string;
+  source: string;
+};
+
+export const ANSWER_BANK: BankEntry[] = [
   {
-    q: "3.1 — Does the site operate a documented HACCP plan?",
-    a: "Yes. A full HACCP study is documented and maintained, most recently reviewed 4 March 2026. Critical control points cover pasteurisation, freezing, and metal detection at pack-off.",
+    keywords: ["haccp", "hazard", "ccp", "critical control"],
+    answer:
+      "Yes. A full HACCP study is documented and maintained, most recently reviewed 4 March 2026. Critical control points cover pasteurisation, freezing, and metal detection at pack-off.",
     source: "HACCP Study v11 · §2",
-    confidence: "High",
   },
   {
-    q: "3.4 — Is the site free from nut handling?",
-    a: "Yes. The entire site is nut free. No nut ingredients are purchased, stored, or handled anywhere in the factory. Supplier declarations are held for all raw materials confirming absence of nut cross-contact.",
+    keywords: ["nut", "peanut", "allergen", "cross-contact", "cross contamination", "free-from", "free from"],
+    answer:
+      "The entire site is nut free. No nut ingredients are purchased, stored, or handled anywhere in the factory, and supplier declarations are held for all raw materials confirming absence of nut cross-contact. The site is also free from gluten, egg, soya and palm oil.",
     source: "Allergen Policy v7 · §1.2",
-    confidence: "High",
   },
   {
-    q: "5.2 — State pasteurisation time and temperature parameters.",
-    a: "Mix is pasteurised at 85°C with a 15-second hold, verified by continuous chart recorder. Divert valve operation is tested at the start of each production day.",
+    keywords: ["pasteuris", "pasteuriz", "heat treatment", "thermal"],
+    answer:
+      "Mix is pasteurised at 85°C with a 15-second hold, verified by continuous chart recorder. Divert valve operation is tested at the start of each production day.",
     source: "Process Spec PS-04 · §3.1",
-    confidence: "High",
   },
   {
-    q: "7.3 — Provide details of your environmental swabbing programme.",
-    a: "Weekly swabs are taken from six zoned sites across the production area and tested for Listeria spp. by a UKAS-accredited laboratory.",
+    keywords: ["metal", "foreign body", "detection", "x-ray"],
+    answer:
+      "All packed product passes through metal detection at pack-off, challenge-tested each production run at Fe 1.5mm, Non-Fe 2.0mm and SS 2.5mm. Rejects lock out the line until cleared by a supervisor.",
+    source: "Process Spec PS-04 · §5",
+  },
+  {
+    keywords: ["listeria", "swab", "environmental", "micro", "pathogen"],
+    answer:
+      "An environmental monitoring programme takes weekly swabs from zoned sites across the production area, tested for Listeria spp. by a UKAS-accredited laboratory. Results and trends are reviewed monthly.",
     source: "Micro Schedule 2026 · §4",
-    confidence: "Review",
-    note: "Schedule shows five sites since April — confirm current count before sending.",
+  },
+  {
+    keywords: ["traceab", "recall", "withdraw", "mass balance", "one step"],
+    answer:
+      "Full one-step-back, one-step-forward traceability is maintained from supplier lot to dispatched customer. A mock recall is exercised at least annually; the most recent traced a batch to 100% of dispatched units within four hours.",
+    source: "Traceability Procedure QMS-07 · §2",
+  },
+  {
+    keywords: ["supplier approval", "raw material", "approved supplier", "vendor"],
+    answer:
+      "All suppliers are approved before first use and held on an approved supplier register with current declarations and certificates. Dairy is single-source from a local farm partner; cocoa is imported in identified lots via one specialist importer.",
+    source: "Supplier Approval QMS-05 · §1",
+  },
+  {
+    keywords: ["cleaning", "hygiene", "sanitation", "cip"],
+    answer:
+      "Documented cleaning schedules cover all production areas and equipment, with allergen-changeover cleans verified and signed off before line restart. Cleaning records are retained and audited.",
+    source: "Cleaning Schedule QMS-11 · §3",
+  },
+  {
+    keywords: ["training", "competen", "hygiene training", "induction"],
+    answer:
+      "All production staff hold Level 2 Food Hygiene as a minimum, with allergen awareness training for all customer-facing and production roles. A training matrix tracks currency and renewal dates.",
+    source: "Training Matrix 2026",
+  },
+  {
+    keywords: ["cold chain", "temperature", "frozen", "transport", "distribution"],
+    answer:
+      "Product is held at −18°C or below throughout storage and distribution in our own temperature-monitored vehicles and coldstores, with continuous logging and excursion alerts.",
+    source: "Cold Chain Procedure QMS-09 · §2",
+  },
+  {
+    keywords: ["complaint", "customer feedback", "corrective"],
+    answer:
+      "A documented complaints procedure records, investigates and trends all complaints, with corrective actions tracked to closure and reviewed at monthly quality meetings.",
+    source: "Complaints Procedure QMS-13 · §1",
+  },
+  {
+    keywords: ["pest control", "pest", "rodent", "infestation"],
+    answer:
+      "Pest control is contracted to a national provider with eight scheduled visits per year plus call-outs. Reports, bait plans and trend analysis are held on site and reviewed quarterly.",
+    source: "Pest Control Contract EXT-03",
   },
 ];
 

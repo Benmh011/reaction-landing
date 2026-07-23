@@ -3,7 +3,6 @@
 import { useState } from "react";
 import {
   QUESTIONNAIRES,
-  DRAFT_ANSWERS,
   DOCUMENTS,
   TRAINING,
   TRACE,
@@ -11,6 +10,7 @@ import {
   COLD_CHAIN,
   type Status,
 } from "./data";
+import QuestionnaireDesk from "./QuestionnaireDesk";
 
 // ————————————————————————————————————————————————————————————————
 // Provenance — demonstration build.
@@ -149,15 +149,20 @@ function Overview() {
 }
 
 function Questionnaires() {
-  const open = QUESTIONNAIRES.find((q) => q.open)!;
   return (
     <>
       <SectionTitle
         kicker="Trade due diligence"
         title="Spec questionnaires"
-        sub="New stockists send these before they order. Provenance drafts every answer from your own controlled documents, cites the source, and holds anything it can't stand behind."
+        sub="New stockists send these before they order — their workbook, their layout, their phrasing. The desk drafts every answer it can stand behind from your controlled documents, cites the source, and holds the rest for a person."
       />
-      <div style={{ overflowX: "auto", marginBottom: 26 }}>
+
+      <QuestionnaireDesk />
+
+      <p style={{ ...mono, fontSize: 11, letterSpacing: "0.14em", color: MUTED, margin: "30px 0 12px" }}>
+        RECENT QUESTIONNAIRES
+      </p>
+      <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 560 }}>
           <thead>
             <tr>
@@ -170,7 +175,7 @@ function Questionnaires() {
           </thead>
           <tbody>
             {QUESTIONNAIRES.map((q) => (
-              <tr key={q.id} style={q.open ? { background: "color-mix(in srgb, var(--bg-surface) 55%, transparent)" } : undefined}>
+              <tr key={q.id}>
                 <td style={{ ...td, ...mono, fontSize: 12.5 }}>{q.id}</td>
                 <td style={td}>{q.from}</td>
                 <td style={{ ...td, ...mono, fontSize: 12.5 }}>{q.received}</td>
@@ -183,57 +188,6 @@ function Questionnaires() {
           </tbody>
         </table>
       </div>
-
-      <p style={{ ...mono, fontSize: 11, letterSpacing: "0.14em", color: MUTED, marginBottom: 12 }}>
-        {open.id} · {open.from.toUpperCase()} · DRAFTS AWAITING SIGN-OFF
-      </p>
-      <div style={{ display: "grid", gap: 12 }}>
-        {DRAFT_ANSWERS.map((d, i) => (
-          <Card key={i}>
-            <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>{d.q}</p>
-            <p style={{ fontSize: 14, lineHeight: 1.55, marginBottom: 12 }}>{d.a}</p>
-            {d.note && (
-              <p style={{ fontSize: 13, color: VERM, marginBottom: 12 }}>Held: {d.note}</p>
-            )}
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-              <span
-                style={{
-                  ...mono,
-                  fontSize: 11,
-                  padding: "4px 9px",
-                  border: "1px solid var(--rule-strong)",
-                  borderRadius: 99,
-                  color: MUTED,
-                }}
-              >
-                {d.source}
-              </span>
-              <span
-                style={{
-                  ...mono,
-                  fontSize: 11,
-                  padding: "4px 9px",
-                  borderRadius: 99,
-                  color: d.confidence === "High" ? GREEN : BRASS,
-                  border: `1px solid ${d.confidence === "High" ? GREEN : BRASS}`,
-                }}
-              >
-                {d.confidence === "High" ? "Confident" : "Needs a person"}
-              </span>
-              <span style={{ flex: 1 }} />
-              <button className="btn btn-ghost" style={{ fontSize: 13, padding: "7px 14px" }}>
-                Edit
-              </button>
-              <button className="btn btn-primary" style={{ fontSize: 13, padding: "7px 14px" }}>
-                Approve answer
-              </button>
-            </div>
-          </Card>
-        ))}
-      </div>
-      <p style={{ fontSize: 13, color: MUTED, marginTop: 16 }}>
-        Nothing sends itself — every answer is approved by a person before it leaves the building.
-      </p>
     </>
   );
 }
