@@ -5,8 +5,10 @@ import { NextResponse } from "next/server";
 // gap until that's configured. Rotate by changing either.
 const PASSWORD = process.env.PROVENANCE_DEMO_PASSWORD ?? "estuary-preview";
 
-export const COOKIE_NAME = "provenance_demo";
-export const COOKIE_VALUE = "granted";
+// Route files may only export HTTP handlers, so these stay local.
+// app/demos/provenance/page.tsx keeps its own matching copies.
+const COOKIE_NAME = "provenance_demo";
+const COOKIE_VALUE = "granted";
 
 export async function POST(req: Request) {
   let supplied = "";
