@@ -405,12 +405,12 @@ function ColdChain() {
  */
 
 const SEA_BANDS = [
-  { base: 210, amp: 12, color: "#dfeee3" },
-  { base: 258, amp: 16, color: "#bcdccb", drift: "pv-drift-a" },
-  { base: 308, amp: 14, color: "#8fc3ae" },
-  { base: 360, amp: 18, color: "#4f9d8b", drift: "pv-drift-b" },
-  { base: 414, amp: 12, color: "#1f6b68" },
-  { base: 462, amp: 8, color: "#0d3f47" },
+  { base: 210, amp: 12, color: "#dfeee3", tide: "pv-w1" },
+  { base: 258, amp: 16, color: "#bcdccb", tide: "pv-w2" },
+  { base: 308, amp: 14, color: "#8fc3ae", tide: "pv-w3" },
+  { base: 360, amp: 18, color: "#4f9d8b", tide: "pv-w4" },
+  { base: 414, amp: 12, color: "#1f6b68", tide: "pv-w5" },
+  { base: 462, amp: 8, color: "#0d3f47", tide: "pv-w6" },
 ];
 
 const wavePath = (base: number, amp: number) => {
@@ -427,20 +427,23 @@ const wavePath = (base: number, amp: number) => {
 
 function EstuarySea() {
   return (
-    <svg
-      className="pv-sea"
-      viewBox="0 0 1440 520"
-      preserveAspectRatio="xMidYMax slice"
-      aria-hidden
-    >
-      {/* the sun, sitting on the waterline */}
-      <circle cx="1020" cy="168" r="64" fill="#e9be7a" />
-      <circle cx="1020" cy="168" r="82" fill="none" stroke="#e9be7a" strokeOpacity="0.35" strokeWidth="1.5" />
-      <circle cx="1020" cy="168" r="102" fill="none" stroke="#e9be7a" strokeOpacity="0.15" strokeWidth="1.5" />
-      {SEA_BANDS.map((b) => (
-        <path key={b.base} className={b.drift} d={wavePath(b.base, b.amp)} fill={b.color} />
-      ))}
-    </svg>
+    <>
+      {/* the sun: its own element, positioned on the waterline in CSS px so
+          no viewport ratio can crop it — the SVG slice scaling did exactly
+          that on wide screens */}
+      <div className="pv-sun" aria-hidden>
+        <svg viewBox="0 0 220 220" width="100%" height="100%">
+          <circle className="pv-halo-2" cx="110" cy="110" r="104" fill="none" stroke="#e9be7a" strokeOpacity="0.16" strokeWidth="1.5" />
+          <circle className="pv-halo-1" cx="110" cy="110" r="82" fill="none" stroke="#e9be7a" strokeOpacity="0.34" strokeWidth="1.5" />
+          <circle cx="110" cy="110" r="62" fill="#e9be7a" />
+        </svg>
+      </div>
+      <svg className="pv-sea" viewBox="0 0 1440 520" preserveAspectRatio="none" aria-hidden>
+        {SEA_BANDS.map((b) => (
+          <path key={b.base} className={b.tide} d={wavePath(b.base, b.amp)} fill={b.color} />
+        ))}
+      </svg>
+    </>
   );
 }
 
@@ -449,13 +452,13 @@ function StartPage({ onEnter }: { onEnter: (s: SectionId) => void }) {
     <main className="pv-welcome">
       <div className="pv-welcome-inner">
         <p style={{ ...mono, fontSize: 11, letterSpacing: "0.26em", color: TEAL, marginBottom: 14 }}>
-          REACTION
+          POWERED BY REACTION
         </p>
         <h1 className="pv-wordmark" style={serifItal}>
           Provenance
         </h1>
         <p className="pv-welcome-line">
-          The ledger for everything Estuary Creamery signs its name to.
+          The practice management system for everything Estuary Creamery signs its name to.
         </p>
         <button className="btn btn-primary pv-signin" onClick={() => onEnter("overview")}>
           Sign in
@@ -658,13 +661,40 @@ function ThemeStyles() {
           letter-spacing: 0.22em;
           color: #cfe4d6;
         }
-        @media (prefers-reduced-motion: no-preference) {
-          .pv-drift-a { animation: pvdrift 16s ease-in-out infinite alternate; }
-          .pv-drift-b { animation: pvdrift 22s ease-in-out infinite alternate-reverse; }
+        .pv-root { --pv-sea-h: clamp(260px, 46vh, 480px); --pv-sun-w: clamp(130px, 13vw, 210px); }
+        .pv-sea { height: var(--pv-sea-h); }
+        .pv-sun {
+          position: absolute;
+          right: 11%;
+          bottom: calc(var(--pv-sea-h) - var(--pv-sun-w) * 0.42);
+          width: var(--pv-sun-w);
+          height: var(--pv-sun-w);
+          z-index: 0;
         }
-        @keyframes pvdrift {
-          from { transform: translateX(-26px); }
-          to { transform: translateX(26px); }
+        @media (prefers-reduced-motion: no-preference) {
+          /* each band on its own tide: a few pixels of sideways drift and a
+             breath of rise-and-fall, out of phase so the water reads alive
+             without ever changing shape */
+          .pv-w1 { animation: pvtide 26s ease-in-out infinite alternate; }
+          .pv-w2 { animation: pvtide 19s ease-in-out infinite alternate-reverse; }
+          .pv-w3 { animation: pvtide 31s ease-in-out infinite alternate; }
+          .pv-w4 { animation: pvtide 17s ease-in-out infinite alternate-reverse; }
+          .pv-w5 { animation: pvtide 24s ease-in-out infinite alternate; }
+          .pv-w6 { animation: pvtideY 28s ease-in-out infinite alternate; }
+          .pv-halo-1 { animation: pvbreathe 9s ease-in-out infinite alternate; }
+          .pv-halo-2 { animation: pvbreathe 13s ease-in-out infinite alternate-reverse; }
+        }
+        @keyframes pvtide {
+          from { transform: translate(-18px, -2px); }
+          to { transform: translate(18px, 2px); }
+        }
+        @keyframes pvtideY {
+          from { transform: translateY(-2px); }
+          to { transform: translateY(2px); }
+        }
+        @keyframes pvbreathe {
+          from { stroke-opacity: 0.12; }
+          to { stroke-opacity: 0.42; }
         }
 
         .prov-shell {
