@@ -61,7 +61,7 @@ export default async function HomePage() {
       <HeadlineMorph />
         </div>
 
-        <div className="container" style={{ position: "relative", zIndex: 2, padding: "180px 0 96px" }}>
+        <div className="container hero-pad" style={{ position: "relative", zIndex: 2, paddingTop: 180, paddingBottom: 96 }}>
           <div style={{ maxWidth: 780 }}>
             <h1
               className="ink-enter hero-h1"

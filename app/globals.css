@@ -382,7 +382,10 @@ section { position: relative; z-index: 2; }
 
 /* Laws: numeral column folds above the prose on small screens */
 @media (max-width: 860px) {
-  .law-grid { grid-template-columns: 1fr !important; gap: 22px !important; }
+  /* .law-grid was renamed .ethos-grid; both kept so nothing regresses */
+  .law-grid,
+  .ethos-grid { grid-template-columns: 1fr !important; gap: 22px !important; }
+  .ethos-grid { padding: 34px 0 !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -530,4 +533,26 @@ section { position: relative; z-index: 2; }
 }
 @media (prefers-reduced-motion: reduce) {
   .hero-h1 { transition: none; }
+}
+
+
+/* ─────────────── Phone-width fixes (measured at 390px) ─────────────── */
+
+/* The signed-in nav carries three buttons; at phone widths they overflowed
+   the viewport by 116px and dragged the whole page sideways. */
+@media (max-width: 640px) {
+  .nav-actions { gap: 8px !important; }
+  .nav-actions .btn { padding: 8px 13px; font-size: 0.78rem; }
+  .nav-brand { font-size: 1.15rem; }
+}
+@media (max-width: 430px) {
+  /* "Our products" lives in the footer too; the primary action and
+     Sign out keep their places */
+  .nav-actions .btn-ghost:first-child { display: none; }
+}
+
+/* Hero: 180px of top padding is desktop rhythm; phones get less air,
+   and horizontal padding stays with the container class. */
+@media (max-width: 700px) {
+  .hero-pad { padding-top: 112px !important; padding-bottom: 64px !important; }
 }
