@@ -33,10 +33,17 @@ export default async function DemoPage() {
   // The launchable catalogue — managed at /admin/demos. Fail-soft: if the
   // table is missing or the query errors, the page still renders the form.
   let demos: { id: string; slug: string; name: string; description: string; launchUrl: string }[] = [];
+  const isAdmin = session?.user?.role === "ADMIN";
   try {
     if (session?.user)
     demos = await prisma.demo.findMany({
-      where: { active: true },
+      // Admins see the whole catalogue; everyone else sees only the demo
+      // their account was approved for (demoVersion, set on approval,
+      // must equal the demo's slug).
+      where: {
+        active: true,
+        ...(isAdmin ? {} : { slug: session.user.demoVersion ?? "__none__" }),
+      },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
       select: { id: true, slug: true, name: true, description: true, launchUrl: true },
     });
@@ -81,8 +88,8 @@ export default async function DemoPage() {
               </div>
             ) : demos.length === 0 ? (
               <p style={{ fontSize: "0.95rem", color: "var(--text-soft)", margin: 0, lineHeight: 1.6 }}>
-                Live demos are being staged at the moment — register your interest below and we&rsquo;ll
-                send you a link the moment one is ready.
+                No live demo is assigned to your account yet — register your interest
+                below and we&rsquo;ll switch one on for you.
               </p>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
