@@ -3,10 +3,13 @@
 import { useState, useEffect, useRef } from "react";
 
 const SECTIONS = [
-  { id: "top", label: "Overview" },
-  { id: "ethos", label: "The Augmentation Ethos" },
-  { id: "build", label: "What we build" },
-  { id: "demo", label: "Book a demo" },
+  // hrefs are absolute so the menu works from every page, and it now
+  // carries the page links too — on small screens it IS the navigation.
+  { id: "top", label: "Overview", href: "/#top" },
+  { id: "ethos", label: "The Augmentation Ethos", href: "/#ethos" },
+  { id: "build", label: "What we build", href: "/#build" },
+  { id: "products", label: "Our products", href: "/products" },
+  { id: "demo", label: "Book a demo", href: "/demo" },
 ];
 
 export default function SectionDropdown() {
@@ -152,7 +155,7 @@ export default function SectionDropdown() {
           {SECTIONS.map((section) => (
             <a
               key={section.id}
-              href={`#${section.id}`}
+              href={section.href ?? `#${section.id}`}
               role="menuitem"
               onClick={handleNavigate(section.id)}
               style={{

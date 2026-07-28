@@ -556,3 +556,10 @@ section { position: relative; z-index: 2; }
 @media (max-width: 700px) {
   .hero-pad { padding-top: 112px !important; padding-bottom: 64px !important; }
 }
+
+/* Demo launch cards: description and button stack on phones instead of
+   squeezing side by side. */
+@media (max-width: 560px) {
+  .demo-launch-card { grid-template-columns: 1fr !important; gap: 14px !important; }
+  .demo-launch-card .btn { justify-self: start; }
+}

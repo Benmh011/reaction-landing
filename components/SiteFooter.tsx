@@ -18,6 +18,7 @@ export default function SiteFooter() {
           </span>
         </div>
         <div className="foot-links">
+          <a href="/products">Products</a>
           <a href="mailto:info@reaction.org.uk">Contact</a>
           <a href="/">Home</a>
         </div>

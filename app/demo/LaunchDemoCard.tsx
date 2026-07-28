@@ -47,6 +47,7 @@ export default function LaunchDemoCard({ demo }: { demo: DemoEntry }) {
 
   return (
     <div
+      className="demo-launch-card"
       style={{
         display: "grid",
         gridTemplateColumns: "1fr auto",

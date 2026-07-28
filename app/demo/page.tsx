@@ -4,6 +4,7 @@ import SiteFooter from "@/components/SiteFooter";
 import DemoRequestForm from "./DemoRequestForm";
 import LaunchDemoCard from "./LaunchDemoCard";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -28,10 +29,12 @@ export const metadata: Metadata = {
 };
 
 export default async function DemoPage() {
+  const session = await auth();
   // The launchable catalogue — managed at /admin/demos. Fail-soft: if the
   // table is missing or the query errors, the page still renders the form.
   let demos: { id: string; slug: string; name: string; description: string; launchUrl: string }[] = [];
   try {
+    if (session?.user)
     demos = await prisma.demo.findMany({
       where: { active: true },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
@@ -65,7 +68,18 @@ export default async function DemoPage() {
             >
               01 · Launch a live demo
             </div>
-            {demos.length === 0 ? (
+            {!session?.user ? (
+              <div>
+                <p style={{ fontSize: "0.95rem", color: "var(--text-soft)", margin: "0 0 16px", lineHeight: 1.6 }}>
+                  The live demos are available to approved accounts. Sign in to see the
+                  catalogue and launch them — or register your interest below and
+                  we&rsquo;ll set you up with access.
+                </p>
+                <a className="btn btn-primary" href="/auth/signin?callbackUrl=%2Fdemo">
+                  Sign in to launch demos <span className="arrow" aria-hidden="true">→</span>
+                </a>
+              </div>
+            ) : demos.length === 0 ? (
               <p style={{ fontSize: "0.95rem", color: "var(--text-soft)", margin: 0, lineHeight: 1.6 }}>
                 Live demos are being staged at the moment — register your interest below and we&rsquo;ll
                 send you a link the moment one is ready.
@@ -77,10 +91,12 @@ export default async function DemoPage() {
                 ))}
               </div>
             )}
-            <p style={{ fontSize: "0.82rem", color: "var(--text-muted)", margin: "18px 0 0", lineHeight: 1.5 }}>
-              Demos are protected by their own sign-in. If you haven&rsquo;t been issued credentials yet,
-              register below and we&rsquo;ll arrange access.
-            </p>
+            {session?.user && (
+              <p style={{ fontSize: "0.82rem", color: "var(--text-muted)", margin: "18px 0 0", lineHeight: 1.5 }}>
+                Some demos carry their own additional sign-in. If a launch asks for
+                credentials you don&rsquo;t have, register below and we&rsquo;ll arrange access.
+              </p>
+            )}
           </div>
 
           {/* ── Register interest ── */}
