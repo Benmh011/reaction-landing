@@ -1,7 +1,7 @@
 // Set to false to render a text wordmark instead of the hosted PNG.
 // Useful before the logo asset is uploaded, and as a fallback while
 // Outlook still blocks remote images for a new sender.
-const USE_IMAGE_WORDMARK = true
+const USE_IMAGE_WORDMARK = false
 
 const WORDMARK_SRC = 'https://reaction.org.uk/signature/reaction-wordmark.png'
 const WORDMARK_W = 128
