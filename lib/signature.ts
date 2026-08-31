@@ -25,13 +25,13 @@ const BLURB =
   'in service of your team.'
 const STRAPLINE = 'South Devon'
 
-// Links are wrapped in a span as well as the anchor. Outlook and Gmail
-// routinely strip styles from <a> and reapply their own blue underline;
-// they leave a nested <span> alone.
+// text-decoration is marked !important on both the anchor and a nested span.
+// Outlook's editor strips styles from <a> and its stylesheet reapplies an
+// underline; an inline !important on the span survives and wins.
 function link(href: string, label: string, css: string): string {
   return [
-    `<a href="${href}" style="${css}text-decoration:none;border:0;">`,
-    `<span style="${css}text-decoration:none;">${label}</span>`,
+    `<a href="${href}" style="${css}text-decoration:none !important;border:0;">`,
+    `<span style="${css}text-decoration:none !important;">${label}</span>`,
     `</a>`,
   ].join('')
 }
@@ -39,19 +39,19 @@ function link(href: string, label: string, css: string): string {
 function wordmarkBlock(): string {
   if (USE_IMAGE_WORDMARK) {
     return [
-      `<a href="${SITE}" style="text-decoration:none;border:0;">`,
       `<img src="${WORDMARK_SRC}" alt="Reaction" width="${WORDMARK_W}" height="${WORDMARK_H}"`,
       ` style="display:block;width:${WORDMARK_W}px;height:${WORDMARK_H}px;border:0;outline:none;`,
       `text-decoration:none;-ms-interpolation-mode:bicubic;">`,
-      `</a>`,
     ].join('')
   }
 
-  const css =
-    `font-family:${SERIF};font-size:22px;line-height:27px;color:${BRAND};` +
-    `font-style:italic;font-weight:700;letter-spacing:0.01em;`
-
-  return link(SITE, 'Reaction', css)
+  // Deliberately not a link: an unlinked wordmark cannot be underlined
+  // by a mail client's anchor styling.
+  return [
+    `<span style="font-family:${SERIF};font-size:22px;line-height:27px;color:${BRAND};`,
+    `font-style:italic;font-weight:700;letter-spacing:0.01em;`,
+    `text-decoration:none !important;">Reaction</span>`,
+  ].join('')
 }
 
 export function buildSignatureHtml(): string {
