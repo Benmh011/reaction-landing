@@ -1,6 +1,4 @@
 // Set to false to render a text wordmark instead of the hosted PNG.
-// Useful before the logo asset is uploaded, and as a fallback while
-// Outlook still blocks remote images for a new sender.
 const USE_IMAGE_WORDMARK = false
 
 const WORDMARK_SRC = 'https://reaction.org.uk/signature/reaction-wordmark.png'
@@ -27,6 +25,17 @@ const BLURB =
   'in service of your team.'
 const STRAPLINE = 'South Devon'
 
+// Links are wrapped in a span as well as the anchor. Outlook and Gmail
+// routinely strip styles from <a> and reapply their own blue underline;
+// they leave a nested <span> alone.
+function link(href: string, label: string, css: string): string {
+  return [
+    `<a href="${href}" style="${css}text-decoration:none;border:0;">`,
+    `<span style="${css}text-decoration:none;">${label}</span>`,
+    `</a>`,
+  ].join('')
+}
+
 function wordmarkBlock(): string {
   if (USE_IMAGE_WORDMARK) {
     return [
@@ -38,19 +47,21 @@ function wordmarkBlock(): string {
     ].join('')
   }
 
-  return [
-    `<a href="${SITE}" style="font-family:${SERIF};font-size:22px;line-height:27px;`,
-    `color:${BRAND};text-decoration:none;font-style:italic;font-weight:700;`,
-    `letter-spacing:0.01em;">Reaction</a>`,
-  ].join('')
+  const css =
+    `font-family:${SERIF};font-size:22px;line-height:27px;color:${BRAND};` +
+    `font-style:italic;font-weight:700;letter-spacing:0.01em;`
+
+  return link(SITE, 'Reaction', css)
 }
 
 export function buildSignatureHtml(): string {
+  const contactCss = `font-family:${SANS};font-size:13px;line-height:20px;`
+
   return [
     `<table role="presentation" cellpadding="0" cellspacing="0" border="0"`,
     ` style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;max-width:420px;">`,
 
-    `<tr><td style="padding:0;">${wordmarkBlock()}</td></tr>`,
+    `<tr><td style="padding:0;line-height:27px;">${wordmarkBlock()}</td></tr>`,
 
     `<tr><td style="padding:12px 0 0 0;font-size:0;line-height:0;">`,
     `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">`,
@@ -58,10 +69,10 @@ export function buildSignatureHtml(): string {
     ` style="width:40px;height:2px;background-color:${BRAND};font-size:0;line-height:0;">&nbsp;</td></tr>`,
     `</table></td></tr>`,
 
-    `<tr><td style="padding:14px 0 0 0;font-family:${SANS};font-size:13px;line-height:20px;`,
-    `color:${INK};mso-line-height-rule:exactly;">`,
-    `<a href="mailto:${EMAIL}" style="color:${INK};text-decoration:none;">${EMAIL}</a><br>`,
-    `<a href="${SITE}" style="color:${BRAND};text-decoration:none;">reaction.org.uk</a>`,
+    `<tr><td style="padding:14px 0 0 0;${contactCss}color:${INK};mso-line-height-rule:exactly;">`,
+    link(`mailto:${EMAIL}`, EMAIL, `${contactCss}color:${INK};`),
+    `<br>`,
+    link(SITE, 'reaction.org.uk', `${contactCss}color:${BRAND};`),
     `</td></tr>`,
 
     `<tr><td style="padding:14px 0 0 0;font-size:0;line-height:0;">`,
@@ -71,10 +82,14 @@ export function buildSignatureHtml(): string {
     `</table></td></tr>`,
 
     `<tr><td style="padding:12px 0 0 0;font-family:${SANS};font-size:12px;line-height:18px;`,
-    `color:${MUTED};mso-line-height-rule:exactly;">${BLURB}</td></tr>`,
+    `color:${MUTED};mso-line-height-rule:exactly;">`,
+    `<span style="font-family:${SANS};font-size:12px;line-height:18px;color:${MUTED};">${BLURB}</span>`,
+    `</td></tr>`,
 
-    `<tr><td style="padding:8px 0 0 0;font-family:${SANS};font-size:10px;line-height:15px;`,
-    `color:${FAINT};mso-line-height-rule:exactly;">${STRAPLINE}</td></tr>`,
+    `<tr><td style="padding:8px 0 0 0;font-family:${SANS};font-size:11px;line-height:16px;`,
+    `color:${FAINT};mso-line-height-rule:exactly;">`,
+    `<span style="font-family:${SANS};font-size:11px;line-height:16px;color:${FAINT};">${STRAPLINE}</span>`,
+    `</td></tr>`,
 
     `</table>`,
   ].join('')
