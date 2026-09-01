@@ -1,48 +1,36 @@
 "use client";
 
 import { useState } from "react";
-import {
-  certificates,
-  exceptions,
-  formatDate,
-  jobs,
-  money,
-  portfolioSummary,
-  properties,
-  propertyLabel,
-  relativeDays,
-  tenancies,
-  tenancyForProperty,
-  urgencyOf,
-  type Urgency,
-} from "./data";
+import Changeovers from "./Changeovers";
+import Compliance from "./Compliance";
+import Contractors from "./Contractors";
+import Linen from "./Linen";
+import Portfolio from "./Portfolio";
+import Rota from "./Rota";
+import Statements from "./Statements";
+import Today, { type SectionId } from "./Today";
 
 // ─────────────────────────────────────────────────────────────
-// Tenure — property management demo.
+// Tenure — property management demo for holiday lets and second homes.
 //
-// Bare-bones shell: five sections over static sample data for a
-// fictional South Devon managing agent. No database, no API calls.
-// Everything is scoped under .tn so nothing leaks into the site's own
-// stylesheet, and nothing on the site can reach in.
+// One tab per spreadsheet the office currently keeps. All static data,
+// no API calls. Everything is scoped under .tn so nothing leaks into the
+// site's stylesheet and nothing on the site can reach in.
 // ─────────────────────────────────────────────────────────────
-
-type SectionId =
-  | "overview"
-  | "properties"
-  | "tenancies"
-  | "maintenance"
-  | "compliance";
 
 const SECTIONS: { id: SectionId; label: string; note: string }[] = [
-  { id: "overview", label: "Today", note: "What needs a person" },
-  { id: "properties", label: "Properties", note: "The managed portfolio" },
-  { id: "tenancies", label: "Tenancies", note: "Terms, rent, deposits" },
-  { id: "maintenance", label: "Maintenance", note: "Open jobs" },
+  { id: "today", label: "Today", note: "What needs a person" },
+  { id: "changeovers", label: "Changeovers", note: "Arrivals and departures" },
+  { id: "rota", label: "Rota", note: "Who is cleaning what" },
+  { id: "linen", label: "Linen & stock", note: "Laundry and ordering" },
   { id: "compliance", label: "Compliance", note: "Certificates and dates" },
+  { id: "statements", label: "Owner statements", note: "The monthly run" },
+  { id: "contractors", label: "Contractors", note: "Trades and paperwork" },
+  { id: "portfolio", label: "Portfolio", note: "Properties and owners" },
 ];
 
 export default function TenureApp() {
-  const [section, setSection] = useState<SectionId>("overview");
+  const [section, setSection] = useState<SectionId>("today");
 
   return (
     <div className="tn">
@@ -51,7 +39,9 @@ export default function TenureApp() {
       <header className="tn-top">
         <div className="tn-brand">
           <span className="tn-mark">Tenure</span>
-          <span className="tn-client">Harbourside Property · Dartmouth</span>
+          <span className="tn-client">
+            Harbourside Property · Salcombe &amp; Downderry
+          </span>
         </div>
         <div className="tn-who">
           <span className="tn-avatar" aria-hidden>
@@ -78,311 +68,19 @@ export default function TenureApp() {
         </nav>
 
         <main className="tn-main">
-          {section === "overview" && <Overview onJump={setSection} />}
-          {section === "properties" && <Properties />}
-          {section === "tenancies" && <Tenancies />}
-          {section === "maintenance" && <Maintenance />}
+          {section === "today" && <Today onJump={setSection} />}
+          {section === "changeovers" && <Changeovers />}
+          {section === "rota" && <Rota />}
+          {section === "linen" && <Linen />}
           {section === "compliance" && <Compliance />}
+          {section === "statements" && <Statements />}
+          {section === "contractors" && <Contractors />}
+          {section === "portfolio" && <Portfolio />}
         </main>
       </div>
     </div>
   );
 }
-
-// ─────────────── OVERVIEW ───────────────
-
-function Overview({ onJump }: { onJump: (s: SectionId) => void }) {
-  const overdue = exceptions.filter((e) => e.urgency === "overdue").length;
-
-  return (
-    <>
-      <PageHead
-        title="Tuesday, 1 September"
-        lede={
-          overdue === 1
-            ? "One thing is past its date. The rest is this week's work, in the order it falls due."
-            : `${overdue} things are past their date. The rest is this week's work, in the order it falls due.`
-        }
-      />
-
-      <div className="tn-figures">
-        <Figure label="Managed" value={String(portfolioSummary.managed)} />
-        <Figure label="Let" value={String(portfolioSummary.occupied)} />
-        <Figure label="Vacant" value={String(portfolioSummary.vacant)} />
-        <Figure
-          label="Rent monthly"
-          value={money(portfolioSummary.monthlyRent)}
-        />
-        <Figure
-          label="Arrears"
-          value={money(portfolioSummary.arrears)}
-          tone={portfolioSummary.arrears > 0 ? "alert" : undefined}
-        />
-        <Figure label="Open jobs" value={String(portfolioSummary.openJobs)} />
-      </div>
-
-      <ul className="tn-list">
-        {exceptions.map((e) => (
-          <li key={e.id} className={`tn-exc tn-u-${e.urgency}`}>
-            <div className="tn-exc-rail">
-              <span className="tn-exc-date">{formatDate(e.date)}</span>
-              <span className="tn-exc-rel">{relativeDays(e.date)}</span>
-            </div>
-            <div className="tn-exc-body">
-              <h3>{e.headline}</h3>
-              <p className="tn-exc-where">{propertyLabel(e.propertyId)}</p>
-              <p>{e.detail}</p>
-              <button
-                type="button"
-                className="tn-inline"
-                onClick={() => onJump(e.section)}
-              >
-                Open in {SECTIONS.find((s) => s.id === e.section)?.label}
-              </button>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </>
-  );
-}
-
-// ─────────────── PROPERTIES ───────────────
-
-function Properties() {
-  return (
-    <>
-      <PageHead
-        title="Properties"
-        lede="Nine addresses under management, grouped by the town they sit in."
-      />
-      <div className="tn-tablewrap">
-        <table className="tn-table">
-          <thead>
-            <tr>
-              <th scope="col">Address</th>
-              <th scope="col">Type</th>
-              <th scope="col">Let as</th>
-              <th scope="col">Landlord</th>
-              <th scope="col">Manager</th>
-              <th scope="col">Rent</th>
-            </tr>
-          </thead>
-          <tbody>
-            {properties.map((p) => {
-              const t = tenancyForProperty(p.id);
-              return (
-                <tr key={p.id}>
-                  <th scope="row">
-                    <span className="tn-strong">{p.address}</span>
-                    <span className="tn-sub">
-                      {p.town} · {p.postcode}
-                    </span>
-                  </th>
-                  <td>
-                    {p.type} · {p.beds} bed
-                  </td>
-                  <td>
-                    <span
-                      className={`tn-tag${
-                        p.tenure === "Vacant" ? " tn-tag-warn" : ""
-                      }`}
-                    >
-                      {p.tenure}
-                    </span>
-                  </td>
-                  <td>{p.landlord}</td>
-                  <td>{p.manager}</td>
-                  <td className="tn-num">{t ? money(t.rent) : "—"}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </>
-  );
-}
-
-// ─────────────── TENANCIES ───────────────
-
-function Tenancies() {
-  return (
-    <>
-      <PageHead
-        title="Tenancies"
-        lede="Seven live agreements. Sorted by the date each one next needs a decision."
-      />
-      <ul className="tn-cards">
-        {tenancies.map((t) => {
-          const u = urgencyOf(t.end, 45);
-          return (
-            <li key={t.id} className={`tn-card tn-u-${u}`}>
-              <div className="tn-card-head">
-                <div>
-                  <h3>{propertyLabel(t.propertyId)}</h3>
-                  <p className="tn-sub">{t.tenant}</p>
-                </div>
-                <span className={`tn-tag tn-status-${t.status.split(" ")[0].toLowerCase()}`}>
-                  {t.status}
-                </span>
-              </div>
-              <dl className="tn-facts">
-                <div>
-                  <dt>Term ends</dt>
-                  <dd>
-                    {formatDate(t.end)}{" "}
-                    <span className="tn-rel">{relativeDays(t.end)}</span>
-                  </dd>
-                </div>
-                <div>
-                  <dt>Rent</dt>
-                  <dd>
-                    {money(t.rent)} on the {ordinal(t.rentDay)}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Arrears</dt>
-                  <dd className={t.arrears > 0 ? "tn-alerttext" : undefined}>
-                    {t.arrears > 0 ? money(t.arrears) : "None"}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Deposit</dt>
-                  <dd>
-                    {t.depositScheme}, protected {formatDate(t.depositProtectedOn)}
-                  </dd>
-                </div>
-              </dl>
-            </li>
-          );
-        })}
-      </ul>
-    </>
-  );
-}
-
-// ─────────────── MAINTENANCE ───────────────
-
-function Maintenance() {
-  return (
-    <>
-      <PageHead
-        title="Maintenance"
-        lede="Six jobs open across the portfolio. Emergencies first, then by how long they have been waiting."
-      />
-      <ul className="tn-list">
-        {jobs.map((j) => (
-          <li
-            key={j.id}
-            className={`tn-job tn-p-${j.priority.toLowerCase()}`}
-          >
-            <div className="tn-job-rail">
-              <span className="tn-ref">{j.ref}</span>
-              <span className={`tn-tag tn-pri-${j.priority.toLowerCase()}`}>
-                {j.priority}
-              </span>
-            </div>
-            <div className="tn-job-body">
-              <h3>{j.summary}</h3>
-              <p className="tn-sub">{propertyLabel(j.propertyId)}</p>
-              <p className="tn-meta">
-                Raised {formatDate(j.raised)} by {j.reportedBy.toLowerCase()} ·{" "}
-                {j.contractor ?? "No contractor assigned"}
-                {j.scheduled
-                  ? ` · attending ${formatDate(j.scheduled)}`
-                  : " · not yet booked"}
-              </p>
-            </div>
-            <span className="tn-job-status">{j.status}</span>
-          </li>
-        ))}
-      </ul>
-    </>
-  );
-}
-
-// ─────────────── COMPLIANCE ───────────────
-
-function Compliance() {
-  const rows = [...certificates].sort(
-    (a, b) => a.expires.localeCompare(b.expires)
-  );
-
-  return (
-    <>
-      <PageHead
-        title="Compliance"
-        lede="Every dated obligation on the portfolio, earliest first. Two have already passed."
-      />
-      <ul className="tn-list">
-        {rows.map((c) => {
-          const u = urgencyOf(c.expires);
-          return (
-            <li key={c.id} className={`tn-cert tn-u-${u}`}>
-              <div className="tn-cert-rail">
-                <span className="tn-cert-date">{formatDate(c.expires)}</span>
-                <span className="tn-cert-rel">{relativeDays(c.expires)}</span>
-              </div>
-              <div className="tn-cert-body">
-                <h3>
-                  {c.kind} — {propertyLabel(c.propertyId)}
-                </h3>
-                <p className="tn-meta">
-                  Issued {formatDate(c.issued)} by {c.provider}
-                </p>
-                <p className="tn-basis">{c.basis}</p>
-              </div>
-              <span className={`tn-tag tn-u-tag-${u}`}>{stateWord(u)}</span>
-            </li>
-          );
-        })}
-      </ul>
-    </>
-  );
-}
-
-// ─────────────── SHARED BITS ───────────────
-
-function PageHead({ title, lede }: { title: string; lede: string }) {
-  return (
-    <div className="tn-head">
-      <h2>{title}</h2>
-      <p>{lede}</p>
-    </div>
-  );
-}
-
-function Figure({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone?: "alert";
-}) {
-  return (
-    <div className={`tn-fig${tone ? ` tn-fig-${tone}` : ""}`}>
-      <span className="tn-fig-value">{value}</span>
-      <span className="tn-fig-label">{label}</span>
-    </div>
-  );
-}
-
-function stateWord(u: Urgency) {
-  if (u === "overdue") return "Expired";
-  if (u === "soon") return "Due";
-  return "Valid";
-}
-
-function ordinal(n: number) {
-  const s = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return n + (s[(v - 20) % 10] || s[v] || s[0]);
-}
-
-// ─────────────── STYLES ───────────────
 
 const CSS = `
 .tn {
@@ -402,14 +100,12 @@ const CSS = `
   font-size: 15px;
   line-height: 1.55;
 }
-
 .tn *, .tn *::before, .tn *::after { box-sizing: border-box; }
 
 .tn-top {
   display: flex; align-items: center; justify-content: space-between;
   gap: 16px; flex-wrap: wrap;
-  padding: 18px 28px;
-  border-bottom: 1px solid var(--tn-line);
+  padding: 18px 28px; border-bottom: 1px solid var(--tn-line);
 }
 .tn-brand { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
 .tn-mark {
@@ -425,7 +121,7 @@ const CSS = `
   font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
 }
 
-.tn-body { display: grid; grid-template-columns: 216px minmax(0, 1fr); }
+.tn-body { display: grid; grid-template-columns: 224px minmax(0, 1fr); }
 
 .tn-side {
   border-right: 1px solid var(--tn-line);
@@ -436,8 +132,7 @@ const CSS = `
   display: flex; flex-direction: column; gap: 1px;
   text-align: left; width: 100%;
   padding: 9px 12px; border: 0; border-radius: 5px;
-  background: transparent; color: var(--tn-ink);
-  font: inherit; cursor: pointer;
+  background: transparent; color: var(--tn-ink); font: inherit; cursor: pointer;
 }
 .tn-navitem:hover { background: var(--tn-panel); }
 .tn-navitem.is-on { background: rgba(47, 93, 98, 0.09); }
@@ -446,57 +141,71 @@ const CSS = `
 .tn-navnote { font-size: 12px; color: var(--tn-mute); }
 .tn-navitem:focus-visible { outline: 2px solid var(--tn-accent); outline-offset: 1px; }
 
-.tn-main { padding: 30px 34px 72px; max-width: 1080px; }
+.tn-main { padding: 30px 34px 80px; max-width: 1180px; }
 
-.tn-head { margin-bottom: 26px; }
+.tn-head {
+  margin-bottom: 20px; display: flex; justify-content: space-between;
+  align-items: flex-end; gap: 20px; flex-wrap: wrap;
+}
 .tn-head h2 {
   font-family: "Newsreader", Georgia, serif;
   font-style: italic; font-weight: 600; font-size: 34px; line-height: 1.1;
   margin: 0 0 8px;
 }
 .tn-head p { margin: 0; color: var(--tn-mute); max-width: 62ch; }
+.tn-subhead {
+  font-family: "Newsreader", Georgia, serif; font-style: italic;
+  font-weight: 600; font-size: 22px; margin: 34px 0 12px;
+}
+
+.tn-prov {
+  margin: 0 0 24px; padding: 11px 14px;
+  border-left: 2px solid var(--tn-accent); background: var(--tn-panel);
+  font-size: 13.5px; color: var(--tn-mute); max-width: 74ch;
+}
 
 .tn-figures {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(122px, 1fr));
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
   gap: 1px; background: var(--tn-line);
   border: 1px solid var(--tn-line); border-radius: 6px; overflow: hidden;
-  margin-bottom: 30px;
+  margin-bottom: 26px;
 }
-.tn-fig {
-  background: var(--bg, #f7f5f0);
-  padding: 14px 16px; display: flex; flex-direction: column; gap: 2px;
-}
+.tn-fig { background: var(--bg, #f7f5f0); padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; }
 .tn-fig-value { font-size: 21px; font-weight: 600; letter-spacing: -0.015em; }
 .tn-fig-label { font-size: 12px; color: var(--tn-mute); }
 .tn-fig-alert .tn-fig-value { color: var(--tn-alert); }
+.tn-fig-warn .tn-fig-value { color: var(--tn-warn); }
 
-.tn-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; background: var(--tn-line); border: 1px solid var(--tn-line); border-radius: 6px; overflow: hidden; }
+.tn-list {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 1px;
+  background: var(--tn-line); border: 1px solid var(--tn-line);
+  border-radius: 6px; overflow: hidden;
+}
 .tn-list > li { background: var(--bg, #f7f5f0); }
 
-.tn-exc { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 18px; padding: 18px 20px; border-left: 3px solid transparent; }
-.tn-exc-rail { display: flex; flex-direction: column; gap: 2px; }
-.tn-exc-date { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12.5px; }
-.tn-exc-rel { font-size: 12px; color: var(--tn-mute); }
-.tn-exc-body h3 { margin: 0 0 3px; font-size: 16px; font-weight: 600; }
-.tn-exc-where { margin: 0 0 7px; font-size: 13px; color: var(--tn-mute); }
-.tn-exc-body p { margin: 0 0 10px; max-width: 68ch; }
+.tn-exc { padding: 16px 20px; border-left: 3px solid transparent; }
+.tn-exc-body h4 { margin: 0 0 4px; font-size: 16px; font-weight: 600; }
+.tn-exc-body p { margin: 0 0 9px; max-width: 74ch; }
 
 .tn-u-overdue { border-left-color: var(--tn-alert); }
-.tn-u-overdue .tn-exc-rel, .tn-u-overdue .tn-cert-rel { color: var(--tn-alert); }
 .tn-u-soon { border-left-color: var(--tn-warn); }
-.tn-u-soon .tn-exc-rel, .tn-u-soon .tn-cert-rel { color: var(--tn-warn); }
-.tn-u-clear { border-left-color: transparent; }
+.tn-u-overdue .tn-cert-rel { color: var(--tn-alert); }
+.tn-u-soon .tn-cert-rel { color: var(--tn-warn); }
+
+.tn-flag { padding: 12px 20px; display: flex; flex-direction: column; gap: 1px; border-left: 3px solid transparent; }
+.tn-flag > span:last-child { font-size: 13.5px; color: var(--tn-mute); }
 
 .tn-inline {
-  border: 0; background: transparent; padding: 0;
-  font: inherit; font-size: 13.5px; color: var(--tn-accent);
-  cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+  border: 0; background: transparent; padding: 0; font: inherit;
+  font-size: 13.5px; color: var(--tn-accent); cursor: pointer;
+  text-decoration: underline; text-underline-offset: 3px;
 }
 .tn-inline:focus-visible { outline: 2px solid var(--tn-accent); outline-offset: 2px; }
 
 .tn-tablewrap { border: 1px solid var(--tn-line); border-radius: 6px; overflow-x: auto; }
 .tn-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-.tn-table th, .tn-table td { text-align: left; padding: 12px 16px; vertical-align: top; }
+.tn-table th, .tn-table td { text-align: left; padding: 11px 14px; vertical-align: top; }
 .tn-table thead th {
   font-size: 12px; font-weight: 600; color: var(--tn-mute);
   border-bottom: 1px solid var(--tn-line); white-space: nowrap;
@@ -504,49 +213,93 @@ const CSS = `
 .tn-table tbody tr + tr th, .tn-table tbody tr + tr td { border-top: 1px solid var(--tn-line); }
 .tn-table tbody th { font-weight: 400; }
 .tn-strong { display: block; font-weight: 600; }
-.tn-sub { display: block; font-size: 13px; color: var(--tn-mute); }
+.tn-sub { display: block; font-size: 12.5px; color: var(--tn-mute); font-weight: 400; }
 .tn-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tn-meta { margin: 0; font-size: 13px; color: var(--tn-mute); }
+.tn-alerttext { color: var(--tn-alert); }
+.tn-empty { color: var(--tn-mute); font-size: 14px; padding: 16px 0; }
+.tn-totalrow th, .tn-totalrow td { font-weight: 600; background: var(--tn-panel); }
+.tn-rowalert th, .tn-rowalert td { background: rgba(168, 65, 42, 0.05); }
+
+.tn-clickrow { cursor: pointer; }
+.tn-clickrow:hover th, .tn-clickrow:hover td { background: var(--tn-panel); }
+.tn-clickrow.is-open th, .tn-clickrow.is-open td { background: rgba(47, 93, 98, 0.07); }
 
 .tn-tag {
   display: inline-block; padding: 2px 8px; border-radius: 3px;
   background: var(--tn-panel); border: 1px solid var(--tn-line);
   font-size: 12px; white-space: nowrap;
 }
+.tn-tag-alert, .tn-u-tag-overdue { color: var(--tn-alert); border-color: rgba(168, 65, 42, 0.35); }
 .tn-tag-warn, .tn-u-tag-soon { color: var(--tn-warn); border-color: rgba(141, 106, 28, 0.35); }
-.tn-u-tag-overdue { color: var(--tn-alert); border-color: rgba(168, 65, 42, 0.35); }
-.tn-u-tag-clear { color: var(--tn-clear); border-color: rgba(74, 107, 82, 0.3); }
-.tn-status-notice, .tn-status-ending { color: var(--tn-warn); border-color: rgba(141, 106, 28, 0.35); }
-.tn-pri-emergency { color: var(--tn-alert); border-color: rgba(168, 65, 42, 0.35); }
-.tn-pri-urgent { color: var(--tn-warn); border-color: rgba(141, 106, 28, 0.35); }
+.tn-tag-clear, .tn-u-tag-clear { color: var(--tn-clear); border-color: rgba(74, 107, 82, 0.3); }
+.tn-tag-quiet { color: var(--tn-mute); }
+.tn-status-draft { color: var(--tn-warn); border-color: rgba(141, 106, 28, 0.35); }
+.tn-status-approved, .tn-status-sent { color: var(--tn-clear); border-color: rgba(74, 107, 82, 0.3); }
+.tn-kind-turnaround { color: var(--tn-alert); border-color: rgba(168, 65, 42, 0.35); }
+.tn-kind-out { color: var(--tn-warn); border-color: rgba(141, 106, 28, 0.35); }
 
-.tn-cards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 14px; }
-.tn-card { border: 1px solid var(--tn-line); border-left-width: 3px; border-radius: 6px; padding: 16px 18px; }
-.tn-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
-.tn-card-head h3 { margin: 0; font-size: 15.5px; font-weight: 600; }
-.tn-facts { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; }
-.tn-facts dt { font-size: 12px; color: var(--tn-mute); }
-.tn-facts dd { margin: 0; font-size: 14px; }
-.tn-rel { font-size: 12.5px; color: var(--tn-mute); }
-.tn-alerttext { color: var(--tn-alert); font-weight: 600; }
+/* ── week grids ── */
+.tn-grid tbody td { text-align: center; font-size: 12.5px; }
+.tn-grid tbody th { min-width: 150px; }
+.tn-gridhead button {
+  border: 0; background: transparent; font: inherit; color: inherit;
+  cursor: pointer; padding: 0; display: flex; flex-direction: column;
+  align-items: center; gap: 1px; width: 100%;
+}
+.tn-gridhead.is-on { color: var(--tn-accent); }
+.tn-gridhead.is-on button { font-weight: 700; }
+.tn-cell { min-width: 84px; }
+.tn-c-turn { background: rgba(168, 65, 42, 0.09); color: var(--tn-alert); font-weight: 600; }
+.tn-c-out { background: rgba(141, 106, 28, 0.09); color: var(--tn-warn); }
+.tn-c-in { background: rgba(47, 93, 98, 0.09); color: var(--tn-accent); }
+.tn-c-stay { background: var(--tn-panel); }
+.tn-c-away { background: repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(35,38,42,0.05) 5px, rgba(35,38,42,0.05) 10px); }
+.tn-c-clash { background: rgba(168, 65, 42, 0.12); }
+.tn-cellhours { display: block; font-weight: 600; }
+.tn-total { font-weight: 600; }
+.tn-total-warn { color: var(--tn-warn); }
+.tn-total-under { color: var(--tn-mute); }
 
-.tn-job { display: grid; grid-template-columns: 126px minmax(0, 1fr) auto; gap: 18px; align-items: start; padding: 16px 20px; border-left: 3px solid transparent; }
-.tn-job-rail { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
-.tn-ref { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12.5px; color: var(--tn-mute); }
-.tn-job-body h3 { margin: 0 0 3px; font-size: 15.5px; font-weight: 600; }
-.tn-job-body .tn-sub { margin-bottom: 5px; }
-.tn-meta { margin: 0; font-size: 13px; color: var(--tn-mute); }
-.tn-job-status { font-size: 13px; color: var(--tn-mute); white-space: nowrap; }
-.tn-p-emergency { border-left-color: var(--tn-alert); }
-.tn-p-urgent { border-left-color: var(--tn-warn); }
+.tn-daybreak { margin-top: 30px; }
+.tn-daybreak h3 {
+  font-family: "Newsreader", Georgia, serif; font-style: italic;
+  font-weight: 600; font-size: 24px; margin: 0 0 14px;
+}
+.tn-daypick { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 22px; }
+.tn-daybtn {
+  border: 1px solid var(--tn-line); border-radius: 5px; background: transparent;
+  font: inherit; font-size: 13px; padding: 7px 12px; cursor: pointer;
+  color: var(--tn-ink); display: flex; flex-direction: column; align-items: center;
+}
+.tn-daybtn.is-on { border-color: var(--tn-accent); color: var(--tn-accent); background: rgba(47, 93, 98, 0.07); }
 
-.tn-cert { display: grid; grid-template-columns: 132px minmax(0, 1fr) auto; gap: 18px; align-items: start; padding: 16px 20px; border-left: 3px solid transparent; }
+.tn-move {
+  display: grid; grid-template-columns: 118px minmax(0, 1fr) 190px;
+  gap: 16px; padding: 15px 20px; border-left: 3px solid transparent;
+}
+.tn-move-body h4 { margin: 0 0 2px; font-size: 15.5px; font-weight: 600; }
+.tn-move-body .tn-sub { margin-bottom: 5px; }
+.tn-move-assign { display: flex; flex-direction: column; gap: 1px; font-size: 13.5px; }
+
+.tn-cert {
+  display: grid; grid-template-columns: 132px minmax(0, 1fr) auto;
+  gap: 18px; align-items: start; padding: 14px 20px;
+  border-left: 3px solid transparent;
+}
 .tn-cert-rail { display: flex; flex-direction: column; gap: 2px; }
 .tn-cert-date { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12.5px; }
 .tn-cert-rel { font-size: 12px; color: var(--tn-mute); }
-.tn-cert-body h3 { margin: 0 0 3px; font-size: 15.5px; font-weight: 600; }
-.tn-basis { margin: 5px 0 0; font-size: 13px; color: var(--tn-mute); max-width: 66ch; }
+.tn-cert-body h4 { margin: 0 0 3px; font-size: 15.5px; font-weight: 600; }
 
-@media (max-width: 900px) {
+.tn-statement { margin-top: 26px; }
+.tn-statement h3 {
+  font-family: "Newsreader", Georgia, serif; font-style: italic;
+  font-weight: 600; font-size: 23px; margin: 0 0 4px;
+}
+.tn-statement .tn-meta { margin-bottom: 14px; }
+
+@media (max-width: 1000px) {
   .tn-body { grid-template-columns: 1fr; }
   .tn-side {
     flex-direction: row; overflow-x: auto; min-height: 0;
@@ -557,10 +310,9 @@ const CSS = `
   .tn-navnote { display: none; }
   .tn-main { padding: 24px 18px 60px; }
   .tn-head h2 { font-size: 27px; }
-  .tn-exc, .tn-cert, .tn-job { grid-template-columns: 1fr; gap: 8px; }
-  .tn-exc-rail, .tn-cert-rail { flex-direction: row; gap: 10px; align-items: baseline; }
-  .tn-job-rail { flex-direction: row; align-items: center; gap: 10px; }
-  .tn-job-status { padding-top: 4px; }
+  .tn-move, .tn-cert { grid-template-columns: 1fr; gap: 8px; }
+  .tn-cert-rail { flex-direction: row; gap: 10px; align-items: baseline; }
+  .tn-move-assign { padding-top: 4px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
