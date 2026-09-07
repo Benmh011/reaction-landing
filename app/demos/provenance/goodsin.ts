@@ -189,7 +189,7 @@ export type GoodsLine = {
 
 export type GoodsInReport = {
   fileName: string;
-  fileKind: "csv" | "xlsx" | "xls" | "xlsm";
+  fileKind: "csv" | "xlsx" | "xls" | "xlsm" | "pdf";
   sheetName?: string;
   headerRow: number;
   rowsRead: number;
@@ -418,18 +418,125 @@ function unitFromQtyText(raw: string): Unit | null {
 
 // ————————————————————————— file routing —————————————————————————
 
-function sniffKind(name: string, buf: ArrayBuffer): "csv" | "xlsx" | "xls" | "xlsm" | null {
+function sniffKind(name: string, buf: ArrayBuffer): "csv" | "xlsx" | "xls" | "xlsm" | "pdf" | null {
   const lower = name.toLowerCase();
   const bytes = new Uint8Array(buf.slice(0, 8));
 
-  // OOXML is a zip; legacy xls is an OLE compound file.
+  // OOXML is a zip; legacy xls is an OLE compound file; a PDF opens "%PDF".
   const isZip = bytes[0] === 0x50 && bytes[1] === 0x4b;
   const isOle = bytes[0] === 0xd0 && bytes[1] === 0xcf;
+  const isPdf = bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46;
 
+  if (isPdf) return "pdf";
   if (isZip) return lower.endsWith(".xlsm") ? "xlsm" : "xlsx";
   if (isOle) return "xls";
   if (lower.endsWith(".csv") || lower.endsWith(".txt")) return "csv";
   return null;
+}
+
+// ————————————————————————— PDF —————————————————————————
+//
+// Most supplier delivery notes arrive as a PDF, not a spreadsheet, so
+// this is the format the desk has to read to be useful at goods-in.
+//
+// A PDF has no rows or columns — only glyphs at coordinates. The table
+// is rebuilt from those coordinates: text at the same baseline is one
+// row, and x positions that recur down the page are the columns. The
+// reconstructed grid then goes through exactly the same extraction and
+// rules as a spreadsheet, so a note read from a PDF and the same note
+// read from a workbook produce the same verdicts.
+//
+// The honest limit: this reads PDFs whose text is real text. A scanned
+// or photographed note is an image of a table, and nothing here can
+// read it — that needs OCR, which is a different piece of work.
+
+const ROW_TOL = 3; // points of baseline drift still counted as one row
+const COL_TOL = 6; // points of horizontal drift still counted as one column
+
+type Positioned = { x: number; y: number; s: string };
+
+function gridFromPositions(items: Positioned[]): (string | null)[][] {
+  if (items.length === 0) return [];
+
+  // Rows: bucket by baseline, top of page first. The anchor stays at the
+  // first item's y rather than drifting with an average, or long rows
+  // slowly walk out of their own bucket.
+  const sorted = [...items].sort((a, b) => b.y - a.y || a.x - b.x);
+  const rows: { y: number; items: Positioned[] }[] = [];
+  for (const it of sorted) {
+    let row = rows.find((r) => Math.abs(r.y - it.y) <= ROW_TOL);
+    if (row) row.items.push(it);
+    else rows.push({ y: it.y, items: [it] });
+  }
+  for (const r of rows) r.items.sort((a, b) => a.x - b.x);
+
+  // Columns: an x position that recurs down the page is a column edge. A
+  // one-off indent is not. Three occurrences is enough to tell them apart
+  // on a note with a handful of lines.
+  const counts = new Map<number, number>();
+  for (const r of rows) {
+    for (const it of r.items) {
+      const k = Math.round(it.x);
+      counts.set(k, (counts.get(k) ?? 0) + 1);
+    }
+  }
+  const candidates = [...counts.entries()]
+    .filter(([, n]) => n >= 3)
+    .map(([x, n]) => ({ x, n }))
+    .sort((a, b) => a.x - b.x);
+
+  const cols: { x: number; n: number }[] = [];
+  for (const c of candidates) {
+    const last = cols[cols.length - 1];
+    if (last && c.x - last.x <= COL_TOL) {
+      if (c.n > last.n) last.x = c.x;
+      last.n += c.n;
+    } else {
+      cols.push({ x: c.x, n: c.n });
+    }
+  }
+  if (cols.length === 0) cols.push({ x: 0, n: 0 });
+
+  const columnFor = (x: number) => {
+    let idx = 0;
+    for (let i = 0; i < cols.length; i++) if (x >= cols[i].x - COL_TOL) idx = i;
+    return idx;
+  };
+
+  return rows.map((r) => {
+    const out: (string | null)[] = new Array(cols.length).fill(null);
+    for (const it of r.items) {
+      const i = columnFor(it.x);
+      out[i] = out[i] ? `${out[i]} ${it.s}` : it.s;
+    }
+    return out;
+  });
+}
+
+async function gridsFromPdf(buf: ArrayBuffer): Promise<(string | null)[][][]> {
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  // The worker is disabled rather than hosted: goods-in notes are a page
+  // or two, so the main thread cost is trivial and it avoids shipping and
+  // version-matching a separate worker asset.
+  (pdfjs as unknown as { GlobalWorkerOptions: { workerSrc: string } }).GlobalWorkerOptions.workerSrc = "";
+
+  const doc = await pdfjs.getDocument({ data: new Uint8Array(buf), useSystemFonts: true })
+    .promise;
+
+  const grids: (string | null)[][][] = [];
+  for (let p = 1; p <= doc.numPages; p++) {
+    const page = await doc.getPage(p);
+    const content = await page.getTextContent();
+    const items: Positioned[] = [];
+    for (const raw of content.items) {
+      const item = raw as { str?: string; transform?: number[] };
+      const s = (item.str ?? "").trim();
+      if (!s || !item.transform) continue;
+      items.push({ x: item.transform[4], y: item.transform[5], s });
+    }
+    grids.push(gridFromPositions(items));
+  }
+  return grids;
 }
 
 export async function parseGoodsIn(file: File): Promise<GoodsIn> {
@@ -438,7 +545,7 @@ export async function parseGoodsIn(file: File): Promise<GoodsIn> {
 
   if (!kind) {
     throw new Error(
-      "That file isn't a format goods-in reads — delivery notes arrive as .xlsx, .xls, .xlsm or .csv. (PDF intake is on the roadmap.)",
+      "That file isn't a format goods-in reads — delivery notes arrive as PDF, .xlsx, .xls, .xlsm or .csv.",
     );
   }
 
@@ -448,6 +555,22 @@ export async function parseGoodsIn(file: File): Promise<GoodsIn> {
     if (!out) throw new Error(noTableMessage);
     out.report.fileKind = "csv";
     return out;
+  }
+
+  if (kind === "pdf") {
+    const grids = await gridsFromPdf(buf);
+    for (let i = 0; i < grids.length; i++) {
+      const out = extractFromGrid(grids[i], file.name, grids.length > 1 ? `page ${i + 1}` : undefined);
+      if (out) {
+        out.report.fileKind = "pdf";
+        return out;
+      }
+    }
+    throw new Error(
+      grids.every((g) => g.length === 0)
+        ? "No text could be read from that PDF. A scanned or photographed note is an image rather than text — reading those needs OCR, which the desk doesn't do yet."
+        : noTableMessage,
+    );
   }
 
   const XLSX = await import("xlsx");

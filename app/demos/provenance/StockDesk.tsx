@@ -62,6 +62,9 @@ const STATE_WORD: Record<GoodsLine["state"], string> = {
   exception: "Stop",
 };
 
+const SAMPLE_URL = "/samples/westridge-delivery-note.pdf";
+const SAMPLE_NAME = "westridge-delivery-note.pdf";
+
 const KIND_WORD: Record<StockLocation["kind"], string> = {
   warehouse: "Warehouse",
   shop: "Shop",
@@ -179,10 +182,10 @@ function GoodsInTab({ movements, onBook }: { movements: Movement[]; onBook: (ms:
     setError(null);
     setBooked(null);
     try {
-      const res = await fetch("/samples/westridge-delivery-note.xlsx");
+      const res = await fetch(SAMPLE_URL);
       if (!res.ok) throw new Error("The sample note could not be loaded.");
       const blob = await res.blob();
-      const file = new File([blob], "westridge-delivery-note.xlsx", { type: blob.type });
+      const file = new File([blob], SAMPLE_NAME, { type: blob.type });
       const out = await parseGoodsIn(file);
       setResult(out);
     } catch (e) {
@@ -240,7 +243,7 @@ function GoodsInTab({ movements, onBook }: { movements: Movement[]; onBook: (ms:
           {busy ? "Reading the note…" : "Drop a delivery note here"}
         </p>
         <p style={{ fontSize: 13, color: MUTED, marginBottom: 16, lineHeight: 1.55 }}>
-          Supplier delivery notes, collection dockets and goods received notes, as .xlsx, .xls, .xlsm or .csv.
+          Supplier delivery notes, collection dockets and goods received notes, as PDF, .xlsx, .xls, .xlsm or .csv.
           <br />
           The desk finds the table wherever it sits on the page.
         </p>
@@ -261,13 +264,21 @@ function GoodsInTab({ movements, onBook }: { movements: Movement[]; onBook: (ms:
               color: "inherit",
             }}
           >
-            Try the sample note
+            Read the sample note
           </button>
         </div>
+        <p style={{ fontSize: 12, color: MUTED, marginTop: 14, lineHeight: 1.6 }}>
+          No note to hand?{" "}
+          <a href={SAMPLE_URL} download style={{ color: TEAL, textDecoration: "underline" }}>
+            Download a sample delivery note
+          </a>{" "}
+          and drop it in above. It is an invented supplier, written the way a real one arrives — letterhead,
+          reference panel, then the lines.
+        </p>
         <input
           ref={fileRef}
           type="file"
-          accept=".xlsx,.xls,.xlsm,.csv"
+          accept=".pdf,.xlsx,.xls,.xlsm,.csv"
           style={{ display: "none" }}
           onChange={(e) => {
             const f = e.target.files?.[0];
