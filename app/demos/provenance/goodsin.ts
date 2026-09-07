@@ -171,6 +171,34 @@ export function parseTemp(raw: string): number | null {
 
 export type LineState = "accepted" | "held" | "exception";
 
+// Each issue carries a code as well as its wording, so the desk can offer
+// the right way to settle it. A row labelled "needs a person" with no way
+// for a person to act on it is a dead end wearing an action label.
+export type IssueCode =
+  | "prohibited"
+  | "unknown-material"
+  | "no-quantity"
+  | "unit-mismatch"
+  | "no-lot"
+  | "temp-breach"
+  | "quantity-outlier"
+  | "unit-assumed";
+
+export type Issue = {
+  code: IssueCode;
+  text: string;
+};
+
+// How a person settled an issue. Kept on the line so the note carries its
+// own audit trail: what the paperwork said, what was wrong with it, who
+// decided what, and on what grounds.
+export type Resolution = {
+  code: IssueCode;
+  action: string;
+  by: string;
+  note?: string;
+};
+
 export type GoodsLine = {
   id: string;
   sourceRow: number;
@@ -184,7 +212,14 @@ export type GoodsLine = {
   orderRef?: string;
   state: LineState;
   // Why it is held or flagged, written for the person reviewing it.
-  issues: string[];
+  issues: Issue[];
+  // Set once a person has dealt with it.
+  resolutions?: Resolution[];
+  // Quarantine rather than free stock — used when a cold-chain breach is
+  // accepted pending a quality decision rather than rejected outright.
+  quarantine?: boolean;
+  // Rejected outright: never booked in, but kept on the note as a record.
+  rejected?: boolean;
 };
 
 export type GoodsInReport = {
@@ -237,32 +272,45 @@ function screenProhibited(raw: string): string | null {
   return null;
 }
 
-function evaluateLine(line: GoodsLine): GoodsLine {
-  const issues: string[] = [];
+export function evaluateLine(line: GoodsLine): GoodsLine {
+  const issues: Issue[] = [];
   let state: LineState = "accepted";
 
   // Runs first and overrides everything below it.
   const prohibited = screenProhibited(line.rawMaterial);
   if (prohibited) {
-    issues.push(
-      `STOP — this line reads as a ${prohibited} product. The site is ${prohibited} free and this must not be booked in. Reject the delivery, hold it away from production, and tell the supplier before anything is unloaded.`,
-    );
-    issues.push(
-      `The screen is deliberately broad and will also stop a line described as "${prohibited} free". Confirm what actually arrived before releasing it — an unnecessary stop costs an hour, a missed one costs the claim the business is built on.`,
-    );
-    return { ...line, state: "exception", issues };
+    return {
+      ...line,
+      state: "exception",
+      issues: [
+        {
+          code: "prohibited",
+          text: `STOP — this line reads as a ${prohibited} product. The site is ${prohibited} free and this must not be booked in. Reject the delivery, hold it away from production, and tell the supplier before anything is unloaded.`,
+        },
+        {
+          code: "prohibited",
+          text: `The screen is deliberately broad and will also stop a line described as "${prohibited} free". Confirm what actually arrived before releasing it — an unnecessary stop costs an hour, a missed one costs the claim the business is built on.`,
+        },
+      ],
+    };
   }
 
   if (!line.material) {
-    issues.push(`"${line.rawMaterial}" is not on the material register — match it to a material or add it.`);
+    issues.push({
+      code: "unknown-material",
+      text: `"${line.rawMaterial}" is not on the material register — match it to a material before it can be booked in.`,
+    });
     state = "held";
   }
 
-  if (line.qty === null) {
-    issues.push("No quantity could be read from this row.");
-    state = "held";
-  } else if (line.qty <= 0) {
-    issues.push("Quantity is zero or negative — a goods-in line must be positive.");
+  if (line.qty === null || line.qty <= 0) {
+    issues.push({
+      code: "no-quantity",
+      text:
+        line.qty === null
+          ? "No quantity could be read from this row."
+          : "Quantity is zero or negative — a goods-in line must be positive.",
+    });
     state = "held";
   }
 
@@ -270,30 +318,38 @@ function evaluateLine(line: GoodsLine): GoodsLine {
   // not converted; it is queried. Silent conversion is how a stock figure
   // stops meaning anything.
   if (line.material && line.unit && line.unit !== line.material.unit) {
-    issues.push(
-      `Note says ${line.unit}, but ${line.material.name} is held in ${line.material.unit}. Confirm before accepting — nothing is converted automatically.`,
-    );
+    issues.push({
+      code: "unit-mismatch",
+      text: `Note says ${line.unit}, but ${line.material.name} is held in ${line.material.unit}. Confirm before accepting — nothing is converted automatically.`,
+    });
     state = "held";
   }
 
   if (line.material && !line.unit) {
     // No unit column is common and not itself a problem; the register's
     // canonical unit is assumed and the line says so.
-    issues.push(`No unit on the note — taken as ${line.material.unit} from the register.`);
+    issues.push({
+      code: "unit-assumed",
+      text: `No unit on the note — taken as ${line.material.unit} from the register.`,
+    });
   }
 
   if (!line.lot) {
-    issues.push("No lot or batch code. Traceability depends on this — a recall cannot follow stock without it.");
-    state = state === "held" ? "held" : "held";
+    issues.push({
+      code: "no-lot",
+      text: "No lot or batch code. Traceability depends on this — a recall cannot follow stock without it.",
+    });
+    state = "held";
   }
 
   // Temperature on arrival is a check, not a note. A cold material
   // arriving warm is an exception even when everything else is right.
   if (line.material?.maxIntakeTempC !== undefined && line.tempC !== undefined && line.tempC !== null) {
     if (line.tempC > line.material.maxIntakeTempC) {
-      issues.push(
-        `Arrived at ${line.tempC}°C against a ${line.material.maxIntakeTempC}°C limit. Reject or quarantine and record the decision.`,
-      );
+      issues.push({
+        code: "temp-breach",
+        text: `Arrived at ${line.tempC}°C against a ${line.material.maxIntakeTempC}°C limit. Reject it, or take it into quarantine pending a quality decision — either way the decision is recorded.`,
+      });
       state = "exception";
     }
   }
@@ -301,13 +357,114 @@ function evaluateLine(line: GoodsLine): GoodsLine {
   // An unusually large quantity is worth a second look — a keying error
   // on a delivery note is one of the commonest sources of stock drift.
   if (line.material?.typicalDelivery && line.qty && line.qty > line.material.typicalDelivery * 4) {
-    issues.push(
-      `${line.qty} is well above the usual ${line.material.typicalDelivery} ${line.material.unit} for this material. Worth checking the note.`,
-    );
+    issues.push({
+      code: "quantity-outlier",
+      text: `${line.qty} is well above the usual ${line.material.typicalDelivery} ${line.material.unit} for this material. Confirm the quantity or correct it.`,
+    });
     if (state === "accepted") state = "held";
   }
 
   return { ...line, state, issues };
+}
+
+// ————————————————————————— settling a line —————————————————————————
+//
+// Applying a person's decision and re-running the rules, rather than
+// flipping a status flag. That way a line only ever becomes acceptable
+// because it genuinely passes now — never because someone waved it
+// through — and every decision stays attached to the note.
+
+export type ResolveInput =
+  | { code: "no-lot"; lot: string; by: string }
+  | { code: "unknown-material"; materialCode: string; by: string }
+  | { code: "unit-mismatch"; keep: "register" | "reject"; by: string }
+  | { code: "no-quantity"; qty: number; by: string }
+  | { code: "quantity-outlier"; qty: number; by: string }
+  | { code: "temp-breach"; decision: "reject" | "quarantine"; by: string; note?: string }
+  | { code: "prohibited"; by: string; note?: string };
+
+export function resolveLine(line: GoodsLine, input: ResolveInput): GoodsLine {
+  const prior = line.resolutions ?? [];
+  let next: GoodsLine = { ...line };
+  let action = "";
+
+  switch (input.code) {
+    case "no-lot":
+      next.lot = input.lot.trim();
+      action = `Lot recorded as ${next.lot} from the pallet or product label`;
+      break;
+
+    case "unknown-material": {
+      const m = MATERIALS.find((x) => x.code === input.materialCode) ?? null;
+      next.material = m;
+      action = m ? `Matched to ${m.name} (${m.code})` : "Left unmatched";
+      break;
+    }
+
+    case "unit-mismatch":
+      if (input.keep === "register") {
+        // The register's unit stands and the quantity is taken at face
+        // value. Nothing is converted — a person has confirmed the note
+        // used the wrong word for the right number.
+        next.unit = line.material?.unit ?? line.unit;
+        action = `Note's unit corrected to ${next.unit}; quantity unchanged at ${line.qty}`;
+      } else {
+        next.rejected = true;
+        action = "Line rejected — unit could not be reconciled";
+      }
+      break;
+
+    case "no-quantity":
+    case "quantity-outlier":
+      next.qty = input.qty;
+      action = `Quantity confirmed as ${input.qty}`;
+      break;
+
+    case "temp-breach":
+      if (input.decision === "reject") {
+        next.rejected = true;
+        action = "Rejected on arrival temperature";
+      } else {
+        next.quarantine = true;
+        action = "Accepted into quarantine pending a quality decision";
+      }
+      break;
+
+    // A prohibited material has exactly one outcome. There is no accept
+    // path, and deliberately no override: the whole site claim rests on
+    // this never being booked in, and a system that can be talked round
+    // is not a control.
+    case "prohibited":
+      next.rejected = true;
+      action = "Rejected — prohibited material, not booked in";
+      break;
+  }
+
+  const resolutions = [...prior, { code: input.code, action, by: input.by, note: "note" in input ? input.note : undefined }];
+
+  if (next.rejected) {
+    return { ...next, resolutions, state: "exception", issues: line.issues };
+  }
+
+  // Re-run the rules against the corrected line, then carry across any
+  // decision already taken on an issue the rules will raise again.
+  const rerun = evaluateLine({ ...next, issues: [], resolutions: undefined });
+  const settled = new Set(resolutions.map((r) => r.code));
+
+  const remaining = rerun.issues.filter((i) => {
+    if (i.code === "temp-breach" && settled.has("temp-breach")) return false;
+    if (i.code === "quantity-outlier" && settled.has("quantity-outlier")) return false;
+    return true;
+  });
+
+  const stillBlocked = remaining.some((i) => i.code !== "unit-assumed");
+
+  return {
+    ...next,
+    resolutions,
+    issues: remaining,
+    state: stillBlocked ? (remaining.some((i) => i.code === "prohibited") ? "exception" : "held") : "accepted",
+  };
 }
 
 // ————————————————————————— header block —————————————————————————
@@ -323,7 +480,20 @@ function scrapeHeaderBlock(grid: (string | null)[][], upTo: number) {
       const cell = grid[r][c];
       if (!cell) continue;
       const h = normHeader(String(cell));
-      const next = grid[r][c + 1] ? String(grid[r][c + 1]).trim() : "";
+
+      // The value is the next cell that actually holds something, not
+      // literally c + 1. In a spreadsheet the label and its value are
+      // usually adjacent; in a grid rebuilt from a PDF's coordinates
+      // they can sit several columns apart with empty ones between.
+      let next = "";
+      for (let k = c + 1; k < grid[r].length; k++) {
+        const v = grid[r][k];
+        if (v !== null && v !== undefined && String(v).trim()) {
+          next = String(v).trim();
+          break;
+        }
+      }
+
       const inline = String(cell).includes(":") ? String(cell).split(":").slice(1).join(":").trim() : "";
       const value = next || inline;
       if (!value) continue;
@@ -333,6 +503,22 @@ function scrapeHeaderBlock(grid: (string | null)[][], upTo: number) {
       if (!out.deliveryDate && /date|delivered|collection date/.test(h) && !/best before|expiry/.test(h)) {
         out.deliveryDate = value;
       }
+    }
+  }
+
+  // A supplier note rarely labels its own name — it is the letterhead at
+  // the top of the page. Fall back to the first substantial line when no
+  // labelled field was found.
+  if (!out.supplier) {
+    for (let r = 0; r < Math.min(4, grid.length); r++) {
+      const first = grid[r]?.find((v) => v !== null && v !== undefined && String(v).trim());
+      if (!first) continue;
+      const text = String(first).trim();
+      // A letterhead is a name, not an address line or a phone number.
+      if (text.length < 4 || text.length > 60) continue;
+      if (/\d{4,}|@|^tel\b|^unit\b/i.test(text)) continue;
+      out.supplier = text;
+      break;
     }
   }
 

@@ -28,7 +28,7 @@ import {
   type Movement,
   type StockLocation,
 } from "./stock";
-import { parseGoodsIn, type GoodsIn, type GoodsLine } from "./goodsin";
+import { parseGoodsIn, resolveLine, type GoodsIn, type GoodsLine, type IssueCode, type ResolveInput } from "./goodsin";
 
 const GREEN = "#167a5b";
 const BRASS = "#a3772a";
@@ -160,6 +160,7 @@ function GoodsInTab({ movements, onBook }: { movements: Movement[]; onBook: (ms:
   const [into, setInto] = useState("WH-DRY");
   const [booked, setBooked] = useState<string | null>(null);
   const [drag, setDrag] = useState(false);
+  const [who, setWho] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function handle(file: File) {
@@ -195,26 +196,54 @@ function GoodsInTab({ movements, onBook }: { movements: Movement[]; onBook: (ms:
     }
   }
 
+  // A settled line replaces itself in place and the counts follow. The
+  // rules are re-run rather than the status being flipped, so a line only
+  // ever becomes bookable because it now genuinely passes.
+  function settle(id: string, input: ResolveInput) {
+    setResult((prev) => {
+      if (!prev) return prev;
+      const lines = prev.lines.map((l) => (l.id === id ? resolveLine(l, input) : l));
+      return {
+        lines,
+        report: {
+          ...prev.report,
+          accepted: lines.filter((l) => l.state === "accepted" && !l.rejected).length,
+          held: lines.filter((l) => l.state === "held").length,
+          exceptions: lines.filter((l) => l.state === "exception").length,
+        },
+      };
+    });
+    setBooked(null);
+  }
+
   function book() {
     if (!result) return;
-    const ready = result.lines.filter((l) => l.state === "accepted" && l.material && l.qty);
+    const ready = result.lines.filter((l) => l.state === "accepted" && !l.rejected && l.material && l.qty);
     const ms: Movement[] = ready.map((l, i) => ({
       id: `gi-${Date.now()}-${i}`,
       materialCode: l.material!.code,
       lot: l.lot,
-      locationId: into,
+      // Quarantined stock is on site but not free to use, so it is booked
+      // to the hold rather than wherever the rest of the load went.
+      locationId: l.quarantine ? "WH-QUAR" : into,
       qty: l.qty!,
       unit: l.material!.unit,
       reason: "goods-in",
       at: result.report.deliveryDate ?? "Today",
-      by: "Goods in desk",
+      by: who.trim() || "Goods in desk",
       ref: result.report.noteRef,
+      note: l.quarantine ? "Quarantine hold — arrival temperature out of spec" : undefined,
     }));
     onBook(ms);
-    setBooked(`${ms.length} ${ms.length === 1 ? "line" : "lines"} booked into ${locationById(into)?.name}.`);
+    const q = ready.filter((l) => l.quarantine).length;
+    setBooked(
+      `${ms.length} ${ms.length === 1 ? "line" : "lines"} booked in` +
+        (q ? `, ${q} to quarantine hold.` : ` to ${locationById(into)?.name}.`),
+    );
   }
 
-  const readyCount = result?.lines.filter((l) => l.state === "accepted").length ?? 0;
+  const readyCount = result?.lines.filter((l) => l.state === "accepted" && !l.rejected).length ?? 0;
+  const outstanding = result?.lines.filter((l) => l.state !== "accepted" && !l.rejected).length ?? 0;
 
   return (
     <>
@@ -296,9 +325,9 @@ function GoodsInTab({ movements, onBook }: { movements: Movement[]; onBook: (ms:
 
       {booked && (
         <div style={{ ...card, borderLeft: `2px solid ${GREEN}`, marginBottom: 20 }}>
-          <p style={{ fontSize: 13.5 }}>
+          <p style={{ fontSize: 13.5, lineHeight: 1.55 }}>
             <Dot color={GREEN} />
-            {booked} Held lines stay on this note until someone deals with them.
+            {booked} Anything still outstanding stays on this note until it is dealt with.
           </p>
         </div>
       )}
@@ -315,7 +344,8 @@ function GoodsInTab({ movements, onBook }: { movements: Movement[]; onBook: (ms:
                 </p>
               </div>
               <p style={{ ...mono, fontSize: 11.5, color: MUTED }}>
-                {result.report.sheetName ? `${result.report.sheetName} · ` : ""}table from row {result.report.headerRow}
+                {result.report.sheetName ? `${result.report.sheetName} · ` : ""}
+                {result.report.fileKind.toUpperCase()} · table from row {result.report.headerRow}
               </p>
             </div>
             <div style={{ display: "flex", gap: 18, flexWrap: "wrap", fontSize: 13 }}>
@@ -336,38 +366,43 @@ function GoodsInTab({ movements, onBook }: { movements: Movement[]; onBook: (ms:
 
           <div style={{ display: "grid", gap: 8, marginBottom: 20 }}>
             {result.lines.map((l) => (
-              <LineRow key={l.id} line={l} />
+              <LineRow key={l.id} line={l} who={who} onSettle={(input) => settle(l.id, input)} />
             ))}
           </div>
 
-          <div style={{ ...card, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-            <label style={{ fontSize: 13, color: MUTED }}>
-              Book into
-              <select
-                value={into}
-                onChange={(e) => setInto(e.target.value)}
-                style={{
-                  marginLeft: 8,
-                  fontSize: 13,
-                  padding: "6px 10px",
-                  border: "1px solid var(--rule)",
-                  borderRadius: 8,
-                  background: "var(--bg)",
-                  color: "inherit",
-                }}
-              >
-                {LOCATIONS.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button onClick={book} className="btn btn-primary" disabled={readyCount === 0}>
-              Book in {readyCount} {readyCount === 1 ? "line" : "lines"}
-            </button>
-            <p style={{ fontSize: 12, color: MUTED, flex: 1, minWidth: 240, lineHeight: 1.5 }}>
-              Only lines the desk fully understood are booked. Everything else stays here.
+          <div style={{ ...card, display: "grid", gap: 12 }}>
+            <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+              <label style={{ fontSize: 13, color: MUTED }}>
+                Book into
+                <select
+                  value={into}
+                  onChange={(e) => setInto(e.target.value)}
+                  style={selectStyle}
+                >
+                  {LOCATIONS.filter((l) => l.id !== "WH-QUAR").map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label style={{ fontSize: 13, color: MUTED }}>
+                Received by
+                <input
+                  value={who}
+                  onChange={(e) => setWho(e.target.value)}
+                  placeholder="M. Reeve"
+                  style={{ ...inputStyle, marginLeft: 8, width: 150 }}
+                />
+              </label>
+              <button onClick={book} className="btn btn-primary" disabled={readyCount === 0}>
+                Book in {readyCount} {readyCount === 1 ? "line" : "lines"}
+              </button>
+            </div>
+            <p style={{ fontSize: 12, color: MUTED, lineHeight: 1.55 }}>
+              {outstanding > 0
+                ? `${outstanding} ${outstanding === 1 ? "line still needs" : "lines still need"} a decision. Only lines that pass on their own are booked — settling one re-runs the checks rather than overriding them.`
+                : "Every line on this note has been dealt with."}
             </p>
           </div>
         </>
@@ -376,16 +411,73 @@ function GoodsInTab({ movements, onBook }: { movements: Movement[]; onBook: (ms:
   );
 }
 
-function LineRow({ line }: { line: GoodsLine }) {
-  const color = STATE_COLOR[line.state];
+const inputStyle: React.CSSProperties = {
+  fontSize: 13,
+  padding: "6px 10px",
+  border: "1px solid var(--rule)",
+  borderRadius: 8,
+  background: "var(--bg)",
+  color: "inherit",
+  fontFamily: "inherit",
+};
+
+const selectStyle: React.CSSProperties = { ...inputStyle, marginLeft: 8 };
+
+const fixBtn: React.CSSProperties = {
+  background: "none",
+  border: "1px solid var(--rule)",
+  borderRadius: 8,
+  padding: "5px 11px",
+  fontSize: 12.5,
+  cursor: "pointer",
+  color: "inherit",
+  fontFamily: "inherit",
+};
+
+function LineRow({
+  line,
+  who,
+  onSettle,
+}: {
+  line: GoodsLine;
+  who: string;
+  onSettle: (input: ResolveInput) => void;
+}) {
+  const [open, setOpen] = useState<IssueCode | null>(null);
+  const [draft, setDraft] = useState("");
+
+  const rejected = line.rejected === true;
+  const color = rejected ? MUTED : STATE_COLOR[line.state];
+  const word = rejected
+    ? "Rejected"
+    : line.quarantine
+      ? "Quarantined"
+      : STATE_WORD[line.state];
+
+  const by = who.trim() || "Goods in desk";
+  const actionable = line.issues.filter((i) => i.code !== "unit-assumed");
+
+  function fire(input: ResolveInput) {
+    onSettle(input);
+    setOpen(null);
+    setDraft("");
+  }
+
   return (
-    <div style={{ ...card, borderLeft: `2px solid ${color}`, padding: "12px 16px" }}>
+    <div
+      style={{
+        ...card,
+        borderLeft: `2px solid ${color}`,
+        padding: "12px 16px",
+        opacity: rejected ? 0.62 : 1,
+      }}
+    >
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <p style={{ fontSize: 14, fontWeight: 500 }}>
+        <p style={{ fontSize: 14, fontWeight: 500, textDecoration: rejected ? "line-through" : undefined }}>
           <Dot color={color} />
           {line.rawMaterial}
         </p>
-        <span style={{ ...mono, fontSize: 12, color }}>{STATE_WORD[line.state]}</span>
+        <span style={{ ...mono, fontSize: 12, color }}>{word}</span>
       </div>
 
       <p style={{ ...mono, fontSize: 11.5, color: MUTED, paddingLeft: 16, marginTop: 4 }}>
@@ -396,20 +488,117 @@ function LineRow({ line }: { line: GoodsLine }) {
         {line.bestBefore ? ` · BBE ${line.bestBefore}` : ""} · note row {line.sourceRow}
       </p>
 
-      {line.issues.map((i, n) => (
-        <p
-          key={n}
-          style={{
-            fontSize: 12.5,
-            color: line.state === "exception" ? VERM : MUTED,
-            paddingLeft: 16,
-            marginTop: 4,
-            lineHeight: 1.5,
-          }}
-        >
-          {i}
-        </p>
+      {line.issues.map((issue, n) => (
+        <div key={n} style={{ paddingLeft: 16, marginTop: 6 }}>
+          <p
+            style={{
+              fontSize: 12.5,
+              color: line.state === "exception" && !rejected ? VERM : MUTED,
+              lineHeight: 1.5,
+            }}
+          >
+            {issue.text}
+          </p>
+        </div>
       ))}
+
+      {!rejected && actionable.length > 0 && (
+        <div style={{ paddingLeft: 16, marginTop: 10, display: "grid", gap: 8 }}>
+          {actionable.map((issue) => (
+            <div key={issue.code}>
+              {open !== issue.code && (
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {issue.code === "prohibited" ? (
+                    <button style={{ ...fixBtn, borderColor: VERM, color: VERM }} onClick={() => fire({ code: "prohibited", by })}>
+                      Reject and record
+                    </button>
+                  ) : issue.code === "temp-breach" ? (
+                    <>
+                      <button style={{ ...fixBtn, borderColor: VERM, color: VERM }} onClick={() => fire({ code: "temp-breach", decision: "reject", by })}>
+                        Reject the line
+                      </button>
+                      <button style={fixBtn} onClick={() => fire({ code: "temp-breach", decision: "quarantine", by })}>
+                        Take into quarantine
+                      </button>
+                    </>
+                  ) : issue.code === "unit-mismatch" ? (
+                    <>
+                      <button style={fixBtn} onClick={() => fire({ code: "unit-mismatch", keep: "register", by })}>
+                        Quantity is right, unit is a typo
+                      </button>
+                      <button style={{ ...fixBtn, borderColor: VERM, color: VERM }} onClick={() => fire({ code: "unit-mismatch", keep: "reject", by })}>
+                        Reject the line
+                      </button>
+                    </>
+                  ) : (
+                    <button style={fixBtn} onClick={() => { setOpen(issue.code); setDraft(issue.code === "quantity-outlier" ? String(line.qty ?? "") : ""); }}>
+                      {issue.code === "no-lot"
+                        ? "Enter the lot code"
+                        : issue.code === "unknown-material"
+                          ? "Match to a material"
+                          : "Enter the quantity"}
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {open === issue.code && (
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                  {issue.code === "unknown-material" ? (
+                    <select value={draft} onChange={(e) => setDraft(e.target.value)} style={{ ...inputStyle, minWidth: 220 }}>
+                      <option value="">Choose a material…</option>
+                      {MATERIALS.map((m) => (
+                        <option key={m.code} value={m.code}>
+                          {m.name} ({m.unit})
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      autoFocus
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                      placeholder={issue.code === "no-lot" ? "e.g. PKG-2609-E" : "e.g. 1850"}
+                      style={{ ...inputStyle, width: 170 }}
+                    />
+                  )}
+                  <button
+                    className="btn btn-primary"
+                    style={{ fontSize: 12.5, padding: "6px 12px" }}
+                    disabled={!draft.trim()}
+                    onClick={() => {
+                      if (issue.code === "no-lot") fire({ code: "no-lot", lot: draft, by });
+                      else if (issue.code === "unknown-material") fire({ code: "unknown-material", materialCode: draft, by });
+                      else {
+                        const n = parseFloat(draft.replace(/[^\d.\-]/g, ""));
+                        if (Number.isFinite(n)) {
+                          fire(issue.code === "quantity-outlier" ? { code: "quantity-outlier", qty: n, by } : { code: "no-quantity", qty: n, by });
+                        }
+                      }
+                    }}
+                  >
+                    Confirm
+                  </button>
+                  <button style={{ ...fixBtn, border: "none", color: MUTED }} onClick={() => { setOpen(null); setDraft(""); }}>
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {line.resolutions && line.resolutions.length > 0 && (
+        <div style={{ paddingLeft: 16, marginTop: 8, borderTop: "1px solid var(--rule)", paddingTop: 7 }}>
+          {line.resolutions.map((r, n) => (
+            <p key={n} style={{ ...mono, fontSize: 10.5, color: MUTED, lineHeight: 1.6 }}>
+              {r.action} · {r.by}
+              {r.note ? ` · ${r.note}` : ""}
+            </p>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

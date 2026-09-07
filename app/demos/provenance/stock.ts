@@ -215,6 +215,9 @@ export const LOCATIONS: StockLocation[] = [
   { id: "WH-DRY", name: "Dry goods store", kind: "warehouse", site: "Island Street" },
   { id: "WH-COLD", name: "Coldstore A", kind: "warehouse", site: "Island Street" },
   { id: "WH-DISP", name: "Dispatch holding", kind: "warehouse", site: "Island Street" },
+  // Stock that arrived out of spec and was taken in pending a quality
+  // decision. Physically on site, deliberately not free to use.
+  { id: "WH-QUAR", name: "Quarantine hold", kind: "warehouse", site: "Island Street" },
   { id: "VAN-1", name: "Van 1 — South Hams round", kind: "van", site: "Mobile" },
   { id: "VAN-2", name: "Van 2 — Bristol / Bath round", kind: "van", site: "Mobile" },
   { id: "SH-ISL", name: "Shop — Island Street", kind: "shop", site: "Salcombe" },
