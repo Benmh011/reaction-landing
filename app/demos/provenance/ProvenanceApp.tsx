@@ -10,6 +10,7 @@ import {
   type Status,
 } from "./data";
 import QuestionnaireDesk from "./QuestionnaireDesk";
+import StockDesk from "./StockDesk";
 import CheckDesk from "./CheckDesk";
 
 // ————————————————————————————————————————————————————————————————
@@ -478,6 +479,7 @@ const SECTIONS = [
   { id: "questionnaires", label: "Questionnaires", flag: 1 },
   { id: "documents", label: "Documents & audit", flag: 3 },
   { id: "trace", label: "Traceability", flag: 0 },
+  { id: "stock", label: "Stock", flag: 0 },
   { id: "production", label: "Production records", flag: 0 },
   { id: "coldchain", label: "Cold chain", flag: 1 },
   { id: "checks", label: "Checks", flag: 2 },
@@ -570,6 +572,7 @@ export default function ProvenanceApp() {
           {active === "questionnaires" && <Questionnaires />}
           {active === "documents" && <Documents />}
           {active === "trace" && <Traceability />}
+          {active === "stock" && <StockDesk />}
           {active === "production" && <ProductionLog />}
           {active === "coldchain" && <ColdChain />}
           {active === "checks" && <CheckDesk />}
