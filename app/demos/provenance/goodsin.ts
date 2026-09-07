@@ -515,13 +515,17 @@ function gridFromPositions(items: Positioned[]): (string | null)[][] {
 
 async function gridsFromPdf(buf: ArrayBuffer): Promise<(string | null)[][][]> {
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  // The worker is disabled rather than hosted: goods-in notes are a page
-  // or two, so the main thread cost is trivial and it avoids shipping and
-  // version-matching a separate worker asset.
-  (pdfjs as unknown as { GlobalWorkerOptions: { workerSrc: string } }).GlobalWorkerOptions.workerSrc = "";
 
-  const doc = await pdfjs.getDocument({ data: new Uint8Array(buf), useSystemFonts: true })
-    .promise;
+  // Parsed on the main thread rather than in a web worker. A goods-in
+  // note is a page or two, so the cost is trivial, and it avoids having
+  // to ship a separate worker asset and keep its version in step with
+  // the library — which is a deployment failure waiting to happen for
+  // no benefit at this size.
+  const doc = await pdfjs.getDocument({
+    data: new Uint8Array(buf),
+    useSystemFonts: true,
+    disableWorker: true,
+  } as Parameters<typeof pdfjs.getDocument>[0]).promise;
 
   const grids: (string | null)[][][] = [];
   for (let p = 1; p <= doc.numPages; p++) {
