@@ -14,7 +14,33 @@
 
 export type Unit = "L" | "kg" | "units";
 
-export type MaterialKind = "raw" | "packaging" | "finished";
+// Packaging splits in two because the traceability requirement does.
+//
+// Primary packaging is a food-contact material: a tub, a lid, a wrapper
+// touches product, carries its own declarations, and on this site carries
+// the free-from claims in print. If a wrapper run is wrong — mislabelled
+// allergens, a coating that fails migration testing — the lot code is
+// what bounds the recall to that run instead of to a month's production.
+//
+// Secondary packaging is the outer case. It never touches product and
+// carries no claim, so a supplier leaves the batch column blank because
+// there is genuinely nothing to put in it. Demanding a lot code there
+// teaches an operator to type something meaningless into a traceability
+// field, which is worse than not asking.
+export type MaterialKind = "raw" | "packaging-primary" | "packaging-secondary" | "finished";
+
+export const KIND_LABEL: Record<MaterialKind, string> = {
+  raw: "Raw material",
+  "packaging-primary": "Primary packaging",
+  "packaging-secondary": "Secondary packaging",
+  finished: "Finished goods",
+};
+
+// Whether a lot or batch code must be captured at goods-in for this kind
+// of material. Everything a recall could have to follow needs one.
+export function lotRequired(kind: MaterialKind): boolean {
+  return kind !== "packaging-secondary";
+}
 
 export type Material = {
   code: string;
@@ -113,7 +139,7 @@ export const MATERIALS: Material[] = [
   {
     code: "PK-TUB2",
     name: "2L catering tub",
-    kind: "packaging",
+    kind: "packaging-primary",
     unit: "units",
     typicalDelivery: 2000,
     aliases: ["2l tub", "catering tub", "2 litre tub", "tubs 2l"],
@@ -121,7 +147,7 @@ export const MATERIALS: Material[] = [
   {
     code: "PK-TUB500",
     name: "500ml retail tub",
-    kind: "packaging",
+    kind: "packaging-primary",
     unit: "units",
     typicalDelivery: 5000,
     aliases: ["500ml tub", "retail tub", "500 ml tub"],
@@ -129,7 +155,7 @@ export const MATERIALS: Material[] = [
   {
     code: "PK-LID",
     name: "Tub lid",
-    kind: "packaging",
+    kind: "packaging-primary",
     unit: "units",
     typicalDelivery: 7000,
     aliases: ["lid", "lids", "tub lid"],
@@ -137,7 +163,7 @@ export const MATERIALS: Material[] = [
   {
     code: "PK-BAR",
     name: "Bar wrapper — 100g",
-    kind: "packaging",
+    kind: "packaging-primary",
     unit: "units",
     typicalDelivery: 3000,
     aliases: ["bar wrapper", "wrapper", "100g wrapper", "foil wrap"],
@@ -145,7 +171,7 @@ export const MATERIALS: Material[] = [
   {
     code: "PK-CASE",
     name: "Outer case",
-    kind: "packaging",
+    kind: "packaging-secondary",
     unit: "units",
     typicalDelivery: 500,
     aliases: ["outer case", "case", "carton", "shipper"],

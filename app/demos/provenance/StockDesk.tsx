@@ -24,6 +24,7 @@ import {
   locationById,
   totalsByMaterial,
   whereIsLot,
+  KIND_LABEL,
   REASON_WORD,
   type Movement,
   type StockLocation,
@@ -645,7 +646,7 @@ function OnHandTab({ movements }: { movements: Movement[] }) {
               <div>
                 <p style={{ fontSize: 14.5 }}>{t.material.name}</p>
                 <p style={{ ...mono, fontSize: 11, color: MUTED, marginTop: 2 }}>
-                  {t.material.code} · {t.material.kind} · {t.lots} {t.lots === 1 ? "lot" : "lots"} across {t.locations}{" "}
+                  {t.material.code} · {KIND_LABEL[t.material.kind]} · {t.lots} {t.lots === 1 ? "lot" : "lots"} across {t.locations}{" "}
                   {t.locations === 1 ? "location" : "locations"}
                 </p>
               </div>

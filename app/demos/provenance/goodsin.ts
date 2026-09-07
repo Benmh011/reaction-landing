@@ -14,7 +14,7 @@
 // ————————————————————————————————————————————————————————————————
 
 import { parseCsv } from "./intake";
-import { MATERIALS, matchMaterial, type Material, type Unit } from "./stock";
+import { MATERIALS, matchMaterial, lotRequired, type Material, type Unit } from "./stock";
 
 // ————————————————————————— column detection —————————————————————————
 //
@@ -334,10 +334,29 @@ export function evaluateLine(line: GoodsLine): GoodsLine {
     });
   }
 
-  if (!line.lot) {
+  // A lot code is required for anything a recall could have to follow.
+  // Outer cases are the exception: they never touch product and carry no
+  // claim, so the supplier's blank batch column is correct rather than an
+  // omission. Flagging it there would train an operator to click past the
+  // warning, and then they click past it on the cocoa.
+  if (!line.lot && line.material && lotRequired(line.material.kind)) {
     issues.push({
       code: "no-lot",
-      text: "No lot or batch code. Traceability depends on this — a recall cannot follow stock without it.",
+      text:
+        line.material.kind === "packaging-primary"
+          ? "No lot or batch code. This is food-contact packaging and carries the free-from claims in print, so a bad print run has to be traceable to the products it went on."
+          : "No lot or batch code. Traceability depends on this — a recall cannot follow stock without it.",
+    });
+    state = "held";
+  }
+
+  // An unmatched line has no kind to judge by, so a missing lot is still
+  // raised — the material has to be identified before the question of
+  // whether it needs one can be answered.
+  if (!line.lot && !line.material) {
+    issues.push({
+      code: "no-lot",
+      text: "No lot or batch code, and the material is unmatched — identify it first, then the desk can say whether a lot is needed.",
     });
     state = "held";
   }
@@ -798,7 +817,8 @@ const noTableMessage =
 export function registerSummary() {
   return {
     raw: MATERIALS.filter((m) => m.kind === "raw").length,
-    packaging: MATERIALS.filter((m) => m.kind === "packaging").length,
+    packagingPrimary: MATERIALS.filter((m) => m.kind === "packaging-primary").length,
+    packagingSecondary: MATERIALS.filter((m) => m.kind === "packaging-secondary").length,
     finished: MATERIALS.filter((m) => m.kind === "finished").length,
   };
 }
