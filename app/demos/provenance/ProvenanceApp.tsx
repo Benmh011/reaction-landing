@@ -10,6 +10,7 @@ import {
   type Status,
 } from "./data";
 import QuestionnaireDesk from "./QuestionnaireDesk";
+import CheckDesk from "./CheckDesk";
 
 // ————————————————————————————————————————————————————————————————
 // Provenance — demonstration build.
@@ -479,6 +480,7 @@ const SECTIONS = [
   { id: "trace", label: "Traceability", flag: 0 },
   { id: "production", label: "Production records", flag: 0 },
   { id: "coldchain", label: "Cold chain", flag: 1 },
+  { id: "checks", label: "Checks", flag: 2 },
 ] as const;
 
 type SectionId = (typeof SECTIONS)[number]["id"];
@@ -570,6 +572,7 @@ export default function ProvenanceApp() {
           {active === "trace" && <Traceability />}
           {active === "production" && <ProductionLog />}
           {active === "coldchain" && <ColdChain />}
+          {active === "checks" && <CheckDesk />}
         </main>
       </div>
       <ThemeStyles />
