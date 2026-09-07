@@ -19,15 +19,29 @@ import {
   MATERIALS,
   SEED_MOVEMENTS,
   balances,
-  balancesAt,
   fmtQty,
   locationById,
-  totalsByMaterial,
+  locationsFor,
+  groupBalances,
+  shelfLife,
+  freshnessOf,
+  allergenPosition,
+  declarationGaps,
+  misplaced,
   whereIsLot,
-  KIND_LABEL,
+  materialByCode,
   REASON_WORD,
+  KIND_LABEL,
+  CATEGORY_LABEL,
+  REGIME_LABEL,
+  REGIME_SPEC,
+  ALLERGEN_LABEL,
+  FRESHNESS_LABEL,
+  SITE_FREE_FROM,
   type Movement,
   type StockLocation,
+  type Freshness,
+  type Regime,
 } from "./stock";
 import { parseGoodsIn, resolveLine, type GoodsIn, type GoodsLine, type IssueCode, type ResolveInput } from "./goodsin";
 
@@ -103,7 +117,7 @@ function Dot({ color }: { color: string }) {
 
 // ————————————————————————— the desk —————————————————————————
 
-type Tab = "goodsin" | "onhand" | "log";
+type Tab = "goodsin" | "onhand" | "shelf" | "allergens" | "holds" | "log";
 
 export default function StockDesk() {
   const [tab, setTab] = useState<Tab>("goodsin");
@@ -122,6 +136,9 @@ export default function StockDesk() {
           [
             ["goodsin", "Goods in"],
             ["onhand", "Stock on hand"],
+            ["shelf", "Shelf life"],
+            ["allergens", "Allergens"],
+            ["holds", "Holds"],
             ["log", "Movement log"],
           ] as [Tab, string][]
         ).map(([id, label]) => (
@@ -147,6 +164,9 @@ export default function StockDesk() {
 
       {tab === "goodsin" && <GoodsInTab movements={movements} onBook={(ms) => setMovements((p) => [...ms, ...p])} />}
       {tab === "onhand" && <OnHandTab movements={movements} />}
+      {tab === "shelf" && <ShelfLifeTab movements={movements} />}
+      {tab === "allergens" && <AllergenTab movements={movements} />}
+      {tab === "holds" && <HoldsTab movements={movements} />}
       {tab === "log" && <LogTab movements={movements} />}
     </>
   );
@@ -219,7 +239,9 @@ function GoodsInTab({ movements, onBook }: { movements: Movement[]; onBook: (ms:
 
   function book() {
     if (!result) return;
-    const ready = result.lines.filter((l) => l.state === "accepted" && !l.rejected && !l.booked && l.material && l.qty);
+    const ready = result.lines.filter(
+      (l) => l.state === "accepted" && !l.rejected && !l.booked && l.material && l.qty && fits(l.material.regime),
+    );
     if (ready.length === 0) return;
     const ms: Movement[] = ready.map((l, i) => ({
       id: `gi-${Date.now()}-${i}`,
@@ -234,6 +256,9 @@ function GoodsInTab({ movements, onBook }: { movements: Movement[]; onBook: (ms:
       at: result.report.deliveryDate ?? "Today",
       by: who.trim() || "Goods in desk",
       ref: result.report.noteRef,
+      // Carried from the note so the shelf-life view has a real date for
+      // it, rather than the date being read once and thrown away.
+      bestBefore: l.bestBefore,
       note: l.quarantine ? "Quarantine hold — arrival temperature out of spec" : undefined,
     }));
     onBook(ms);
@@ -254,7 +279,17 @@ function GoodsInTab({ movements, onBook }: { movements: Movement[]; onBook: (ms:
     );
   }
 
-  const readyCount = result?.lines.filter((l) => l.state === "accepted" && !l.rejected && !l.booked).length ?? 0;
+  const target = locationById(into);
+  const fits = (regime: Regime) => (target ? target.regimes.includes(regime) : false);
+
+  const settled = result?.lines.filter((l) => l.state === "accepted" && !l.rejected && !l.booked) ?? [];
+  const readyCount = settled.filter((l) => l.material && fits(l.material.regime)).length;
+
+  // Lines that pass every check but cannot go where the dropdown points.
+  // Chilled cream does not belong in a dry store, and letting it be
+  // booked there is how product spoils with nobody having made a mistake
+  // anyone can point to.
+  const wrongPlace = settled.filter((l) => l.material && !fits(l.material.regime));
   const outstanding = result?.lines.filter((l) => l.state !== "accepted" && !l.rejected).length ?? 0;
   const bookedCount = result?.lines.filter((l) => l.booked).length ?? 0;
 
@@ -403,6 +438,34 @@ function GoodsInTab({ movements, onBook }: { movements: Movement[]; onBook: (ms:
                 Book in {readyCount} {readyCount === 1 ? "line" : "lines"}
               </button>
             </div>
+            {wrongPlace.length > 0 && (
+              <div
+                style={{
+                  borderLeft: `2px solid ${BRASS}`,
+                  background: "rgba(163,119,42,0.06)",
+                  borderRadius: 8,
+                  padding: "10px 14px",
+                }}
+              >
+                <p style={{ fontSize: 13.5, lineHeight: 1.55, marginBottom: 4 }}>
+                  <Dot color={BRASS} />
+                  {wrongPlace.length} {wrongPlace.length === 1 ? "line cannot" : "lines cannot"} go into{" "}
+                  {target?.name}
+                </p>
+                {wrongPlace.map((l) => (
+                  <p key={l.id} style={{ fontSize: 12.5, color: MUTED, paddingLeft: 16, lineHeight: 1.5 }}>
+                    {l.material!.name} is {REGIME_LABEL[l.material!.regime].toLowerCase()} (
+                    {REGIME_SPEC[l.material!.regime]}) — try{" "}
+                    {locationsFor(l.material!)
+                      .filter((x) => !x.holding)
+                      .map((x) => x.name)
+                      .join(" or ")}
+                    .
+                  </p>
+                ))}
+              </div>
+            )}
+
             {booked && (
               <div
                 style={{
@@ -647,102 +710,323 @@ function LineRow({
 
 // ————————————————————————— stock on hand —————————————————————————
 
+const FRESH_COLOR: Record<Freshness, string> = {
+  fresh: GREEN,
+  soon: BRASS,
+  urgent: VERM,
+  expired: VERM,
+  unknown: MUTED,
+};
+
+type GroupBy = "category" | "regime" | "location" | "line";
+
+const GROUP_LABEL: Record<GroupBy, string> = {
+  category: "By ingredient type",
+  regime: "By storage",
+  location: "By location",
+  line: "By product line",
+};
+
+function Pills<T extends string>({
+  value,
+  onChange,
+  options,
+}: {
+  value: T;
+  onChange: (v: T) => void;
+  options: [T, string][];
+}) {
+  return (
+    <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+      {options.map(([id, label]) => (
+        <button
+          key={id}
+          onClick={() => onChange(id)}
+          style={{
+            background: value === id ? "rgba(14,85,96,0.08)" : "none",
+            border: "1px solid var(--rule)",
+            borderRadius: 8,
+            padding: "6px 12px",
+            fontSize: 12.5,
+            cursor: "pointer",
+            color: "inherit",
+            fontWeight: value === id ? 600 : 400,
+            fontFamily: "inherit",
+          }}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function GroupHead({ text }: { text: string }) {
+  return (
+    <p style={{ ...mono, fontSize: 10.5, letterSpacing: "0.16em", color: MUTED, marginBottom: 8 }}>
+      {text.toUpperCase()}
+    </p>
+  );
+}
+
 function OnHandTab({ movements }: { movements: Movement[] }) {
-  const [by, setBy] = useState<"material" | "location">("material");
-  const totals = useMemo(() => totalsByMaterial(movements), [movements]);
-  const all = useMemo(() => balances(movements), [movements]);
+  const [by, setBy] = useState<GroupBy>("category");
+  const groups = useMemo(() => groupBalances(movements, by), [movements, by]);
+  const wrong = useMemo(() => misplaced(movements), [movements]);
   const [lot, setLot] = useState<{ code: string; lot: string } | null>(null);
 
   return (
     <>
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        {(
-          [
-            ["material", "By material"],
-            ["location", "By location"],
-          ] as ["material" | "location", string][]
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            onClick={() => setBy(id)}
-            style={{
-              background: by === id ? "rgba(14,85,96,0.08)" : "none",
-              border: "1px solid var(--rule)",
-              borderRadius: 8,
-              padding: "6px 12px",
-              fontSize: 12.5,
-              cursor: "pointer",
-              color: "inherit",
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <Pills<GroupBy>
+        value={by}
+        onChange={setBy}
+        options={(Object.keys(GROUP_LABEL) as GroupBy[]).map((k) => [k, GROUP_LABEL[k]])}
+      />
 
-      {by === "material" && (
-        <div style={{ display: "grid", gap: 8 }}>
-          {totals.map((t) => (
-            <div key={t.material.code} style={{ ...card, display: "grid", gridTemplateColumns: "1fr auto", gap: 14 }}>
-              <div>
-                <p style={{ fontSize: 14.5 }}>{t.material.name}</p>
-                <p style={{ ...mono, fontSize: 11, color: MUTED, marginTop: 2 }}>
-                  {t.material.code} · {KIND_LABEL[t.material.kind]} · {t.lots} {t.lots === 1 ? "lot" : "lots"} across {t.locations}{" "}
-                  {t.locations === 1 ? "location" : "locations"}
-                </p>
-              </div>
-              <span style={{ ...mono, fontSize: 17, fontWeight: 500, whiteSpace: "nowrap" }}>
-                {fmtQty(t.total, t.unit)}
-              </span>
-            </div>
+      {wrong.length > 0 && (
+        <div style={{ ...card, borderLeft: `2px solid ${VERM}`, marginBottom: 18 }}>
+          <p style={{ fontSize: 13.5, fontWeight: 500, marginBottom: 4 }}>
+            <Dot color={VERM} />
+            {wrong.length} {wrong.length === 1 ? "lot is" : "lots are"} stored somewhere that cannot hold it
+          </p>
+          {wrong.map((w) => (
+            <p key={`${w.balance.materialCode}-${w.balance.lot}`} style={{ fontSize: 12.5, color: MUTED, paddingLeft: 16, lineHeight: 1.5 }}>
+              {w.reason}
+            </p>
           ))}
         </div>
       )}
 
-      {by === "location" && (
-        <div style={{ display: "grid", gap: 14 }}>
-          {LOCATIONS.map((loc) => {
-            const bs = balancesAt(movements, loc.id);
-            if (bs.length === 0) return null;
+      <div style={{ display: "grid", gap: 16 }}>
+        {groups.map((g) => (
+          <div key={g.key}>
+            <GroupHead text={g.label} />
+            <div style={{ display: "grid", gap: 6 }}>
+              {g.items.map((b) => {
+                const f = freshnessOf(b.bestBefore);
+                return (
+                  <button
+                    key={`${b.materialCode}-${b.lot}-${b.locationId}`}
+                    onClick={() => setLot({ code: b.materialCode, lot: b.lot })}
+                    style={{
+                      ...card,
+                      display: "grid",
+                      gridTemplateColumns: "1fr auto",
+                      gap: 14,
+                      padding: "11px 15px",
+                      textAlign: "left",
+                      cursor: "pointer",
+                      font: "inherit",
+                      color: "inherit",
+                    }}
+                  >
+                    <div>
+                      <p style={{ fontSize: 14 }}>{b.material?.name ?? b.materialCode}</p>
+                      <p style={{ ...mono, fontSize: 10.5, color: MUTED, marginTop: 2 }}>
+                        lot {b.lot} · {b.location?.name}
+                        {b.material?.origin ? ` · ${b.material.origin}` : ""}
+                        {b.bestBefore ? ` · BBE ${b.bestBefore}` : ""}
+                      </p>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <p style={{ ...mono, fontSize: 15, fontWeight: 500 }}>{fmtQty(b.qty, b.unit)}</p>
+                      {f.state !== "fresh" && f.state !== "unknown" && (
+                        <p style={{ ...mono, fontSize: 10.5, color: FRESH_COLOR[f.state], marginTop: 2 }}>
+                          {FRESHNESS_LABEL[f.state]}
+                        </p>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {lot && <LotTrace movements={movements} code={lot.code} lot={lot.lot} onClose={() => setLot(null)} />}
+    </>
+  );
+}
+
+// ————————————————————————— shelf life —————————————————————————
+
+function ShelfLifeTab({ movements }: { movements: Movement[] }) {
+  const rows = useMemo(() => shelfLife(movements), [movements]);
+  const pressing = rows.filter((r) => r.state === "expired" || r.state === "urgent" || r.state === "soon");
+
+  return (
+    <>
+      <p style={{ fontSize: 13, color: MUTED, marginBottom: 16, lineHeight: 1.55, maxWidth: 640 }}>
+        Every lot in date order, soonest first. Dates come off the delivery note at goods-in, so nothing here is
+        re-keyed. On a perishable product across six sites this is the difference between a markdown and a skip.
+      </p>
+
+      {pressing.length === 0 && (
+        <div style={{ ...card, marginBottom: 16 }}>
+          <p style={{ fontSize: 13.5 }}>
+            <Dot color={GREEN} />
+            Nothing is within a month of its date.
+          </p>
+        </div>
+      )}
+
+      <div style={{ display: "grid", gap: 6 }}>
+        {rows.map((r) => (
+          <div
+            key={`${r.balance.materialCode}-${r.balance.lot}-${r.balance.locationId}`}
+            style={{
+              ...card,
+              display: "grid",
+              gridTemplateColumns: "1fr auto",
+              gap: 14,
+              padding: "11px 15px",
+              borderLeft: r.state === "fresh" || r.state === "unknown" ? undefined : `2px solid ${FRESH_COLOR[r.state]}`,
+            }}
+          >
+            <div>
+              <p style={{ fontSize: 14 }}>
+                <Dot color={FRESH_COLOR[r.state]} />
+                {r.balance.material?.name ?? r.balance.materialCode}
+              </p>
+              <p style={{ ...mono, fontSize: 10.5, color: MUTED, paddingLeft: 16, marginTop: 2 }}>
+                lot {r.balance.lot} · {r.balance.location?.name} · {fmtQty(r.balance.qty, r.balance.unit)}
+              </p>
+            </div>
+            <div style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+              <p style={{ ...mono, fontSize: 13, color: FRESH_COLOR[r.state], fontWeight: 500 }}>
+                {r.balance.bestBefore ?? "—"}
+              </p>
+              <p style={{ ...mono, fontSize: 10.5, color: MUTED, marginTop: 2 }}>
+                {r.days === null
+                  ? FRESHNESS_LABEL[r.state]
+                  : r.days < 0
+                    ? `${Math.abs(r.days)}d past`
+                    : `${r.days}d left`}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+// ————————————————————————— allergens —————————————————————————
+
+function AllergenTab({ movements }: { movements: Movement[] }) {
+  const rows = useMemo(() => allergenPosition(movements), [movements]);
+  const gaps = useMemo(() => declarationGaps(movements), [movements]);
+
+  return (
+    <>
+      <p style={{ fontSize: 13, color: MUTED, marginBottom: 16, lineHeight: 1.55, maxWidth: 640 }}>
+        Everything currently held, what is in it, and whether the supplier declaration behind it is on file. This is
+        the question a trade buyer&rsquo;s auditor asks, and it is answered from the register rather than from memory.
+      </p>
+
+      <div style={{ ...card, marginBottom: 16 }}>
+        <p style={{ ...mono, fontSize: 10.5, letterSpacing: "0.16em", color: MUTED, marginBottom: 6 }}>
+          SITE CLAIM
+        </p>
+        <p style={{ fontSize: 14, lineHeight: 1.55 }}>
+          Free from {SITE_FREE_FROM.join(", ")} across the whole factory. Milk is present throughout — this is a
+          dairy, and saying so plainly is what makes the rest credible.
+        </p>
+      </div>
+
+      {gaps.length > 0 && (
+        <div style={{ ...card, borderLeft: `2px solid ${BRASS}`, marginBottom: 16 }}>
+          <p style={{ fontSize: 13.5, fontWeight: 500, marginBottom: 4 }}>
+            <Dot color={BRASS} />
+            {gaps.length} material{gaps.length === 1 ? "" : "s"} held with no current declaration
+          </p>
+          <p style={{ fontSize: 12.5, color: MUTED, paddingLeft: 16, lineHeight: 1.55 }}>
+            {gaps.map((g) => g.name).join(", ")}. Not a crisis, but this is the gap an audit finds — chase the
+            declaration before the re-audit window rather than during it.
+          </p>
+        </div>
+      )}
+
+      <div style={{ display: "grid", gap: 6 }}>
+        {rows.map((r) => (
+          <div key={r.material.code} style={{ ...card, padding: "12px 16px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+              <p style={{ fontSize: 14 }}>
+                <Dot color={r.declarationOnFile ? GREEN : BRASS} />
+                {r.material.name}
+              </p>
+              <span style={{ ...mono, fontSize: 11.5, color: r.declarationOnFile ? MUTED : BRASS }}>
+                {r.declarationOnFile
+                  ? `Declaration held${r.declarationReviewed ? ` · ${r.declarationReviewed}` : ""}`
+                  : "No declaration on file"}
+              </span>
+            </div>
+            <p style={{ ...mono, fontSize: 10.5, color: MUTED, paddingLeft: 16, marginTop: 3 }}>
+              {r.material.code} · {CATEGORY_LABEL[r.material.category]} · {KIND_LABEL[r.material.kind]}
+              {r.material.supplier ? ` · ${r.material.supplier}` : ""}
+            </p>
+            <p style={{ fontSize: 12.5, color: MUTED, paddingLeft: 16, marginTop: 4, lineHeight: 1.5 }}>
+              {r.present.length > 0
+                ? `Contains ${r.present.map((a) => ALLERGEN_LABEL[a].toLowerCase()).join(", ")}.`
+                : "No allergens present."}
+              {r.material.allergenNote ? ` ${r.material.allergenNote}` : ""}
+            </p>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+// ————————————————————————— holds —————————————————————————
+
+function HoldsTab({ movements }: { movements: Movement[] }) {
+  const held = useMemo(
+    () => balances(movements).filter((b) => b.location?.holding),
+    [movements],
+  );
+
+  return (
+    <>
+      <p style={{ fontSize: 13, color: MUTED, marginBottom: 16, lineHeight: 1.55, maxWidth: 640 }}>
+        Stock taken in but not released. Physically on site, deliberately not free to use, and waiting on a decision
+        from someone. Nothing leaves here without that decision being recorded against it.
+      </p>
+
+      {held.length === 0 ? (
+        <div style={{ ...card }}>
+          <p style={{ fontSize: 13.5 }}>
+            <Dot color={GREEN} />
+            Nothing is on hold.
+          </p>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gap: 6 }}>
+          {held.map((b) => {
+            const m = movements.find((x) => x.materialCode === b.materialCode && x.lot === b.lot && x.locationId === b.locationId);
             return (
-              <div key={loc.id}>
-                <p style={{ ...mono, fontSize: 10.5, letterSpacing: "0.16em", color: MUTED, marginBottom: 8 }}>
-                  {loc.name.toUpperCase()} · {KIND_WORD[loc.kind].toUpperCase()} · {loc.site.toUpperCase()}
-                </p>
-                <div style={{ display: "grid", gap: 6 }}>
-                  {bs.map((b) => (
-                    <button
-                      key={`${b.materialCode}-${b.lot}`}
-                      onClick={() => setLot({ code: b.materialCode, lot: b.lot })}
-                      style={{
-                        ...card,
-                        display: "grid",
-                        gridTemplateColumns: "1fr auto",
-                        gap: 14,
-                        padding: "11px 15px",
-                        textAlign: "left",
-                        cursor: "pointer",
-                        font: "inherit",
-                        color: "inherit",
-                      }}
-                    >
-                      <div>
-                        <p style={{ fontSize: 14 }}>{b.material?.name ?? b.materialCode}</p>
-                        <p style={{ ...mono, fontSize: 11, color: MUTED, marginTop: 2 }}>lot {b.lot}</p>
-                      </div>
-                      <span style={{ ...mono, fontSize: 15, fontWeight: 500, whiteSpace: "nowrap" }}>
-                        {fmtQty(b.qty, b.unit)}
-                      </span>
-                    </button>
-                  ))}
+              <div key={`${b.materialCode}-${b.lot}`} style={{ ...card, borderLeft: `2px solid ${BRASS}`, padding: "12px 16px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                  <p style={{ fontSize: 14 }}>
+                    <Dot color={BRASS} />
+                    {b.material?.name ?? b.materialCode}
+                  </p>
+                  <span style={{ ...mono, fontSize: 14, fontWeight: 500 }}>{fmtQty(b.qty, b.unit)}</span>
                 </div>
+                <p style={{ ...mono, fontSize: 10.5, color: MUTED, paddingLeft: 16, marginTop: 3 }}>
+                  lot {b.lot} · {b.location?.name}
+                  {m?.at ? ` · held since ${m.at}` : ""}
+                  {m?.ref ? ` · ${m.ref}` : ""}
+                </p>
+                {m?.note && (
+                  <p style={{ fontSize: 12.5, color: MUTED, paddingLeft: 16, marginTop: 4, lineHeight: 1.5 }}>{m.note}</p>
+                )}
               </div>
             );
           })}
         </div>
       )}
-
-      {lot && <LotTrace movements={movements} code={lot.code} lot={lot.lot} onClose={() => setLot(null)} />}
     </>
   );
 }
