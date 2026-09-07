@@ -514,18 +514,29 @@ function gridFromPositions(items: Positioned[]): (string | null)[][] {
 }
 
 async function gridsFromPdf(buf: ArrayBuffer): Promise<(string | null)[][][]> {
-  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  // Both halves of the library are imported: the API, and the worker
+  // module itself.
+  //
+  // pdfjs will run everything on the main thread — no separate worker
+  // file to host, no URL to configure, no version to keep in step — if
+  // it can find a message handler on `globalThis.pdfjsWorker`. It checks
+  // for that before it ever looks at GlobalWorkerOptions.workerSrc, so
+  // providing it here is what keeps the desk from demanding a worker URL
+  // it has no way to supply from inside a bundled app.
+  //
+  // A goods-in note is a page or two, so the main-thread cost is
+  // irrelevant and this trades nothing away.
+  const [pdfjs, worker] = await Promise.all([
+    import("pdfjs-dist/legacy/build/pdf.mjs"),
+    // The worker build ships no type declarations of its own.
+    // @ts-expect-error -- untyped module, used only for its message handler
+    import("pdfjs-dist/legacy/build/pdf.worker.mjs"),
+  ]);
 
-  // Parsed on the main thread rather than in a web worker. A goods-in
-  // note is a page or two, so the cost is trivial, and it avoids having
-  // to ship a separate worker asset and keep its version in step with
-  // the library — which is a deployment failure waiting to happen for
-  // no benefit at this size.
-  const doc = await pdfjs.getDocument({
-    data: new Uint8Array(buf),
-    useSystemFonts: true,
-    disableWorker: true,
-  } as Parameters<typeof pdfjs.getDocument>[0]).promise;
+  const g = globalThis as unknown as { pdfjsWorker?: unknown };
+  g.pdfjsWorker ??= worker;
+
+  const doc = await pdfjs.getDocument({ data: new Uint8Array(buf), useSystemFonts: true }).promise;
 
   const grids: (string | null)[][][] = [];
   for (let p = 1; p <= doc.numPages; p++) {
