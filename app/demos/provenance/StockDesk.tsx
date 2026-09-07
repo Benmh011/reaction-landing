@@ -219,7 +219,8 @@ function GoodsInTab({ movements, onBook }: { movements: Movement[]; onBook: (ms:
 
   function book() {
     if (!result) return;
-    const ready = result.lines.filter((l) => l.state === "accepted" && !l.rejected && l.material && l.qty);
+    const ready = result.lines.filter((l) => l.state === "accepted" && !l.rejected && !l.booked && l.material && l.qty);
+    if (ready.length === 0) return;
     const ms: Movement[] = ready.map((l, i) => ({
       id: `gi-${Date.now()}-${i}`,
       materialCode: l.material!.code,
@@ -236,15 +237,26 @@ function GoodsInTab({ movements, onBook }: { movements: Movement[]; onBook: (ms:
       note: l.quarantine ? "Quarantine hold — arrival temperature out of spec" : undefined,
     }));
     onBook(ms);
+
+    // Mark them booked so a second press cannot duplicate the delivery,
+    // and so each line visibly says where it went.
+    const bookedIds = new Set(ready.map((l) => l.id));
+    setResult((prev) =>
+      prev ? { ...prev, lines: prev.lines.map((l) => (bookedIds.has(l.id) ? { ...l, booked: true } : l)) } : prev,
+    );
+
     const q = ready.filter((l) => l.quarantine).length;
+    const dest = locationById(into)?.name ?? "stock";
     setBooked(
-      `${ms.length} ${ms.length === 1 ? "line" : "lines"} booked in` +
-        (q ? `, ${q} to quarantine hold.` : ` to ${locationById(into)?.name}.`),
+      `${ms.length} ${ms.length === 1 ? "line" : "lines"} booked into ${dest}` +
+        (q ? `, and ${q} into the quarantine hold.` : ".") +
+        " Open Stock on hand to see them.",
     );
   }
 
-  const readyCount = result?.lines.filter((l) => l.state === "accepted" && !l.rejected).length ?? 0;
+  const readyCount = result?.lines.filter((l) => l.state === "accepted" && !l.rejected && !l.booked).length ?? 0;
   const outstanding = result?.lines.filter((l) => l.state !== "accepted" && !l.rejected).length ?? 0;
+  const bookedCount = result?.lines.filter((l) => l.booked).length ?? 0;
 
   return (
     <>
@@ -324,15 +336,6 @@ function GoodsInTab({ movements, onBook }: { movements: Movement[]; onBook: (ms:
         </div>
       )}
 
-      {booked && (
-        <div style={{ ...card, borderLeft: `2px solid ${GREEN}`, marginBottom: 20 }}>
-          <p style={{ fontSize: 13.5, lineHeight: 1.55 }}>
-            <Dot color={GREEN} />
-            {booked} Anything still outstanding stays on this note until it is dealt with.
-          </p>
-        </div>
-      )}
-
       {result && (
         <>
           <div style={{ ...card, marginBottom: 18 }}>
@@ -400,10 +403,29 @@ function GoodsInTab({ movements, onBook }: { movements: Movement[]; onBook: (ms:
                 Book in {readyCount} {readyCount === 1 ? "line" : "lines"}
               </button>
             </div>
+            {booked && (
+              <div
+                style={{
+                  borderLeft: `2px solid ${GREEN}`,
+                  background: "rgba(22,122,91,0.06)",
+                  borderRadius: 8,
+                  padding: "10px 14px",
+                }}
+              >
+                <p style={{ fontSize: 13.5, lineHeight: 1.55 }}>
+                  <Dot color={GREEN} />
+                  {booked}
+                </p>
+              </div>
+            )}
+
             <p style={{ fontSize: 12, color: MUTED, lineHeight: 1.55 }}>
+              {bookedCount > 0 && `${bookedCount} of ${result.lines.length} lines booked. `}
               {outstanding > 0
                 ? `${outstanding} ${outstanding === 1 ? "line still needs" : "lines still need"} a decision. Only lines that pass on their own are booked — settling one re-runs the checks rather than overriding them.`
-                : "Every line on this note has been dealt with."}
+                : readyCount === 0
+                  ? "Every line on this note has been dealt with."
+                  : "Every line has been settled and is ready to book."}
             </p>
           </div>
         </>
@@ -451,12 +473,25 @@ function LineRow({
   const color = rejected ? MUTED : STATE_COLOR[line.state];
   const word = rejected
     ? "Rejected"
-    : line.quarantine
-      ? "Quarantined"
-      : STATE_WORD[line.state];
+    : line.booked
+      ? line.quarantine
+        ? "Booked to quarantine"
+        : "Booked in"
+      : line.quarantine
+        ? "Quarantined"
+        : STATE_WORD[line.state];
 
   const by = who.trim() || "Goods in desk";
-  const actionable = line.issues.filter((i) => i.code !== "unit-assumed");
+
+  // One control per issue code. The prohibited screen emits two lines of
+  // text — the stop and the caveat — and rendering a button per issue
+  // gave two identical Reject buttons.
+  const seen = new Set<IssueCode>();
+  const actionable = line.issues.filter((i) => {
+    if (i.code === "unit-assumed" || seen.has(i.code)) return false;
+    seen.add(i.code);
+    return true;
+  });
 
   function fire(input: ResolveInput) {
     onSettle(input);
@@ -503,7 +538,7 @@ function LineRow({
         </div>
       ))}
 
-      {!rejected && actionable.length > 0 && (
+      {!rejected && !line.booked && actionable.length > 0 && (
         <div style={{ paddingLeft: 16, marginTop: 10, display: "grid", gap: 8 }}>
           {actionable.map((issue) => (
             <div key={issue.code}>
@@ -588,6 +623,12 @@ function LineRow({
             </div>
           ))}
         </div>
+      )}
+
+      {line.booked && (
+        <p style={{ ...mono, fontSize: 10.5, color: GREEN, paddingLeft: 16, marginTop: 6 }}>
+          {line.quarantine ? "Booked to the quarantine hold" : "Booked into stock"}
+        </p>
       )}
 
       {line.resolutions && line.resolutions.length > 0 && (

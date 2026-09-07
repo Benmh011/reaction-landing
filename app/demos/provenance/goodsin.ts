@@ -220,6 +220,9 @@ export type GoodsLine = {
   quarantine?: boolean;
   // Rejected outright: never booked in, but kept on the note as a record.
   rejected?: boolean;
+  // Already booked into stock. A line is booked once; the flag is what
+  // stops a second press of the button duplicating the delivery.
+  booked?: boolean;
 };
 
 export type GoodsInReport = {
