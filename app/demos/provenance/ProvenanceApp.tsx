@@ -8,6 +8,8 @@ import QuestionnaireDesk from "./QuestionnaireDesk";
 import Welcome from "./Welcome";
 import StockDesk from "./StockDesk";
 import CheckDesk from "./CheckDesk";
+import SopDesk from "./SopDesk";
+import { SEED_RUNS, schedule as sopSchedule, sopById, fmtAgo } from "./sop";
 
 // ————————————————————————————————————————————————————————————————
 // Salcombe Dairy — demonstration build.
@@ -112,6 +114,7 @@ const SECTIONS = [
   { id: "stock", label: "Stock" },
   { id: "production", label: "Production records" },
   { id: "checks", label: "Checks" },
+  { id: "procedures", label: "Procedures" },
 ] as const;
 
 type SectionId = (typeof SECTIONS)[number]["id"];
@@ -154,6 +157,14 @@ function buildPicture(): Item[] {
   for (const m of declarationGaps(SEED_MOVEMENTS)) items.push({ severe: false, text: `${m.name} is held with no supplier declaration on file.`, goto: "stock" });
   for (const w of misplaced(SEED_MOVEMENTS)) items.push({ severe: true, text: w.reason, goto: "stock" });
 
+  for (const d of sopSchedule(SEED_RUNS)) {
+    if (d.state === "due") items.push({ severe: false, text: `${d.sop.name} has not been run today.`, goto: "procedures" });
+  }
+  for (const r of SEED_RUNS) {
+    if (r.outcome === "stopped" && r.minsAgo < 60 * 12)
+      items.push({ severe: true, text: `${sopById(r.sopId)?.name ?? r.sopId} was stopped ${fmtAgo(r.minsAgo)} by ${r.by} — ${r.stopAction?.split(/(?<=\.)\s/)[0] ?? "action outstanding"}`, goto: "procedures" });
+  }
+
   for (const q of QUESTIONNAIRES) {
     if (q.open && q.drafted < q.questions)
       items.push({ severe: false, text: `${q.from} questionnaire drafted — ${q.questions - q.drafted} answers held for review.`, goto: "questionnaires" });
@@ -171,6 +182,7 @@ function countsFor(items: Item[]) {
     stock: { n: 0, severe: false },
     production: { n: 0, severe: false },
     checks: { n: 0, severe: false },
+    procedures: { n: 0, severe: false },
   };
   for (const i of items) {
     out[i.goto].n += 1;
@@ -494,6 +506,7 @@ export default function ProvenanceApp({ user }: { user?: string | null }) {
             {active === "stock" && <StockDesk />}
             {active === "production" && <ProductionLog />}
             {active === "checks" && <CheckDesk />}
+            {active === "procedures" && <SopDesk />}
           </div>
         </main>
       </div>
