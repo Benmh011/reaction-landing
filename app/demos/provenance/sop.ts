@@ -372,9 +372,10 @@ export type Run = {
   id: string;
   sopId: string;
   by: string;
+  // When it started, as a real timestamp. A saved record has to say the
+  // right day when it is reopened next week, which "minutes ago" cannot.
+  ts: number;
   startedAt: string;
-  // Minutes before now, so the demo reads the same on any day.
-  minsAgo: number;
   answers: Answer[];
   outcome: Outcome;
   // The step the run is on, or ended on.
@@ -382,13 +383,24 @@ export type Run = {
   stopAction?: string;
 };
 
+export function minsAgo(run: Run): number {
+  return Math.max(0, (Date.now() - run.ts) / 60_000);
+}
+
+export function fmtRunDate(run: Run): string {
+  return new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(
+    new Date(run.ts),
+  );
+}
+
 export function startRun(sop: Sop, by: string): Run {
+  const ts = Date.now();
   return {
-    id: `run-${Date.now()}`,
+    id: `run-${ts}`,
     sopId: sop.id,
     by,
+    ts,
     startedAt: clock(0),
-    minsAgo: 0,
     answers: [],
     outcome: "in progress",
     stepId: sop.steps[0].id,
@@ -466,14 +478,14 @@ export type Due = { sop: Sop; lastRun?: Run; state: "done" | "due" | "n/a" };
 
 export function schedule(runs: Run[]): Due[] {
   return SOPS.map((sop) => {
-    const mine = runs.filter((r) => r.sopId === sop.id && r.outcome !== "in progress").sort((a, b) => a.minsAgo - b.minsAgo);
+    const mine = runs.filter((r) => r.sopId === sop.id && r.outcome !== "in progress").sort((a, b) => b.ts - a.ts);
     const last = mine[0];
     if (sop.cadence === "daily") {
-      const doneToday = last !== undefined && last.minsAgo < 60 * 18 && last.outcome === "complete";
+      const doneToday = last !== undefined && minsAgo(last) < 60 * 18 && last.outcome === "complete";
       return { sop, lastRun: last, state: doneToday ? "done" : "due" };
     }
     if (sop.cadence === "weekly") {
-      const doneThisWeek = last !== undefined && last.minsAgo < 60 * 24 * 7 && last.outcome === "complete";
+      const doneThisWeek = last !== undefined && minsAgo(last) < 60 * 24 * 7 && last.outcome === "complete";
       return { sop, lastRun: last, state: doneThisWeek ? "done" : "due" };
     }
     return { sop, lastRun: last, state: "n/a" };
@@ -499,12 +511,13 @@ export function fmtAgo(mins: number): string {
 // show: yesterday's pasteuriser start-up (so today's is due), a clean
 // that passed, and one that was stopped on a swab.
 
-function seed(id: string, sopId: string, by: string, minsAgo: number, values: string[]): Run {
+function seed(id: string, sopId: string, by: string, ago: number, values: string[]): Run {
   const sop = sopById(sopId)!;
-  let run: Run = { id, sopId, by, startedAt: clock(minsAgo), minsAgo, answers: [], outcome: "in progress", stepId: sop.steps[0].id };
+  const ts = Date.now() - ago * 60_000;
+  let run: Run = { id, sopId, by, ts, startedAt: clock(ago), answers: [], outcome: "in progress", stepId: sop.steps[0].id };
   for (const v of values) run = answer(sop, run, v);
   // Stamp every answer with the run's own clock rather than now.
-  run.answers = run.answers.map((a, i) => ({ ...a, at: clock(minsAgo - i) }));
+  run.answers = run.answers.map((a, i) => ({ ...a, at: clock(ago - i) }));
   return run;
 }
 
@@ -515,3 +528,36 @@ export const SEED_RUNS: Run[] = [
   seed("r-past-4", "SOP-07", "M. Reeve", 60 * 3, ["yes", "Salted caramel", "yes", "yes", "23"]),
   seed("r-past-5", "SOP-12", "J. Okafor", 60 * 2, ["yes", "3.8", "3.1", "yes", "yes"]),
 ];
+
+// ————————————————————————— persistence —————————————————————————
+//
+// Runs a person has made are kept in the browser so they survive leaving
+// the section and reloading the page. The seeded history is not saved —
+// it is regenerated relative to today, so the demo always opens with
+// yesterday's start-up correctly due.
+
+const KEY = "salcombe-dairy.procedures.runs";
+
+export function loadRuns(): Run[] {
+  if (typeof window === "undefined") return SEED_RUNS;
+  try {
+    const raw = window.localStorage.getItem(KEY);
+    if (!raw) return SEED_RUNS;
+    const saved = JSON.parse(raw) as Run[];
+    if (!Array.isArray(saved)) return SEED_RUNS;
+    return [...saved.filter((r) => r && typeof r.ts === "number"), ...SEED_RUNS].sort((a, b) => b.ts - a.ts);
+  } catch {
+    return SEED_RUNS;
+  }
+}
+
+export function saveRuns(runs: Run[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    const seeded = new Set(SEED_RUNS.map((r) => r.id));
+    const own = runs.filter((r) => !seeded.has(r.id) && r.outcome !== "in progress");
+    window.localStorage.setItem(KEY, JSON.stringify(own));
+  } catch {
+    // Storage full or blocked: the run stays in memory for this session.
+  }
+}

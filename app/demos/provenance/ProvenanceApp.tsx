@@ -9,7 +9,7 @@ import Welcome from "./Welcome";
 import StockDesk from "./StockDesk";
 import CheckDesk from "./CheckDesk";
 import SopDesk from "./SopDesk";
-import { SEED_RUNS, schedule as sopSchedule, sopById, fmtAgo } from "./sop";
+import { SEED_RUNS, schedule as sopSchedule, sopById, fmtAgo, minsAgo as runMinsAgo } from "./sop";
 
 // ————————————————————————————————————————————————————————————————
 // Salcombe Dairy — demonstration build.
@@ -161,8 +161,8 @@ function buildPicture(): Item[] {
     if (d.state === "due") items.push({ severe: false, text: `${d.sop.name} has not been run today.`, goto: "procedures" });
   }
   for (const r of SEED_RUNS) {
-    if (r.outcome === "stopped" && r.minsAgo < 60 * 12)
-      items.push({ severe: true, text: `${sopById(r.sopId)?.name ?? r.sopId} was stopped ${fmtAgo(r.minsAgo)} by ${r.by} — ${r.stopAction?.split(/(?<=\.)\s/)[0] ?? "action outstanding"}`, goto: "procedures" });
+    if (r.outcome === "stopped" && runMinsAgo(r) < 60 * 12)
+      items.push({ severe: true, text: `${sopById(r.sopId)?.name ?? r.sopId} was stopped ${fmtAgo(runMinsAgo(r))} by ${r.by} — ${r.stopAction?.split(/(?<=\.)\s/)[0] ?? "action outstanding"}`, goto: "procedures" });
   }
 
   for (const q of QUESTIONNAIRES) {

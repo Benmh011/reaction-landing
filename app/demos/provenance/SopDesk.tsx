@@ -9,7 +9,7 @@
 // is no separate form.
 // ————————————————————————————————————————————————————————————————
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   SOPS,
   SEED_RUNS,
@@ -19,10 +19,15 @@ import {
   answer as answerStep,
   schedule,
   fmtAgo,
+  minsAgo,
+  fmtRunDate,
+  loadRuns,
+  saveRuns,
   type Run,
   type Sop,
   type Step,
 } from "./sop";
+import { runPdfBlob, runFilename } from "./sop-pdf";
 
 const GREEN = "#167a5b";
 const BRASS = "#a3772a";
@@ -70,8 +75,65 @@ function Title({ title, sub }: { title: string; sub?: string }) {
 
 // ————————————————————————— the desk —————————————————————————
 
+// One builder, two doors. The icon opens the record in a new tab; the
+// button saves it. Both call the same function and get the same bytes.
+function openRecord(run: Run) {
+  const sop = sopById(run.sopId);
+  if (!sop) return;
+  // The tab has to be opened synchronously, inside the click, or the
+  // browser treats it as an unwanted popup and blocks it. Open it empty,
+  // build the record, then send the tab to it.
+  const tab = window.open("", "_blank");
+  if (!tab) return;
+  tab.document.title = "Preparing record…";
+  runPdfBlob(sop, run)
+    .then((blob) => {
+      const url = URL.createObjectURL(blob);
+      tab.location.href = url;
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    })
+    .catch(() => tab.close());
+}
+
+async function exportRecord(run: Run) {
+  const sop = sopById(run.sopId);
+  if (!sop) return;
+  const blob = await runPdfBlob(sop, run);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = runFilename(sop, run);
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+// The record icon: a page with a turned corner and three lines. Drawn
+// here rather than taken from an icon set, so it belongs to this desk.
+function RecordIcon() {
+  return (
+    <svg width="18" height="20" viewBox="0 0 18 20" fill="none" aria-hidden>
+      <path d="M2 1.5h9.2L16 6.3V18.5H2z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+      <path d="M11.2 1.5v4.8H16" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+      <path d="M5 10h8M5 13h8M5 16h5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export default function SopDesk() {
   const [runs, setRuns] = useState<Run[]>(SEED_RUNS);
+  const [loaded, setLoaded] = useState(false);
+
+  // Storage is read after mount so server and client render the same
+  // thing first; then anything saved comes in on top of the seeds.
+  useEffect(() => {
+    setRuns(loadRuns());
+    setLoaded(true);
+  }, []);
+  useEffect(() => {
+    if (loaded) saveRuns(runs);
+  }, [runs, loaded]);
   const [live, setLive] = useState<Run | null>(null);
   const [viewing, setViewing] = useState<Run | null>(null);
   const [who, setWho] = useState("");
@@ -133,7 +195,7 @@ export default function SopDesk() {
               <p style={{ fontSize: 12, color: state === "due" ? BRASS : MUTED, marginTop: 5 }}>
                 {CADENCE_WORD[sop.cadence]}
                 {state === "due" ? " — not yet run today." : "."}
-                {lastRun ? ` Last run ${fmtAgo(lastRun.minsAgo)} by ${lastRun.by}${lastRun.outcome === "stopped" ? ", stopped" : ""}.` : ""}
+                {lastRun ? ` Last run ${fmtAgo(minsAgo(lastRun))} by ${lastRun.by}${lastRun.outcome === "stopped" ? ", stopped" : ""}.` : ""}
               </p>
             </div>
             <button onClick={() => begin(sop)} className="btn btn-primary" style={{ fontSize: 13.5, padding: "9px 16px" }}>
@@ -144,29 +206,49 @@ export default function SopDesk() {
       </div>
 
       <h2 style={{ ...serif, fontSize: 20, color: "var(--text)", marginBottom: 12 }}>Recent runs</h2>
+      <style>{`
+        .sop-record-btn {
+          display: inline-grid; place-items: center;
+          width: 34px; height: 34px;
+          border-radius: 9px;
+          border: 1px solid var(--rule);
+          background: transparent;
+          color: ${NAVY};
+          cursor: pointer;
+          transition: background 140ms ease, border-color 140ms ease;
+        }
+        .sop-record-btn:hover { background: var(--bg); border-color: var(--rule-strong); }
+      `}</style>
       <div style={{ display: "grid", gap: 6 }}>
         {runs.map((r) => {
           const sop = sopById(r.sopId);
           const color = r.outcome === "complete" ? GREEN : r.outcome === "stopped" ? VERM : BRASS;
           const flagged = r.answers.some((a) => a.flag);
           return (
-            <button
-              key={r.id}
-              onClick={() => setViewing(r)}
-              style={{ ...card, display: "grid", gridTemplateColumns: "1fr auto", gap: 14, padding: "11px 15px", textAlign: "left", cursor: "pointer", font: "inherit", color: "inherit" }}
-            >
-              <div>
+            <div key={r.id} style={{ ...card, display: "grid", gridTemplateColumns: "1fr auto auto", gap: 14, padding: "11px 15px", alignItems: "center" }}>
+              <button
+                onClick={() => setViewing(r)}
+                style={{ textAlign: "left", cursor: "pointer", font: "inherit", color: "inherit", background: "none", border: "none", padding: 0 }}
+              >
                 <p style={{ fontSize: 14 }}>
                   <span aria-hidden style={{ display: "inline-block", width: 8, height: 8, borderRadius: 99, background: color, marginRight: 8 }} />
                   {sop?.name ?? r.sopId}
                   {flagged && <span style={{ fontSize: 12, color: BRASS }}> · flagged</span>}
                 </p>
                 <p style={{ ...mono, fontSize: 11.5, color: MUTED, marginTop: 3 }}>
-                  {r.by} · {fmtAgo(r.minsAgo)} · {r.answers.length} of {sop?.steps.length ?? "?"} steps
+                  {r.by} · {fmtRunDate(r)} {r.startedAt} · {r.answers.length} of {sop?.steps.length ?? "?"} steps
                 </p>
-              </div>
+              </button>
               <span style={{ fontSize: 12.5, color, textTransform: "capitalize", whiteSpace: "nowrap" }}>{r.outcome}</span>
-            </button>
+              <button
+                onClick={() => openRecord(r)}
+                className="sop-record-btn"
+                title="Open the record"
+                aria-label={`Open the record for ${sop?.name ?? r.sopId}`}
+              >
+                <RecordIcon />
+              </button>
+            </div>
           );
         })}
       </div>
@@ -204,9 +286,21 @@ function Thread({
             {run.by} · started {run.startedAt}
           </p>
         </div>
-        <button onClick={onClose} style={{ background: "none", border: "1px solid var(--rule-strong)", borderRadius: 8, padding: "7px 13px", fontSize: 13, cursor: "pointer", color: "inherit", font: "inherit" }}>
-          {readOnly ? "Back to procedures" : "Leave without finishing"}
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          {run.outcome !== "in progress" && (
+            <button
+              onClick={() => exportRecord(run)}
+              className="btn btn-primary"
+              style={{ fontSize: 13, padding: "7px 14px", display: "inline-flex", alignItems: "center", gap: 8 }}
+            >
+              <RecordIcon />
+              Export record
+            </button>
+          )}
+          <button onClick={onClose} style={{ background: "none", border: "1px solid var(--rule-strong)", borderRadius: 8, padding: "7px 13px", fontSize: 13, cursor: "pointer", color: "inherit", font: "inherit" }}>
+            {readOnly ? "Back to procedures" : "Leave without finishing"}
+          </button>
+        </div>
       </div>
 
       <div className="sop-thread">
@@ -316,6 +410,17 @@ function Thread({
           padding: 14px 18px;
         }
         .sop-end { border-left-color: ${GREEN}; }
+        .sop-record-btn {
+          display: inline-grid; place-items: center;
+          width: 34px; height: 34px;
+          border-radius: 9px;
+          border: 1px solid var(--rule);
+          background: transparent;
+          color: ${NAVY};
+          cursor: pointer;
+          transition: background 140ms ease, border-color 140ms ease;
+        }
+        .sop-record-btn:hover { background: var(--bg); border-color: var(--rule-strong); }
         @keyframes sopin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
         @media (prefers-reduced-motion: reduce) { .sop-reply { animation: none; } }
         @media (max-width: 600px) { .sop-ask, .sop-reply, .sop-input, .sop-stop, .sop-end { max-width: 100%; } }
