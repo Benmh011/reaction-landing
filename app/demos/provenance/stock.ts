@@ -395,7 +395,7 @@ export const MATERIALS: Material[] = [
     unit: "units",
     regime: "frozen",
     maxIntakeTempC: -18,
-    aliases: ["vanilla 2l"],
+    aliases: ["vanilla 2l", "vanilla ice cream", "ice cream vanilla"],
     allergens: ["milk"],
     declarationOnFile: true,
     shelfLifeDays: 365,
@@ -409,7 +409,7 @@ export const MATERIALS: Material[] = [
     unit: "units",
     regime: "frozen",
     maxIntakeTempC: -18,
-    aliases: ["salted caramel 2l"],
+    aliases: ["salted caramel 2l", "salted caramel", "caramel ice cream"],
     allergens: ["milk"],
     declarationOnFile: true,
     shelfLifeDays: 365,
@@ -422,7 +422,7 @@ export const MATERIALS: Material[] = [
     category: "finished",
     unit: "units",
     regime: "conditioned",
-    aliases: ["70% bar", "dark bar"],
+    aliases: ["70% bar", "dark bar", "chocolate bar", "dark chocolate", "chocolate"],
     allergens: [],
     declarationOnFile: true,
     shelfLifeDays: 540,
@@ -915,4 +915,164 @@ export function groupBalances(
     .map(([key, v]) => ({ key, label: v.label, sort: v.sort, items: v.items }))
     .sort((a, b) => a.sort - b.sort || a.label.localeCompare(b.label))
     .map(({ key, label, items }) => ({ key, label, items }));
+}
+
+// ————————————————————————— search —————————————————————————
+//
+// One box over the whole register and everything held. It searches the
+// same alias list goods-in matches against, so a supplier's word for a
+// material finds it here too — "cacao" reaches the cocoa beans without
+// anyone having to know the register's own name for them.
+//
+// The useful part is the answer when nothing matches. "Chocolate powder"
+// is not on this register: they hold beans and couverture. Saying so, and
+// saying what near it *is* held, beats an empty list — and distinguishing
+// "not on the register" from "on the register but none in stock" is the
+// difference between a purchasing question and a stocktaking one.
+
+function tokens(s: string): string[] {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9%\s-]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+// How well a material answers a query. Zero means no.
+export function scoreMaterial(m: Material, query: string): number {
+  const q = query.toLowerCase().trim();
+  if (!q) return 0;
+
+  const name = m.name.toLowerCase();
+  if (m.code.toLowerCase() === q) return 100;
+  if (name === q) return 95;
+  if (name.includes(q)) return 80;
+  if (m.aliases.some((a) => a === q)) return 78;
+  if (m.aliases.some((a) => a.includes(q) || q.includes(a))) return 65;
+
+  // The product line is matched whole, never as a substring. "Ice cream"
+  // contains "cream", so a substring match there put catering tubs and
+  // glucose syrup in the results for someone searching for cream.
+  if (m.line && m.line.toLowerCase() === q) return 60;
+
+  const haystack = [
+    name,
+    m.code,
+    ...m.aliases,
+    CATEGORY_LABEL[m.category],
+    KIND_LABEL[m.kind],
+    REGIME_LABEL[m.regime],
+    m.supplier ?? "",
+    m.origin ?? "",
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  if (haystack.includes(q)) return 55;
+
+  // Token overlap, which is what makes a two-word query like "chocolate
+  // powder" land on the chocolate they do hold rather than nothing.
+  const qt = tokens(q);
+  const ht = new Set(tokens(haystack));
+  const hits = qt.filter((t) => t.length > 2 && ht.has(t)).length;
+  if (hits === 0) return 0;
+  return 20 + (hits / qt.length) * 25;
+}
+
+// Searching for something the site excludes deserves a better answer than
+// an empty list. "Nut" is not a gap in the register — it is the claim the
+// business is built on, and the search should say so.
+export function freeFromAnswer(query: string): string | null {
+  const q = query.toLowerCase().trim();
+  if (!q) return null;
+
+  const groups: { words: string[]; group: string }[] = [
+    { words: ["nut", "nuts", "peanut", "hazelnut", "almond", "cashew", "pistachio", "walnut", "pecan", "praline", "marzipan"], group: "nut" },
+    { words: ["gluten", "wheat", "barley", "rye", "spelt", "semolina"], group: "gluten" },
+    { words: ["egg", "eggs", "albumen"], group: "egg" },
+    { words: ["soya", "soy", "soybean", "lecithin"], group: "soya" },
+    { words: ["palm", "palm oil", "palm fat", "palm kernel"], group: "palm oil" },
+  ];
+
+  const qt = tokens(q);
+  for (const g of groups) {
+    if (qt.some((t) => g.words.includes(t))) {
+      return `The site is ${g.group} free. Nothing containing ${g.group} is held, and goods-in will stop it at the door — this is one of the claims every trade questionnaire answer rests on.`;
+    }
+  }
+  return null;
+}
+
+function scoreBalance(b: LotBalance, query: string): number {
+  const q = query.toLowerCase().trim();
+  if (!q) return 0;
+
+  // A lot code is how a recall starts, so an exact one wins outright.
+  if (b.lot.toLowerCase() === q) return 100;
+  if (b.lot.toLowerCase().includes(q)) return 85;
+  if (b.location && b.location.name.toLowerCase().includes(q)) return 60;
+  if (b.location && b.location.site.toLowerCase().includes(q)) return 50;
+
+  return b.material ? scoreMaterial(b.material, query) : 0;
+}
+
+export type SearchResult = {
+  matches: LotBalance[];
+  // Set when the query names something the whole site is free from.
+  freeFrom?: string;
+  // On the register, matched the query, but none is currently in stock.
+  onRegisterNotHeld: Material[];
+  // Nothing matched at all — the nearest things on the register, so the
+  // answer is a direction rather than a dead end.
+  suggestions: Material[];
+};
+
+export function searchStock(movements: Movement[], query: string): SearchResult {
+  const q = query.trim();
+  if (!q) return { matches: balances(movements), onRegisterNotHeld: [], suggestions: [] };
+
+  const scored = balances(movements)
+    .map((b) => ({ b, score: scoreBalance(b, q) }))
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score);
+
+  const matches = scored.map((x) => x.b);
+  const heldCodes = new Set(matches.map((m) => m.materialCode));
+
+  const registerHits = MATERIALS.map((m) => ({ m, score: scoreMaterial(m, q) }))
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score);
+
+  const onRegisterNotHeld = registerHits.filter((x) => !heldCodes.has(x.m.code)).map((x) => x.m);
+
+  // Only worth suggesting when the search found nothing anywhere.
+  const suggestions =
+    matches.length === 0 && onRegisterNotHeld.length === 0
+      ? MATERIALS.map((m) => ({ m, score: looseScore(m, q) }))
+          .filter((x) => x.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 3)
+          .map((x) => x.m)
+      : [];
+
+  return { matches, onRegisterNotHeld, suggestions, freeFrom: freeFromAnswer(q) ?? undefined };
+}
+
+// Deliberately generous, and used only once a normal search has failed —
+// a rough pointer is more use than nothing when someone has typed a word
+// this business does not use.
+function looseScore(m: Material, query: string): number {
+  const qt = tokens(query);
+  const ht = new Set(tokens([m.name, ...m.aliases, CATEGORY_LABEL[m.category]].join(" ")));
+  let hits = 0;
+  for (const t of qt) {
+    if (t.length < 3) continue;
+    for (const h of ht) {
+      if (h.startsWith(t.slice(0, 4)) || t.startsWith(h.slice(0, 4))) {
+        hits += 1;
+        break;
+      }
+    }
+  }
+  return hits;
 }

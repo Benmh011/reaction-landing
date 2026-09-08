@@ -23,6 +23,7 @@ import {
   locationById,
   locationsFor,
   groupBalances,
+  searchStock,
   shelfLife,
   freshnessOf,
   allergenPosition,
@@ -771,12 +772,79 @@ function GroupHead({ text }: { text: string }) {
 
 function OnHandTab({ movements }: { movements: Movement[] }) {
   const [by, setBy] = useState<GroupBy>("category");
-  const groups = useMemo(() => groupBalances(movements, by), [movements, by]);
+  const [query, setQuery] = useState("");
   const wrong = useMemo(() => misplaced(movements), [movements]);
   const [lot, setLot] = useState<{ code: string; lot: string } | null>(null);
 
+  const searching = query.trim().length > 0;
+  const found = useMemo(() => searchStock(movements, query), [movements, query]);
+
+  // While searching, the groups are rebuilt from the hits so the results
+  // stay organised the same way rather than collapsing into a flat list.
+  const groups = useMemo(() => {
+    const all = groupBalances(movements, by);
+    if (!searching) return all;
+    const keep = new Set(found.matches.map((m) => `${m.materialCode}|${m.lot}|${m.locationId}`));
+    return all
+      .map((g) => ({ ...g, items: g.items.filter((i) => keep.has(`${i.materialCode}|${i.lot}|${i.locationId}`)) }))
+      .filter((g) => g.items.length > 0);
+  }, [movements, by, searching, found]);
+
   return (
     <>
+      <input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search anything — a material, a supplier's word for it, a lot code, a shop"
+        style={{
+          ...inputStyle,
+          width: "100%",
+          fontSize: 14,
+          padding: "10px 14px",
+          marginBottom: 14,
+          fontFamily: "inherit",
+        }}
+      />
+
+      {searching && found.freeFrom && (
+        <div style={{ ...card, borderLeft: `2px solid ${GREEN}`, marginBottom: 14 }}>
+          <p style={{ fontSize: 13.5, lineHeight: 1.55 }}>
+            <Dot color={GREEN} />
+            {found.freeFrom}
+          </p>
+        </div>
+      )}
+
+      {searching && found.matches.length === 0 && !found.freeFrom && (
+        <div style={{ ...card, marginBottom: 14 }}>
+          <p style={{ fontSize: 13.5, lineHeight: 1.55 }}>
+            Nothing matching &ldquo;{query}&rdquo; is in stock.
+          </p>
+          {found.onRegisterNotHeld.length > 0 && (
+            <p style={{ fontSize: 12.5, color: MUTED, marginTop: 6, lineHeight: 1.55 }}>
+              On the register but none held: {found.onRegisterNotHeld.map((m) => m.name).join(", ")}.
+            </p>
+          )}
+          {found.suggestions.length > 0 && (
+            <p style={{ fontSize: 12.5, color: MUTED, marginTop: 6, lineHeight: 1.55 }}>
+              Nearest on the register: {found.suggestions.map((m) => m.name).join(", ")}. Nothing on this register goes
+              by that name — worth checking it is something the site actually buys.
+            </p>
+          )}
+          {found.onRegisterNotHeld.length === 0 && found.suggestions.length === 0 && (
+            <p style={{ fontSize: 12.5, color: MUTED, marginTop: 6, lineHeight: 1.55 }}>
+              Nothing on the register goes by that name either.
+            </p>
+          )}
+        </div>
+      )}
+
+      {searching && found.matches.length > 0 && found.onRegisterNotHeld.length > 0 && (
+        <p style={{ fontSize: 12.5, color: MUTED, marginBottom: 12, lineHeight: 1.55 }}>
+          Also on the register but none held: {found.onRegisterNotHeld.map((m) => m.name).join(", ")}.
+        </p>
+      )}
+
       <Pills<GroupBy>
         value={by}
         onChange={setBy}
