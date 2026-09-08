@@ -117,9 +117,26 @@ function Dot({ color }: { color: string }) {
 
 type Tab = "goodsin" | "onhand" | "shelf" | "allergens" | "holds" | "log";
 
-export default function StockDesk({ operator = "" }: { operator?: string }) {
+export default function StockDesk({
+  operator = "",
+  movements: controlled,
+  onMovements,
+}: {
+  operator?: string;
+  // The shell owns the log so that a hold placed in a recall exercise and
+  // a booking made here land on the same record. Left unset, the desk
+  // keeps its own — which is how it behaved before.
+  movements?: Movement[];
+  onMovements?: (next: Movement[]) => void;
+}) {
   const [tab, setTab] = useState<Tab>("goodsin");
-  const [movements, setMovements] = useState<Movement[]>(SEED_MOVEMENTS);
+  const [local, setLocal] = useState<Movement[]>(SEED_MOVEMENTS);
+  const movements = controlled ?? local;
+  const setMovements = (fn: (prev: Movement[]) => Movement[]) => {
+    const next = fn(movements);
+    if (onMovements) onMovements(next);
+    else setLocal(next);
+  };
 
   return (
     <>
@@ -241,8 +258,9 @@ function GoodsInTab({ movements, onBook, operator = "" }: { movements: Movement[
       (l) => l.state === "accepted" && !l.rejected && !l.booked && l.material && l.qty && fits(l.material.regime),
     );
     if (ready.length === 0) return;
+    const now = Date.now();
     const ms: Movement[] = ready.map((l, i) => ({
-      id: `gi-${Date.now()}-${i}`,
+      id: `gi-${now}-${i}`,
       materialCode: l.material!.code,
       lot: l.lot,
       // Quarantined stock is on site but not free to use, so it is booked
@@ -251,6 +269,7 @@ function GoodsInTab({ movements, onBook, operator = "" }: { movements: Movement[
       qty: l.qty!,
       unit: l.material!.unit,
       reason: "goods-in",
+      ts: now,
       at: result.report.deliveryDate ?? "Today",
       by: who.trim() || "Goods in desk",
       ref: result.report.noteRef,

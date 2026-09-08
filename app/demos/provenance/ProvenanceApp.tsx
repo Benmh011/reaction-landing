@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { DOCUMENTS, TRAINING, TRACE, PRODUCTION_LOG, QUESTIONNAIRES, type Status } from "./data";
+import { DOCUMENTS, TRAINING, PRODUCTION_LOG, QUESTIONNAIRES, type Status } from "./data";
 import { SEED_READINGS, exceptions as checkExceptions } from "./checks";
-import { SEED_MOVEMENTS, shelfLife, declarationGaps, balances, misplaced } from "./stock";
+import { SEED_MOVEMENTS, shelfLife, declarationGaps, balances, misplaced, loadMovements, saveMovements, type Movement } from "./stock";
 import QuestionnaireDesk from "./QuestionnaireDesk";
 import Welcome from "./Welcome";
 import StockDesk from "./StockDesk";
 import CheckDesk from "./CheckDesk";
 import SopDesk from "./SopDesk";
+import RecallDesk from "./RecallDesk";
 import { SEED_RUNS, schedule as sopSchedule, sopById, fmtAgo, minsAgo as runMinsAgo } from "./sop";
 
 // ————————————————————————————————————————————————————————————————
@@ -127,7 +128,7 @@ type SectionId = (typeof SECTIONS)[number]["id"];
 
 type Item = { severe: boolean; text: string; goto: SectionId };
 
-function buildPicture(): Item[] {
+function buildPicture(movements: Movement[]): Item[] {
   const items: Item[] = [];
 
   for (const d of DOCUMENTS) {
@@ -146,16 +147,16 @@ function buildPicture(): Item[] {
     items.push({ severe: e.status === "overdue", text: `${e.assetName}: ${first}`, goto: "checks" });
   }
 
-  for (const r of shelfLife(SEED_MOVEMENTS)) {
+  for (const r of shelfLife(movements)) {
     if (r.state === "expired")
       items.push({ severe: true, text: `${r.balance.material?.name ?? r.balance.materialCode} lot ${r.balance.lot} is past its date.`, goto: "stock" });
     else if (r.state === "urgent")
       items.push({ severe: false, text: `${r.balance.material?.name ?? r.balance.materialCode} lot ${r.balance.lot} has ${r.days} days left.`, goto: "stock" });
   }
-  const held = balances(SEED_MOVEMENTS).filter((b) => b.location?.holding);
+  const held = balances(movements).filter((b) => b.location?.holding);
   if (held.length) items.push({ severe: false, text: `${held.length} ${held.length === 1 ? "lot is" : "lots are"} in quarantine awaiting a decision.`, goto: "stock" });
-  for (const m of declarationGaps(SEED_MOVEMENTS)) items.push({ severe: false, text: `${m.name} is held with no supplier declaration on file.`, goto: "stock" });
-  for (const w of misplaced(SEED_MOVEMENTS)) items.push({ severe: true, text: w.reason, goto: "stock" });
+  for (const m of declarationGaps(movements)) items.push({ severe: false, text: `${m.name} is held with no supplier declaration on file.`, goto: "stock" });
+  for (const w of misplaced(movements)) items.push({ severe: true, text: w.reason, goto: "stock" });
 
   for (const d of sopSchedule(SEED_RUNS)) {
     if (d.state === "due") items.push({ severe: false, text: `${d.sop.name} has not been run today.`, goto: "procedures" });
@@ -307,69 +308,6 @@ function Documents() {
   );
 }
 
-function Traceability() {
-  return (
-    <>
-      <SectionTitle
-        title="Trace a batch"
-        sub="Pick any batch and see every input lot behind it and every customer ahead of it. A mock recall becomes an hour's work, not a weekend."
-      />
-      <Card pad={24}>
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "baseline", marginBottom: 24 }}>
-          <span style={{ ...mono, fontSize: 20, fontWeight: 500 }}>{TRACE.batch}</span>
-          <span style={{ fontSize: 14.5 }}>{TRACE.product}</span>
-          <span style={{ fontSize: 13, color: MUTED }}>
-            made {TRACE.made}, {TRACE.quantity}
-          </span>
-        </div>
-
-        <div className="prov-chain">
-          <div>
-            <p style={{ fontSize: 12.5, color: MUTED, fontWeight: 500, marginBottom: 10 }}>Input lots</p>
-            {TRACE.inputs.map((i) => (
-              <div key={i.lot} style={{ padding: "9px 0", borderTop: "1px solid var(--rule)" }}>
-                <p style={{ fontSize: 13.5 }}>{i.material}</p>
-                <p style={{ ...mono, fontSize: 11.5, color: MUTED }}>
-                  {i.lot} · {i.supplier}
-                </p>
-              </div>
-            ))}
-          </div>
-
-          <div className="prov-node" aria-hidden>
-            <span className="prov-line" />
-            <span className="prov-station">
-              <span style={{ ...mono, fontSize: 11, color: "var(--bg)" }}>batch</span>
-            </span>
-            <span className="prov-line" />
-          </div>
-
-          <div>
-            <p style={{ fontSize: 12.5, color: MUTED, fontWeight: 500, marginBottom: 10 }}>Dispatched to</p>
-            {TRACE.dispatched.map((d) => (
-              <div key={d.to} style={{ padding: "9px 0", borderTop: "1px solid var(--rule)" }}>
-                <p style={{ fontSize: 13.5 }}>{d.to}</p>
-                <p style={{ ...mono, fontSize: 11.5, color: MUTED }}>
-                  {d.date} · {d.units} units
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ display: "flex", gap: 10, marginTop: 24, flexWrap: "wrap" }}>
-          <button className="btn btn-primary" style={{ fontSize: 13, padding: "8px 16px" }}>
-            Run mock recall
-          </button>
-          <button className="btn btn-ghost" style={{ fontSize: 13, padding: "8px 16px" }}>
-            Export trace pack
-          </button>
-        </div>
-      </Card>
-    </>
-  );
-}
-
 function ProductionLog() {
   const kindColor: Record<string, string> = { ccp: VERM, batch: BLUE, clean: BRASS, check: GREEN };
   return (
@@ -445,7 +383,21 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
   // one, the email where it does not — never a blank, never a text box a
   // second person could type someone else's name into.
   const operator = (user?.name && user.name.trim()) || user?.email || "";
-  const picture = useMemo(buildPicture, []);
+
+  // The stock log lives here so that every desk reads and writes the same
+  // one, and so it survives moving between sections. Loaded from the
+  // browser after mount, saved whenever it changes.
+  const [movements, setMovements] = useState<Movement[]>(SEED_MOVEMENTS);
+  const [stockLoaded, setStockLoaded] = useState(false);
+  useEffect(() => {
+    setMovements(loadMovements());
+    setStockLoaded(true);
+  }, []);
+  useEffect(() => {
+    if (stockLoaded) saveMovements(movements);
+  }, [movements, stockLoaded]);
+
+  const picture = useMemo(() => buildPicture(movements), [movements]);
   const counts = useMemo(() => countsFor(picture), [picture]);
   const { refs, box } = useMarker(view === "start" ? "overview" : view);
 
@@ -508,8 +460,8 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
             {active === "overview" && <Overview items={picture} onGo={setView} />}
             {active === "questionnaires" && <Questionnaires />}
             {active === "documents" && <Documents />}
-            {active === "trace" && <Traceability />}
-            {active === "stock" && <StockDesk operator={operator} />}
+            {active === "trace" && <RecallDesk movements={movements} onMovements={setMovements} operator={operator} />}
+            {active === "stock" && <StockDesk operator={operator} movements={movements} onMovements={setMovements} />}
             {active === "production" && <ProductionLog />}
             {active === "checks" && <CheckDesk operator={operator} />}
             {active === "procedures" && <SopDesk operator={operator} />}

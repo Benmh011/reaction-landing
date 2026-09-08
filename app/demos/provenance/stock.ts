@@ -498,8 +498,10 @@ export const LOCATIONS: StockLocation[] = [
     regimes: ["ambient", "chilled", "frozen", "conditioned"],
     holding: true,
   },
-  { id: "VAN-1", name: "Van 1 — South Hams round", kind: "van", site: "Mobile", regimes: ["frozen"] },
-  { id: "VAN-2", name: "Van 2 — Bristol / Bath round", kind: "van", site: "Mobile", regimes: ["frozen"] },
+  // The vans carry both: ice cream in the freezer body, chocolate in the
+  // ambient cab store. Both regimes are legitimate on a vehicle.
+  { id: "VAN-1", name: "Van 1 — South Hams round", kind: "van", site: "Mobile", regimes: ["frozen", "conditioned"] },
+  { id: "VAN-2", name: "Van 2 — Bristol / Bath round", kind: "van", site: "Mobile", regimes: ["frozen", "conditioned"] },
   { id: "SH-ISL", name: "Shop — Island Street", kind: "shop", site: "Salcombe", regimes: ["frozen", "conditioned"] },
   { id: "SH-STG", name: "Shop — Strete Gate", kind: "shop", site: "Strete", regimes: ["frozen", "conditioned"] },
   { id: "SH-PUL", name: "Shop — Pulteney Bridge", kind: "shop", site: "Bath", regimes: ["frozen", "conditioned"] },
@@ -517,8 +519,10 @@ export type MovementReason =
   | "transfer-in"
   | "production-consume"
   | "production-yield"
+  | "dispatch"
   | "sale"
   | "waste"
+  | "hold"
   | "adjustment";
 
 // Signed and append-only. A correction is a further movement, never an
@@ -531,12 +535,17 @@ export type Movement = {
   qty: number; // signed: positive in, negative out
   unit: Unit;
   reason: MovementReason;
-  at: string; // display date
+  // When it happened, as a real timestamp, so a saved log still reads
+  // correctly next week. `at` is the display form of the same moment.
+  ts: number;
+  at: string;
   by: string;
   ref?: string; // delivery note number, transfer note, batch
   note?: string;
+  // Who received it, for a dispatch. A recall that cannot name the
+  // customer is not a recall.
+  customer?: string;
   // Carried from the delivery note so shelf life is answerable later.
-  // Captured at goods-in and previously thrown away.
   bestBefore?: string;
 };
 
@@ -546,8 +555,10 @@ export const REASON_WORD: Record<MovementReason, string> = {
   "transfer-in": "Transfer in",
   "production-consume": "Consumed",
   "production-yield": "Produced",
+  dispatch: "Dispatched",
   sale: "Sold",
   waste: "Waste",
+  hold: "Placed on hold",
   adjustment: "Adjustment",
 };
 
@@ -668,6 +679,7 @@ export const SEED_MOVEMENTS: Movement[] = [
   mv("m10", "PK-TUB500", "PKG-2606-B", "WH-DRY", 4200, "units", "goods-in", 75, "J. Okafor", "PKG-5510"),
   mv("m11", "PK-LID", "PKG-2606-C", "WH-DRY", 6100, "units", "goods-in", 75, "J. Okafor", "PKG-5510"),
   mv("m12", "PK-CASE", "PKG-2605-D", "WH-DRY", 310, "units", "goods-in", 88, "J. Okafor", "PKG-5480"),
+  mv("m12a", "PK-BAR", "PKG-2606-W", "WH-DRY", 2400, "units", "goods-in", 78, "J. Okafor", "PKG-5522"),
 
   // Batch IC-2607-14 — the one already traced elsewhere in the demo.
   mv("m13", "FG-SALT2", "IC-2607-14", "WH-DISP", 412, "units", "production-yield", 62, "M. Reeve", "IC-2607-14"),
@@ -685,10 +697,35 @@ export const SEED_MOVEMENTS: Movement[] = [
   mv("m24", "FG-VAN2", "IC-2607-22", "SH-PUL", -27, "units", "sale", 58, "Shop till", undefined, "Counter sales"),
   mv("m25", "FG-VAN2", "IC-2607-22", "WH-DISP", -8, "units", "waste", 60, "A. Voss", undefined, "Seal failure on pack-off"),
 
+  // The chocolate batch: what went into it, what it became, where it went.
+  // The cocoa lot from Piura is the one the sample recall exercise starts
+  // from, so its whole story has to be on the log.
+  mv("m26a", "RM-COCOA", "PE-2606-11", "WH-DRY", -62, "kg", "production-consume", 73, "A. Voss", "CH-2606-04"),
+  mv("m26b", "RM-SUGAR", "BS-9911-K", "WH-DRY", -26, "kg", "production-consume", 73, "A. Voss", "CH-2606-04"),
+  mv("m26c", "PK-BAR", "PKG-2606-W", "WH-DRY", -880, "units", "production-consume", 73, "A. Voss", "CH-2606-04"),
   mv("m26", "FG-BAR70", "CH-2606-04", "WH-DISP", 880, "units", "production-yield", 73, "A. Voss", "CH-2606-04"),
-  mv("m27", "FG-BAR70", "CH-2606-04", "SH-STG", -0, "units", "adjustment", 73, "A. Voss", undefined, "Opening"),
   mv("m28", "FG-BAR70", "CH-2606-04", "WH-DISP", -150, "units", "transfer-out", 68, "S. Trent", "TN-2201"),
   mv("m29", "FG-BAR70", "CH-2606-04", "SH-STG", 150, "units", "transfer-in", 68, "S. Trent", "TN-2201"),
+  mv("m29a", "FG-BAR70", "CH-2606-04", "WH-DISP", -200, "units", "transfer-out", 66, "S. Trent", "TN-2204"),
+  mv("m29b", "FG-BAR70", "CH-2606-04", "SH-PUL", 200, "units", "transfer-in", 65, "S. Trent", "TN-2204"),
+  dispatch("d1", "FG-BAR70", "CH-2606-04", "WH-DISP", 240, "units", 64, "J. Okafor", "Westcott Farm Shops", "DN-3117"),
+  dispatch("d2", "FG-BAR70", "CH-2606-04", "WH-DISP", 120, "units", 60, "J. Okafor", "The Anchor & Hope, Dartmouth", "DN-3124"),
+  mv("m29c", "FG-BAR70", "CH-2606-04", "SH-STG", -61, "units", "sale", 58, "Shop till", undefined, "Counter sales"),
+  mv("m29d", "FG-BAR70", "CH-2606-04", "SH-PUL", -88, "units", "sale", 55, "Shop till", undefined, "Counter sales"),
+  mv("m29e", "FG-BAR70", "CH-2606-04", "WH-DISP", -6, "units", "waste", 70, "A. Voss", undefined, "Bloom on inspection"),
+
+  // A second chocolate batch off the same cocoa lot, still in dispatch.
+  mv("m33a", "RM-COCOA", "PE-2606-11", "WH-DRY", -58, "kg", "production-consume", 52, "A. Voss", "CH-2607-02"),
+  mv("m33b", "RM-SUGAR", "BS-9911-K", "WH-DRY", -24, "kg", "production-consume", 52, "A. Voss", "CH-2607-02"),
+  mv("m33c", "PK-BAR", "PKG-2606-W", "WH-DRY", -820, "units", "production-consume", 52, "A. Voss", "CH-2607-02"),
+  mv("m33", "FG-BAR70", "CH-2607-02", "WH-DISP", 820, "units", "production-yield", 52, "A. Voss", "CH-2607-02"),
+  mv("m33d", "FG-BAR70", "CH-2607-02", "WH-DISP", -300, "units", "transfer-out", 48, "J. Okafor", "TN-2230"),
+  mv("m33e", "FG-BAR70", "CH-2607-02", "VAN-2", 300, "units", "transfer-in", 48, "J. Okafor", "TN-2230"),
+  dispatch("d3", "FG-BAR70", "CH-2607-02", "VAN-2", 180, "units", 47, "J. Okafor", "Harbourline Hotels — Bath", "DN-3140"),
+
+  // Ice cream reaching trade customers off the van.
+  dispatch("d4", "FG-SALT2", "IC-2607-14", "VAN-1", 96, "units", 59, "M. Reeve", "Harbourline Hotels — Salcombe", "DN-3102"),
+  dispatch("d5", "FG-SALT2", "IC-2607-14", "VAN-2", 84, "units", 57, "J. Okafor", "Harbourline Hotels — Bath", "DN-3109"),
 
   // Consumption against the traced batch, so the inputs reconcile.
   mv("m30", "RM-MILK", "HF-260901", "WH-CHILL", -780, "L", "production-consume", 1, "M. Reeve", "IC-2607-14"),
@@ -713,14 +750,31 @@ function mv(
   // calendar date. A demo with hardcoded dates slowly fills up with
   // expired stock and starts telling the wrong story about the product;
   // the checks engine works the same way for the same reason.
-  const at = fmtDate(addDays(new Date(), -daysAgo));
+  const when = addDays(new Date(), -daysAgo);
+  const at = fmtDate(when);
 
   const m = MATERIALS.find((x) => x.code === materialCode);
   const bestBefore = m?.shelfLifeDays
     ? fmtDate(addDays(new Date(), m.shelfLifeDays - daysAgo))
     : undefined;
 
-  return { id, materialCode, lot, locationId, qty, unit, reason, at, by, ref, note, bestBefore };
+  return { id, materialCode, lot, locationId, qty, unit, reason, ts: when.getTime(), at, by, ref, note, bestBefore };
+}
+
+// A customer dispatch: stock leaving the estate to a named customer.
+function dispatch(
+  id: string,
+  materialCode: string,
+  lot: string,
+  fromLocation: string,
+  qty: number,
+  unit: Unit,
+  daysAgo: number,
+  by: string,
+  customer: string,
+  ref: string,
+): Movement {
+  return { ...mv(id, materialCode, lot, fromLocation, -Math.abs(qty), unit, "dispatch", daysAgo, by, ref), customer };
 }
 
 function addDays(d: Date, n: number): Date {
@@ -1075,4 +1129,38 @@ function looseScore(m: Material, query: string): number {
     }
   }
   return hits;
+}
+
+// ————————————————————————— persistence —————————————————————————
+//
+// Movements a person has made — goods booked in, stock placed on hold —
+// are kept in the browser so the log survives leaving the section and
+// reloading. The seed is regenerated relative to today, so the demo
+// always opens with milk that is three days from its date.
+
+const STORE_KEY = "salcombe-dairy.stock.movements";
+
+export function loadMovements(): Movement[] {
+  if (typeof window === "undefined") return SEED_MOVEMENTS;
+  try {
+    const raw = window.localStorage.getItem(STORE_KEY);
+    if (!raw) return SEED_MOVEMENTS;
+    const saved = JSON.parse(raw) as Movement[];
+    if (!Array.isArray(saved)) return SEED_MOVEMENTS;
+    const seeded = new Set(SEED_MOVEMENTS.map((m) => m.id));
+    const own = saved.filter((m) => m && typeof m.ts === "number" && !seeded.has(m.id));
+    return [...own, ...SEED_MOVEMENTS].sort((a, b) => b.ts - a.ts);
+  } catch {
+    return SEED_MOVEMENTS;
+  }
+}
+
+export function saveMovements(movements: Movement[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    const seeded = new Set(SEED_MOVEMENTS.map((m) => m.id));
+    window.localStorage.setItem(STORE_KEY, JSON.stringify(movements.filter((m) => !seeded.has(m.id))));
+  } catch {
+    // Storage blocked: the log stays in memory for this session.
+  }
 }
