@@ -10,6 +10,8 @@ import StockDesk from "./StockDesk";
 import CheckDesk from "./CheckDesk";
 import SopDesk from "./SopDesk";
 import RecallDesk from "./RecallDesk";
+import MonitorDesk from "./MonitorDesk";
+import { source as telemetry, board as telemetryBoard } from "./telemetry";
 import { SEED_RUNS, schedule as sopSchedule, sopById, fmtAgo, minsAgo as runMinsAgo } from "./sop";
 
 // ————————————————————————————————————————————————————————————————
@@ -113,6 +115,7 @@ const SECTIONS = [
   { id: "documents", label: "Documents & audit" },
   { id: "trace", label: "Traceability" },
   { id: "stock", label: "Stock" },
+  { id: "coldchain", label: "Cold chain" },
   { id: "production", label: "Production records" },
   { id: "checks", label: "Checks" },
   { id: "procedures", label: "Procedures" },
@@ -140,9 +143,17 @@ function buildPicture(movements: Movement[]): Item[] {
     else if (t.status === "due") items.push({ severe: false, text: `${t.person}'s ${t.cert} certificate expires ${t.expires}.`, goto: "documents" });
   }
 
+  // Live telemetry is the truth for the assets it covers. The check
+  // engine's seeded readings still cover what it does not — the scales.
+  const live = telemetryBoard(telemetry, 6 * 3_600_000);
+  const covered = new Set(live.map((l) => l.asset.id));
+  for (const l of live) {
+    if (l.status === "ok" || !l.verdict) continue;
+    const first = l.verdict.reason.split(/(?<=\.)\s/)[0];
+    items.push({ severe: l.status === "overdue", text: `${l.asset.name}: ${first}`, goto: "coldchain" });
+  }
   for (const e of checkExceptions(SEED_READINGS)) {
-    // The engine's reason is written for the person at the machine and
-    // runs to two sentences. The picture needs the first.
+    if (covered.has(e.assetId)) continue;
     const first = e.reason.split(/(?<=\.)\s/)[0];
     items.push({ severe: e.status === "overdue", text: `${e.assetName}: ${first}`, goto: "checks" });
   }
@@ -181,6 +192,7 @@ function countsFor(items: Item[]) {
     documents: { n: 0, severe: false },
     trace: { n: 0, severe: false },
     stock: { n: 0, severe: false },
+    coldchain: { n: 0, severe: false },
     production: { n: 0, severe: false },
     checks: { n: 0, severe: false },
     procedures: { n: 0, severe: false },
@@ -462,6 +474,7 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
             {active === "documents" && <Documents />}
             {active === "trace" && <RecallDesk movements={movements} onMovements={setMovements} operator={operator} />}
             {active === "stock" && <StockDesk operator={operator} movements={movements} onMovements={setMovements} />}
+            {active === "coldchain" && <MonitorDesk />}
             {active === "production" && <ProductionLog />}
             {active === "checks" && <CheckDesk operator={operator} />}
             {active === "procedures" && <SopDesk operator={operator} />}
