@@ -86,7 +86,7 @@ const card: React.CSSProperties = {
 
 // ————————————————————————— the desk —————————————————————————
 
-export default function CheckDesk() {
+export default function CheckDesk({ operator = "" }: { operator?: string }) {
   const [readings, setReadings] = useState<Reading[]>(SEED_READINGS);
   const [openAsset, setOpenAsset] = useState<string | null>(null);
   const [recording, setRecording] = useState<string | null>(null);
@@ -169,7 +169,7 @@ export default function CheckDesk() {
       </div>
 
       {detail && <AssetDetail state={detail} readings={readings} onClose={() => setOpenAsset(null)} />}
-      {recording && <RecordForm assetId={recording} onCancel={() => setRecording(null)} onSave={record} />}
+      {recording && <RecordForm assetId={recording} defaultBy={operator} onCancel={() => setRecording(null)} onSave={record} />}
     </>
   );
 }
@@ -322,10 +322,12 @@ function bandWords(min: number | undefined, max: number | undefined, unit: strin
 
 function RecordForm({
   assetId,
+  defaultBy = "",
   onCancel,
   onSave,
 }: {
   assetId: string;
+  defaultBy?: string;
   onCancel: () => void;
   onSave: (r: Reading) => void;
 }) {
@@ -334,7 +336,7 @@ function RecordForm({
   const [value2, setValue2] = useState("");
   const [expected, setExpected] = useState(asset.kind === "calibration" ? "1000" : "");
   const [mins, setMins] = useState("0");
-  const [by, setBy] = useState("");
+  const [by, setBy] = useState(defaultBy);
   const [note, setNote] = useState("");
 
   const parsed = parseFloat(value);

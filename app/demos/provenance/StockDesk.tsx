@@ -117,7 +117,7 @@ function Dot({ color }: { color: string }) {
 
 type Tab = "goodsin" | "onhand" | "shelf" | "allergens" | "holds" | "log";
 
-export default function StockDesk() {
+export default function StockDesk({ operator = "" }: { operator?: string }) {
   const [tab, setTab] = useState<Tab>("goodsin");
   const [movements, setMovements] = useState<Movement[]>(SEED_MOVEMENTS);
 
@@ -160,7 +160,7 @@ export default function StockDesk() {
         ))}
       </div>
 
-      {tab === "goodsin" && <GoodsInTab movements={movements} onBook={(ms) => setMovements((p) => [...ms, ...p])} />}
+      {tab === "goodsin" && <GoodsInTab movements={movements} operator={operator} onBook={(ms) => setMovements((p) => [...ms, ...p])} />}
       {tab === "onhand" && <OnHandTab movements={movements} />}
       {tab === "shelf" && <ShelfLifeTab movements={movements} />}
       {tab === "allergens" && <AllergenTab movements={movements} />}
@@ -172,14 +172,14 @@ export default function StockDesk() {
 
 // ————————————————————————— goods in —————————————————————————
 
-function GoodsInTab({ movements, onBook }: { movements: Movement[]; onBook: (ms: Movement[]) => void }) {
+function GoodsInTab({ movements, onBook, operator = "" }: { movements: Movement[]; onBook: (ms: Movement[]) => void; operator?: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<GoodsIn | null>(null);
   const [into, setInto] = useState("WH-DRY");
   const [booked, setBooked] = useState<string | null>(null);
   const [drag, setDrag] = useState(false);
-  const [who, setWho] = useState("");
+  const [who, setWho] = useState(operator);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function handle(file: File) {

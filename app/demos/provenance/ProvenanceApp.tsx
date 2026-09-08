@@ -437,8 +437,14 @@ function useMarker(active: SectionId) {
   return { refs, box };
 }
 
-export default function ProvenanceApp({ user }: { user?: string | null }) {
+export type AppUser = { name?: string | null; email?: string | null };
+
+export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
   const [view, setView] = useState<"start" | SectionId>("start");
+  // The name that goes on records. A person's name where the account has
+  // one, the email where it does not — never a blank, never a text box a
+  // second person could type someone else's name into.
+  const operator = (user?.name && user.name.trim()) || user?.email || "";
   const picture = useMemo(buildPicture, []);
   const counts = useMemo(() => countsFor(picture), [picture]);
   const { refs, box } = useMarker(view === "start" ? "overview" : view);
@@ -488,9 +494,9 @@ export default function ProvenanceApp({ user }: { user?: string | null }) {
           </nav>
 
           <div className="prov-sidefoot">
-            {user && (
+            {operator && (
               <p style={{ marginBottom: 6, color: "var(--on-navy)" }}>
-                Signed in as <span style={{ ...mono, fontSize: 11.5 }}>{user}</span>
+                Signed in as <span style={{ ...mono, fontSize: 11.5 }}>{operator}</span>
               </p>
             )}
             <p>A demonstration. All figures are sample data.</p>
@@ -503,10 +509,10 @@ export default function ProvenanceApp({ user }: { user?: string | null }) {
             {active === "questionnaires" && <Questionnaires />}
             {active === "documents" && <Documents />}
             {active === "trace" && <Traceability />}
-            {active === "stock" && <StockDesk />}
+            {active === "stock" && <StockDesk operator={operator} />}
             {active === "production" && <ProductionLog />}
-            {active === "checks" && <CheckDesk />}
-            {active === "procedures" && <SopDesk />}
+            {active === "checks" && <CheckDesk operator={operator} />}
+            {active === "procedures" && <SopDesk operator={operator} />}
           </div>
         </main>
       </div>

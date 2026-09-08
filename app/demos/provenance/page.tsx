@@ -111,7 +111,7 @@ export default async function ProvenancePage() {
 
   return (
     <div className={fontVars}>
-      <ProvenanceApp user={session.user.email ?? null} />
+      <ProvenanceApp user={{ name: session.user.name ?? null, email: session.user.email ?? null }} />
     </div>
   );
 }

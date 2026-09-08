@@ -121,7 +121,7 @@ function RecordIcon() {
   );
 }
 
-export default function SopDesk() {
+export default function SopDesk({ operator = "" }: { operator?: string }) {
   const [runs, setRuns] = useState<Run[]>(SEED_RUNS);
   const [loaded, setLoaded] = useState(false);
 
@@ -136,7 +136,9 @@ export default function SopDesk() {
   }, [runs, loaded]);
   const [live, setLive] = useState<Run | null>(null);
   const [viewing, setViewing] = useState<Run | null>(null);
-  const [who, setWho] = useState("");
+  // Defaults to the signed-in account. Can be changed for the case where
+  // one person is recording on another's behalf, and the record says so.
+  const [who, setWho] = useState(operator);
 
   const due = useMemo(() => schedule(runs), [runs]);
 
@@ -178,9 +180,11 @@ export default function SopDesk() {
       <div style={{ ...card, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 20 }}>
         <label style={{ fontSize: 13, color: MUTED }}>
           Running as
-          <input value={who} onChange={(e) => setWho(e.target.value)} placeholder="M. Reeve" style={{ ...input, fontSize: 13, padding: "6px 10px", marginLeft: 8, width: 150 }} />
+          <input value={who} onChange={(e) => setWho(e.target.value)} placeholder="Name" style={{ ...input, fontSize: 13, padding: "6px 10px", marginLeft: 8, width: 190 }} />
         </label>
-        <span style={{ fontSize: 12.5, color: MUTED }}>Your name goes on every answer in the record.</span>
+        <span style={{ fontSize: 12.5, color: MUTED }}>
+          {operator && who === operator ? "From your account. " : ""}This name goes on every answer in the record.
+        </span>
       </div>
 
       <div style={{ display: "grid", gap: 8, marginBottom: 30 }}>
