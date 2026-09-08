@@ -10,6 +10,7 @@ import {
   type Status,
 } from "./data";
 import QuestionnaireDesk from "./QuestionnaireDesk";
+import Welcome from "./Welcome";
 import StockDesk from "./StockDesk";
 import CheckDesk from "./CheckDesk";
 
@@ -396,82 +397,6 @@ function ColdChain() {
   );
 }
 
-// ————————————————————————— welcome —————————————————————————
-
-/**
- * The welcome page: a Salcombe estuary at golden hour, drawn flat.
- * A honey sun on the waterline, six bands of water from foam mist to
- * deep estuary, the wordmark above, and one action — sign in.
- * The two middle bands drift a few pixels on a slow tide unless the
- * visitor prefers reduced motion.
- */
-
-const SEA_BANDS = [
-  { base: 210, amp: 12, color: "#dfeee3", tide: "pv-w1" },
-  { base: 258, amp: 16, color: "#bcdccb", tide: "pv-w2" },
-  { base: 308, amp: 14, color: "#8fc3ae", tide: "pv-w3" },
-  { base: 360, amp: 18, color: "#4f9d8b", tide: "pv-w4" },
-  { base: 414, amp: 12, color: "#1f6b68", tide: "pv-w5" },
-  { base: 462, amp: 8, color: "#0d3f47", tide: "pv-w6" },
-];
-
-const wavePath = (base: number, amp: number) => {
-  // a gentle swell across an over-wide canvas so drift never shows an edge
-  const W = 1680;
-  const seg = 210;
-  let d = `M -120 ${base}`;
-  for (let x = -120; x < W; x += seg) {
-    d += ` C ${x + seg * 0.33} ${base - amp}, ${x + seg * 0.66} ${base + amp}, ${x + seg} ${base}`;
-  }
-  d += ` L ${W} 560 L -120 560 Z`;
-  return d;
-};
-
-function EstuarySea() {
-  return (
-    <>
-      {/* the sun: its own element, positioned on the waterline in CSS px so
-          no viewport ratio can crop it — the SVG slice scaling did exactly
-          that on wide screens */}
-      <div className="pv-sun" aria-hidden>
-        <svg viewBox="0 0 220 220" width="100%" height="100%">
-          <circle className="pv-halo-2" cx="110" cy="110" r="104" fill="none" stroke="#e9be7a" strokeOpacity="0.16" strokeWidth="1.5" />
-          <circle className="pv-halo-1" cx="110" cy="110" r="82" fill="none" stroke="#e9be7a" strokeOpacity="0.34" strokeWidth="1.5" />
-          <circle cx="110" cy="110" r="62" fill="#e9be7a" />
-        </svg>
-      </div>
-      <svg className="pv-sea" viewBox="0 0 1440 520" preserveAspectRatio="none" aria-hidden>
-        {SEA_BANDS.map((b) => (
-          <path key={b.base} className={b.tide} d={wavePath(b.base, b.amp)} fill={b.color} />
-        ))}
-      </svg>
-    </>
-  );
-}
-
-function StartPage({ onEnter }: { onEnter: (s: SectionId) => void }) {
-  return (
-    <main className="pv-welcome">
-      <div className="pv-welcome-inner">
-        <p style={{ ...mono, fontSize: 11, letterSpacing: "0.26em", color: TEAL, marginBottom: 14 }}>
-          POWERED BY REACTION
-        </p>
-        <h1 className="pv-wordmark" style={serifItal}>
-          Provenance
-        </h1>
-        <p className="pv-welcome-line">
-          The practice management system for everything Estuary Creamery signs its name to.
-        </p>
-        <button className="btn btn-primary pv-signin" onClick={() => onEnter("overview")}>
-          Sign in
-        </button>
-      </div>
-      <EstuarySea />
-      <p className="pv-welcome-foot">DEMONSTRATION ENVIRONMENT · ALL DATA IS SAMPLE DATA</p>
-    </main>
-  );
-}
-
 // ————————————————————————— shell —————————————————————————
 
 const SECTIONS = [
@@ -493,7 +418,7 @@ export default function ProvenanceApp() {
   if (view === "start") {
     return (
       <div className="pv-root">
-        <StartPage onEnter={setView} />
+        <Welcome onEnter={() => setView("overview")} />
         <ThemeStyles />
       </div>
     );
@@ -519,7 +444,7 @@ export default function ProvenanceApp() {
             <p style={{ ...mono, fontSize: 10, letterSpacing: "0.2em", color: DARK_MUTED, marginBottom: 4 }}>
               REACTION
             </p>
-            <p style={{ ...serifItal, fontSize: 27, lineHeight: 1, color: "#f2efe4" }}>Provenance</p>
+            <p style={{ ...serifItal, fontSize: 27, lineHeight: 1, color: "#f2efe4" }}>Salcombe Dairy</p>
           </button>
 
           <nav aria-label="Sections" style={{ display: "grid", gap: 2 }}>

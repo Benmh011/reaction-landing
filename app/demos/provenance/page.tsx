@@ -6,7 +6,7 @@ import ProvenanceApp from "./ProvenanceApp";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Provenance — demonstration",
+  title: "Salcombe Dairy — demonstration",
   description: "A private demonstration environment.",
   // A gated demo must never appear in search results.
   robots: { index: false, follow: false },
