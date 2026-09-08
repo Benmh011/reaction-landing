@@ -31,16 +31,16 @@ import {
 const GREEN = "#167a5b";
 const BRASS = "#a3772a";
 const VERM = "#c22f4e";
-const MUTED = "#77705f";
+const MUTED = "#6f7482";
 
 const STATUS_COLOR: Record<Status, string> = { ok: GREEN, due: BRASS, overdue: VERM };
 const STATUS_WORD: Record<Status, string> = { ok: "In spec", due: "Watch", overdue: "Exception" };
 
-const mono: React.CSSProperties = { fontFamily: "'JetBrains Mono', monospace" };
+const mono: React.CSSProperties = { fontFamily: "var(--font-mono)" };
 const serifItal: React.CSSProperties = {
-  fontFamily: "'Newsreader', Georgia, serif",
-  fontStyle: "italic",
-  fontWeight: 600,
+  fontFamily: "var(--font-serif)",
+  fontWeight: 500,
+  letterSpacing: "-0.01em",
 };
 
 const CLASS_WORD: Record<string, string> = {
@@ -68,14 +68,11 @@ function Dot({ status }: { status: Status }) {
   );
 }
 
-function SectionTitle({ kicker, title, sub }: { kicker: string; title: string; sub?: string }) {
+function SectionTitle({ title, sub }: { kicker: string; title: string; sub?: string }) {
   return (
-    <div style={{ marginBottom: 26 }}>
-      <p style={{ ...mono, fontSize: 10.5, letterSpacing: "0.18em", color: MUTED, marginBottom: 8 }}>
-        {kicker.toUpperCase()}
-      </p>
-      <h1 style={{ ...serifItal, fontSize: 34, lineHeight: 1.1, marginBottom: sub ? 10 : 0 }}>{title}</h1>
-      {sub && <p style={{ fontSize: 14, color: MUTED, maxWidth: 620, lineHeight: 1.55 }}>{sub}</p>}
+    <div style={{ marginBottom: 24 }}>
+      <h1 style={{ ...serifItal, fontSize: 30, lineHeight: 1.08, color: "var(--text)", marginBottom: sub ? 8 : 0 }}>{title}</h1>
+      {sub && <p style={{ fontSize: 14.5, color: MUTED, maxWidth: 580, lineHeight: 1.55 }}>{sub}</p>}
     </div>
   );
 }

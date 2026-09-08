@@ -20,13 +20,13 @@ import {
 // hand back whichever output the file can safely take.
 // ————————————————————————————————————————————————————————————————
 
-const TEAL = "#0e5560";
+const TEAL = "#10284a";
 const SEA = "#167a5b";
 const HONEY = "#a3772a";
 const RASP = "#c22f4e";
-const MUTED = "#77705f";
+const MUTED = "#6f7482";
 
-const mono: React.CSSProperties = { fontFamily: "'JetBrains Mono', monospace" };
+const mono: React.CSSProperties = { fontFamily: "var(--font-mono)" };
 
 const th: React.CSSProperties = {
   textAlign: "left",

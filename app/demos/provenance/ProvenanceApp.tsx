@@ -1,48 +1,36 @@
 "use client";
 
-import { useState } from "react";
-import {
-  DOCUMENTS,
-  TRAINING,
-  TRACE,
-  PRODUCTION_LOG,
-  COLD_CHAIN,
-  type Status,
-} from "./data";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { DOCUMENTS, TRAINING, TRACE, PRODUCTION_LOG, QUESTIONNAIRES, type Status } from "./data";
+import { SEED_READINGS, exceptions as checkExceptions } from "./checks";
+import { SEED_MOVEMENTS, shelfLife, declarationGaps, balances, misplaced } from "./stock";
 import QuestionnaireDesk from "./QuestionnaireDesk";
 import Welcome from "./Welcome";
 import StockDesk from "./StockDesk";
 import CheckDesk from "./CheckDesk";
 
 // ————————————————————————————————————————————————————————————————
-// Provenance — demonstration build.
-// One client component, all sample data, no persistence. The visual
-// language is the Reaction house system (paper, hairlines, captain
-// colours, mono for anything that is a record) tightened into a tool.
+// Salcombe Dairy — demonstration build.
+//
+// One client component, all sample data, no persistence. Navy and
+// off-white are the house colours; gold appears once, on the marker
+// that shows where you are. Fraunces carries the names and titles,
+// Plex carries everything you read or type, and Plex Mono carries
+// anything that is a record — a lot code, a reading, a reference.
 // ————————————————————————————————————————————————————————————————
 
-// ————— Salcombe palette: estuary teal, seafoam, cream, cacao, raspberry —————
-const GREEN = "#167a5b"; // sea green — in date / passing
-const BRASS = "#a3772a"; // honey — due soon
-const VERM = "#c22f4e"; // raspberry ripple — overdue / alerts
-const BLUE = "#2c6e8a"; // harbour — informational
-const MUTED = "#77705f";
-
-const DEEP = "#0d3f47"; // dark estuary — sidebar
-const TEAL = "#0e5560"; // primary actions
-const FOAM = "#d8ebdf"; // seafoam — highlights on dark
-const MINT = "#63b89a"; // active markers on dark
-const DARK_MUTED = "#8fb0ab"; // muted text on dark estuary
+// ————— status colours: semantic, not brand, so unchanged —————
+const GREEN = "#167a5b";
+const BRASS = "#a3772a";
+const VERM = "#c22f4e";
+const BLUE = "#2c6e8a";
+const MUTED = "var(--text-muted)";
 
 const STATUS_COLOR: Record<Status, string> = { ok: GREEN, due: BRASS, overdue: VERM };
 const STATUS_WORD: Record<Status, string> = { ok: "In date", due: "Due soon", overdue: "Overdue" };
 
-const mono: React.CSSProperties = { fontFamily: "'JetBrains Mono', monospace" };
-const serifItal: React.CSSProperties = {
-  fontFamily: "'Newsreader', Georgia, serif",
-  fontStyle: "italic",
-  fontWeight: 600,
-};
+const serif: React.CSSProperties = { fontFamily: "var(--font-serif)" };
+const mono: React.CSSProperties = { fontFamily: "var(--font-mono)" };
 
 function Dot({ status }: { status: Status }) {
   return (
@@ -76,27 +64,36 @@ function Card({ children, pad = 20 }: { children: React.ReactNode; pad?: number 
   );
 }
 
-function SectionTitle({ kicker, title, sub }: { kicker: string; title: string; sub?: string }) {
+// A title and, where it earns its place, one line under it. No label
+// above it: the sidebar already says where you are.
+function SectionTitle({ title, sub }: { title: string; sub?: string }) {
   return (
-    <header style={{ marginBottom: 22 }}>
-      <p style={{ ...mono, fontSize: 10.5, letterSpacing: "0.18em", color: MUTED, marginBottom: 6 }}>
-        {kicker.toUpperCase()}
-      </p>
-      <h2 style={{ ...serifItal, fontSize: 30, lineHeight: 1.05, marginBottom: sub ? 6 : 0 }}>{title}</h2>
-      {sub && <p style={{ fontSize: 14, color: MUTED, maxWidth: 560 }}>{sub}</p>}
+    <header style={{ marginBottom: 24 }}>
+      <h2
+        style={{
+          ...serif,
+          fontWeight: 500,
+          fontSize: 30,
+          lineHeight: 1.08,
+          letterSpacing: "-0.01em",
+          color: "var(--text)",
+          marginBottom: sub ? 8 : 0,
+        }}
+      >
+        {title}
+      </h2>
+      {sub && <p style={{ fontSize: 14.5, color: MUTED, maxWidth: 580, lineHeight: 1.55 }}>{sub}</p>}
     </header>
   );
 }
 
 const th: React.CSSProperties = {
   textAlign: "left",
-  fontSize: 11,
-  ...mono,
-  letterSpacing: "0.1em",
+  fontSize: 12,
   color: MUTED,
+  fontWeight: 500,
   padding: "0 12px 10px 0",
   borderBottom: "1px solid var(--rule)",
-  fontWeight: 500,
 };
 const td: React.CSSProperties = {
   fontSize: 13.5,
@@ -107,44 +104,109 @@ const td: React.CSSProperties = {
 
 // ————————————————————————— sections —————————————————————————
 
-function Overview() {
-  const exceptions = [
-    { color: VERM, text: "Glass & Brittle Plastic Register review is overdue — due 19 May 2026.", goto: "Documents" },
-    { color: VERM, text: "Strete Gate shop freezer above −15°C for 22 minutes. Alert sent 12:04.", goto: "Cold chain" },
-    { color: VERM, text: "S. Trent's Allergen Awareness certificate expired 28 Jun 2026.", goto: "Documents" },
-    { color: BRASS, text: "Cocoa supplier declaration falls due 30 Aug 2026.", goto: "Documents" },
-    { color: BRASS, text: "Harbourline questionnaire drafted — 3 answers held for review.", goto: "Questionnaires" },
-  ];
+const SECTIONS = [
+  { id: "overview", label: "Overview" },
+  { id: "questionnaires", label: "Questionnaires" },
+  { id: "documents", label: "Documents & audit" },
+  { id: "trace", label: "Traceability" },
+  { id: "stock", label: "Stock" },
+  { id: "production", label: "Production records" },
+  { id: "checks", label: "Checks" },
+] as const;
+
+type SectionId = (typeof SECTIONS)[number]["id"];
+
+// ————————————————————————— the picture —————————————————————————
+//
+// Everything that needs a decision, read from the same engines the
+// sections use rather than typed in beside them. A hardcoded alert and
+// a computed one drift apart within a week; one source cannot.
+
+type Item = { severe: boolean; text: string; goto: SectionId };
+
+function buildPicture(): Item[] {
+  const items: Item[] = [];
+
+  for (const d of DOCUMENTS) {
+    if (d.status === "overdue") items.push({ severe: true, text: `${d.name} review is overdue — was due ${d.next}.`, goto: "documents" });
+    else if (d.status === "due") items.push({ severe: false, text: `${d.name} falls due ${d.next}.`, goto: "documents" });
+  }
+  for (const t of TRAINING) {
+    if (t.status === "overdue") items.push({ severe: true, text: `${t.person}'s ${t.cert} certificate expired ${t.expires}.`, goto: "documents" });
+    else if (t.status === "due") items.push({ severe: false, text: `${t.person}'s ${t.cert} certificate expires ${t.expires}.`, goto: "documents" });
+  }
+
+  for (const e of checkExceptions(SEED_READINGS)) {
+    // The engine's reason is written for the person at the machine and
+    // runs to two sentences. The picture needs the first.
+    const first = e.reason.split(/(?<=\.)\s/)[0];
+    items.push({ severe: e.status === "overdue", text: `${e.assetName}: ${first}`, goto: "checks" });
+  }
+
+  for (const r of shelfLife(SEED_MOVEMENTS)) {
+    if (r.state === "expired")
+      items.push({ severe: true, text: `${r.balance.material?.name ?? r.balance.materialCode} lot ${r.balance.lot} is past its date.`, goto: "stock" });
+    else if (r.state === "urgent")
+      items.push({ severe: false, text: `${r.balance.material?.name ?? r.balance.materialCode} lot ${r.balance.lot} has ${r.days} days left.`, goto: "stock" });
+  }
+  const held = balances(SEED_MOVEMENTS).filter((b) => b.location?.holding);
+  if (held.length) items.push({ severe: false, text: `${held.length} ${held.length === 1 ? "lot is" : "lots are"} in quarantine awaiting a decision.`, goto: "stock" });
+  for (const m of declarationGaps(SEED_MOVEMENTS)) items.push({ severe: false, text: `${m.name} is held with no supplier declaration on file.`, goto: "stock" });
+  for (const w of misplaced(SEED_MOVEMENTS)) items.push({ severe: true, text: w.reason, goto: "stock" });
+
+  for (const q of QUESTIONNAIRES) {
+    if (q.open && q.drafted < q.questions)
+      items.push({ severe: false, text: `${q.from} questionnaire drafted — ${q.questions - q.drafted} answers held for review.`, goto: "questionnaires" });
+  }
+
+  return items.sort((a, b) => Number(b.severe) - Number(a.severe));
+}
+
+function countsFor(items: Item[]) {
+  const out: Record<SectionId, { n: number; severe: boolean }> = {
+    overview: { n: 0, severe: false },
+    questionnaires: { n: 0, severe: false },
+    documents: { n: 0, severe: false },
+    trace: { n: 0, severe: false },
+    stock: { n: 0, severe: false },
+    production: { n: 0, severe: false },
+    checks: { n: 0, severe: false },
+  };
+  for (const i of items) {
+    out[i.goto].n += 1;
+    if (i.severe) out[i.goto].severe = true;
+    out.overview.n += 1;
+    if (i.severe) out.overview.severe = true;
+  }
+  return out;
+}
+
+function todayLabel(): string {
+  return new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(
+    new Date(),
+  );
+}
+
+function Overview({ items, onGo }: { items: Item[]; onGo: (id: SectionId) => void }) {
+  const [today, setToday] = useState("");
+  useEffect(() => setToday(todayLabel()), []);
+  const label = (id: SectionId) => SECTIONS.find((s) => s.id === id)?.label ?? id;
+
   return (
     <>
-      <SectionTitle
-        kicker="Estuary Creamery · Wed 22 Jul 2026"
-        title="This morning's picture"
-        sub="Everything that needs a decision, drawn from every register in the practice. Quiet lines are working lines."
-      />
+      <SectionTitle title="This morning's picture" sub={today ? `Island Street, ${today}. Everything that needs a decision, drawn from every register. Quiet lines are working lines.` : undefined} />
       <div style={{ display: "grid", gap: 10 }}>
-        {exceptions.map((e, i) => (
-          <div
-            key={i}
-            style={{
-              display: "grid",
-              gridTemplateColumns: "3px 1fr auto",
-              gap: 14,
-              alignItems: "center",
-              background: "var(--bg-elevated)",
-              border: "1px solid var(--rule)",
-              borderRadius: 12,
-              padding: "13px 16px",
-            }}
-          >
-            <span style={{ width: 3, alignSelf: "stretch", borderRadius: 2, background: e.color }} />
-            <span style={{ fontSize: 14 }}>{e.text}</span>
-            <span style={{ ...mono, fontSize: 11, color: MUTED }}>{e.goto} →</span>
-          </div>
+        {items.map((e, i) => (
+          <button key={i} onClick={() => onGo(e.goto)} className="prov-item">
+            <span className="prov-item-bar" style={{ background: e.severe ? VERM : BRASS }} />
+            <span className="prov-item-text">{e.text}</span>
+            <span className="prov-item-goto">{label(e.goto)}</span>
+          </button>
         ))}
       </div>
-      <p style={{ fontSize: 13, color: MUTED, marginTop: 18 }}>
-        6 production records captured today · last CCP check passed 11:47 · next audit window opens Mar 2027.
+      <p style={{ fontSize: 13, color: MUTED, marginTop: 18, lineHeight: 1.55 }}>
+        {PRODUCTION_LOG.length} production records captured today. Last CCP check passed{" "}
+        {PRODUCTION_LOG.filter((r) => r.kind === "ccp").slice(-1)[0]?.time ?? "—"}. Next audit window opens March 2027.
       </p>
     </>
   );
@@ -154,7 +216,6 @@ function Questionnaires() {
   return (
     <>
       <SectionTitle
-        kicker="Trade due diligence"
         title="Spec questionnaires"
         sub="New stockists send these before they order — their workbook, their layout, their phrasing. The desk drafts every answer it can stand behind from your controlled documents, cites the source, and holds the rest for a person."
       />
@@ -167,20 +228,19 @@ function Documents() {
   return (
     <>
       <SectionTitle
-        kicker="Quality management system"
         title="Documents & audit readiness"
         sub="The controlled register the questionnaire answers draw from. Anything drifting out of date surfaces here long before an auditor finds it."
       />
-      <div style={{ overflowX: "auto", marginBottom: 30 }}>
+      <div style={{ overflowX: "auto", marginBottom: 34 }}>
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 620 }}>
           <thead>
             <tr>
-              <th style={th}>DOCUMENT</th>
-              <th style={th}>REF</th>
-              <th style={th}>VER</th>
-              <th style={th}>LAST REVIEW</th>
-              <th style={th}>NEXT</th>
-              <th style={th}>STATE</th>
+              <th style={th}>Document</th>
+              <th style={th}>Ref</th>
+              <th style={th}>Version</th>
+              <th style={th}>Last review</th>
+              <th style={th}>Next</th>
+              <th style={th}>State</th>
             </tr>
           </thead>
           <tbody>
@@ -201,18 +261,18 @@ function Documents() {
         </table>
       </div>
 
-      <p style={{ ...mono, fontSize: 11, letterSpacing: "0.14em", color: MUTED, marginBottom: 12 }}>
-        TRAINING CERTIFICATES
-      </p>
+      <h3 style={{ ...serif, fontWeight: 500, fontSize: 19, color: "var(--text)", marginBottom: 12 }}>
+        Training certificates
+      </h3>
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 560 }}>
           <thead>
             <tr>
-              <th style={th}>PERSON</th>
-              <th style={th}>ROLE</th>
-              <th style={th}>CERTIFICATE</th>
-              <th style={th}>EXPIRES</th>
-              <th style={th}>STATE</th>
+              <th style={th}>Person</th>
+              <th style={th}>Role</th>
+              <th style={th}>Certificate</th>
+              <th style={th}>Expires</th>
+              <th style={th}>State</th>
             </tr>
           </thead>
           <tbody>
@@ -239,7 +299,6 @@ function Traceability() {
   return (
     <>
       <SectionTitle
-        kicker="One step back · one step forward"
         title="Trace a batch"
         sub="Pick any batch and see every input lot behind it and every customer ahead of it. A mock recall becomes an hour's work, not a weekend."
       />
@@ -247,17 +306,14 @@ function Traceability() {
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "baseline", marginBottom: 24 }}>
           <span style={{ ...mono, fontSize: 20, fontWeight: 500 }}>{TRACE.batch}</span>
           <span style={{ fontSize: 14.5 }}>{TRACE.product}</span>
-          <span style={{ ...mono, fontSize: 12, color: MUTED }}>
-            made {TRACE.made} · {TRACE.quantity}
+          <span style={{ fontSize: 13, color: MUTED }}>
+            made {TRACE.made}, {TRACE.quantity}
           </span>
         </div>
 
-        {/* the chain — inputs flow in from the left, dispatches out to the right */}
         <div className="prov-chain">
           <div>
-            <p style={{ ...mono, fontSize: 10.5, letterSpacing: "0.16em", color: MUTED, marginBottom: 10 }}>
-              ← INPUT LOTS
-            </p>
+            <p style={{ fontSize: 12.5, color: MUTED, fontWeight: 500, marginBottom: 10 }}>Input lots</p>
             {TRACE.inputs.map((i) => (
               <div key={i.lot} style={{ padding: "9px 0", borderTop: "1px solid var(--rule)" }}>
                 <p style={{ fontSize: 13.5 }}>{i.material}</p>
@@ -271,15 +327,13 @@ function Traceability() {
           <div className="prov-node" aria-hidden>
             <span className="prov-line" />
             <span className="prov-station">
-              <span style={{ ...mono, fontSize: 11, color: "var(--bg)" }}>BATCH</span>
+              <span style={{ ...mono, fontSize: 11, color: "var(--bg)" }}>batch</span>
             </span>
             <span className="prov-line" />
           </div>
 
           <div>
-            <p style={{ ...mono, fontSize: 10.5, letterSpacing: "0.16em", color: MUTED, marginBottom: 10 }}>
-              DISPATCHED TO →
-            </p>
+            <p style={{ fontSize: 12.5, color: MUTED, fontWeight: 500, marginBottom: 10 }}>Dispatched to</p>
             {TRACE.dispatched.map((d) => (
               <div key={d.to} style={{ padding: "9px 0", borderTop: "1px solid var(--rule)" }}>
                 <p style={{ fontSize: 13.5 }}>{d.to}</p>
@@ -309,7 +363,6 @@ function ProductionLog() {
   return (
     <>
       <SectionTitle
-        kicker="The factory floor, hands free"
         title="Production records"
         sub="Checks spoken aloud at the line — wet hands, gloves, cold room — land here as structured, timestamped records. No clipboard, no keying-in later."
       />
@@ -339,57 +392,10 @@ function ProductionLog() {
             />
             <div>
               <p style={{ fontSize: 14 }}>{r.entry}</p>
-              <p style={{ ...mono, fontSize: 11.5, color: MUTED, marginTop: 3 }}>
-                {r.who} · {r.via === "voice" ? "voice capture" : "instrument feed"}
+              <p style={{ fontSize: 12.5, color: MUTED, marginTop: 3 }}>
+                {r.who}, {r.via === "voice" ? "voice capture" : "instrument feed"}
               </p>
             </div>
-          </div>
-        ))}
-      </div>
-    </>
-  );
-}
-
-function ColdChain() {
-  return (
-    <>
-      <SectionTitle
-        kicker="Factory to freezer"
-        title="Cold chain"
-        sub="Every van, coldstore and shop freezer on one line. Excursions raise an alert while there's still time to save the stock — and the log doubles as your due-diligence defence."
-      />
-      <div style={{ display: "grid", gap: 10 }}>
-        {COLD_CHAIN.map((c) => (
-          <div
-            key={c.asset}
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr auto",
-              gap: 14,
-              alignItems: "center",
-              background: "var(--bg-elevated)",
-              border: "1px solid var(--rule)",
-              borderRadius: 12,
-              padding: "14px 18px",
-            }}
-          >
-            <div>
-              <p style={{ fontSize: 14.5, marginBottom: 2 }}>
-                <Dot status={c.state} />
-                {c.asset}
-              </p>
-              <p style={{ fontSize: 12.5, color: c.state === "overdue" ? VERM : MUTED, paddingLeft: 16 }}>{c.note}</p>
-            </div>
-            <span
-              style={{
-                ...mono,
-                fontSize: 19,
-                fontWeight: 500,
-                color: STATUS_COLOR[c.state],
-              }}
-            >
-              {c.now}
-            </span>
           </div>
         ))}
       </div>
@@ -399,21 +405,31 @@ function ColdChain() {
 
 // ————————————————————————— shell —————————————————————————
 
-const SECTIONS = [
-  { id: "overview", label: "Overview", flag: 3 },
-  { id: "questionnaires", label: "Questionnaires", flag: 1 },
-  { id: "documents", label: "Documents & audit", flag: 3 },
-  { id: "trace", label: "Traceability", flag: 0 },
-  { id: "stock", label: "Stock", flag: 0 },
-  { id: "production", label: "Production records", flag: 0 },
-  { id: "coldchain", label: "Cold chain", flag: 1 },
-  { id: "checks", label: "Checks", flag: 2 },
-] as const;
+// The one moving part in the sidebar. A single gold bar that measures the
+// active item and glides to it, so the navigation reads as one thing
+// rather than seven buttons taking turns.
+function useMarker(active: SectionId) {
+  const refs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const [box, setBox] = useState<{ top: number; height: number } | null>(null);
 
-type SectionId = (typeof SECTIONS)[number]["id"];
+  useLayoutEffect(() => {
+    const el = refs.current[active];
+    if (!el) return;
+    const measure = () => setBox({ top: el.offsetTop, height: el.offsetHeight });
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [active]);
 
-export default function ProvenanceApp() {
+  return { refs, box };
+}
+
+export default function ProvenanceApp({ user }: { user?: string | null }) {
   const [view, setView] = useState<"start" | SectionId>("start");
+  const picture = useMemo(buildPicture, []);
+  const counts = useMemo(() => countsFor(picture), [picture]);
+  const { refs, box } = useMarker(view === "start" ? "overview" : view);
 
   if (view === "start") {
     return (
@@ -431,76 +447,54 @@ export default function ProvenanceApp() {
         <aside className="prov-side">
           <button
             onClick={() => setView("start")}
-            style={{
-              background: "none",
-              border: "none",
-              padding: 0,
-              cursor: "pointer",
-              textAlign: "left",
-              marginBottom: 30,
-            }}
+            className="prov-wordmark"
             aria-label="Back to start"
           >
-            <p style={{ ...mono, fontSize: 10, letterSpacing: "0.2em", color: DARK_MUTED, marginBottom: 4 }}>
-              REACTION
-            </p>
-            <p style={{ ...serifItal, fontSize: 27, lineHeight: 1, color: "#f2efe4" }}>Salcombe Dairy</p>
+            Salcombe Dairy
           </button>
 
-          <nav aria-label="Sections" style={{ display: "grid", gap: 2 }}>
+          <nav aria-label="Sections" className="prov-nav">
+            {box && <span className="prov-marker" style={{ top: box.top, height: box.height }} aria-hidden />}
             {SECTIONS.map((s) => {
               const on = s.id === active;
+              const c = counts[s.id];
               return (
                 <button
                   key={s.id}
+                  ref={(el) => {
+                    refs.current[s.id] = el;
+                  }}
                   onClick={() => setView(s.id)}
                   className="prov-navitem"
                   aria-current={on ? "page" : undefined}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    width: "100%",
-                    textAlign: "left",
-                    fontSize: 14,
-                    fontWeight: on ? 600 : 400,
-                    color: on ? FOAM : DARK_MUTED,
-                    background: on ? "rgba(255,255,255,0.07)" : "transparent",
-                    border: "none",
-                    borderLeft: `2px solid ${on ? MINT : "transparent"}`,
-                    borderRadius: "0 9px 9px 0",
-                    padding: "9px 12px 9px 14px",
-                    cursor: "pointer",
-                  }}
                 >
                   <span style={{ flex: 1 }}>{s.label}</span>
-                  {s.flag > 0 && <span className="pv-flag">{s.flag}</span>}
+                  {c.n > 0 && <span className={`pv-flag${c.severe ? " pv-flag-severe" : ""}`}>{c.n}</span>}
                 </button>
               );
             })}
           </nav>
 
-          <div style={{ marginTop: "auto", paddingTop: 26 }}>
-            <p style={{ fontSize: 11.5, color: DARK_MUTED, lineHeight: 1.5 }}>
-              Demonstration environment.
-              <br />
-              All data is sample data.
-            </p>
-            <a href="/demo" style={{ fontSize: 12, color: FOAM }}>
-              Book a walkthrough →
-            </a>
+          <div className="prov-sidefoot">
+            {user && (
+              <p style={{ marginBottom: 6, color: "var(--on-navy)" }}>
+                Signed in as <span style={{ ...mono, fontSize: 11.5 }}>{user}</span>
+              </p>
+            )}
+            <p>A demonstration. All figures are sample data.</p>
           </div>
         </aside>
 
         <main className="prov-main">
-          {active === "overview" && <Overview />}
-          {active === "questionnaires" && <Questionnaires />}
-          {active === "documents" && <Documents />}
-          {active === "trace" && <Traceability />}
-          {active === "stock" && <StockDesk />}
-          {active === "production" && <ProductionLog />}
-          {active === "coldchain" && <ColdChain />}
-          {active === "checks" && <CheckDesk />}
+          <div key={active} className="prov-view">
+            {active === "overview" && <Overview items={picture} onGo={setView} />}
+            {active === "questionnaires" && <Questionnaires />}
+            {active === "documents" && <Documents />}
+            {active === "trace" && <Traceability />}
+            {active === "stock" && <StockDesk />}
+            {active === "production" && <ProductionLog />}
+            {active === "checks" && <CheckDesk />}
+          </div>
         </main>
       </div>
       <ThemeStyles />
@@ -511,147 +505,161 @@ export default function ProvenanceApp() {
 function ThemeStyles() {
   return (
     <style>{`
-        /* Salcombe theme, scoped — the rest of the site keeps its own palette */
+        /* Salcombe Dairy theme, scoped — the rest of the site keeps its own palette */
         .pv-root {
-          --bg:           #f6f2e7;
-          --bg-surface:   #ebe5d3;
-          --bg-elevated:  #fdfaf1;
-          --text:         #251d15;
-          --text-soft:    #4d4437;
-          --text-muted:   #77705f;
-          --rule:         #e2dbc6;
-          --rule-strong:  #c9c0a6;
-          --accent:       ${TEAL};
+          --bg:           #f4efe4;
+          --bg-surface:   #ebe4d3;
+          --bg-elevated:  #fbf8f0;
+          --text:         #14213a;
+          --text-soft:    #3b4356;
+          --text-muted:   #6f7482;
+          --rule:         #e0d9c8;
+          --rule-strong:  #c6bfab;
+          --navy:         #10284a;
+          --navy-deep:    #0a1b33;
+          --gold:         #c9a24a;
+          --on-navy:      #dfe6ef;
+          --on-navy-soft: #8f9db3;
+          --accent:       var(--navy);
+          --font-serif:   var(--font-fraunces, 'Fraunces'), Georgia, 'Times New Roman', serif;
+          --font-sans:    var(--font-plex, 'IBM Plex Sans'), system-ui, -apple-system, 'Segoe UI', sans-serif;
+          --font-mono:    var(--font-plex-mono, 'IBM Plex Mono'), 'JetBrains Mono', ui-monospace, monospace;
+          font-family: var(--font-sans);
           background: var(--bg);
           color: var(--text-soft);
           min-height: 100vh;
         }
-        .pv-root .btn-primary { background: ${TEAL}; color: #f2efe4; }
-        .pv-root .btn-primary:hover:not(:disabled) { background: ${DEEP}; }
-        .pv-root .btn-ghost { color: ${TEAL}; }
+        .pv-root .btn-primary { background: var(--navy); color: #f4efe4; font-family: var(--font-sans); }
+        .pv-root .btn-primary:hover:not(:disabled) { background: var(--navy-deep); }
+        .pv-root .btn-ghost { color: var(--navy); font-family: var(--font-sans); }
+        .pv-root button, .pv-root input, .pv-root select { font-family: var(--font-sans); }
+        .pv-root :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
         .pv-flag {
-          font-family: 'JetBrains Mono', monospace;
+          font-family: var(--font-mono);
           font-size: 10.5px;
           min-width: 18px;
           text-align: center;
           padding: 2px 5px;
           border-radius: 99px;
-          color: #fdfaf1;
-          background: ${VERM};
+          color: var(--navy);
+          background: rgba(201,162,74,0.85);
           display: inline-block;
           line-height: 1.4;
         }
-
-        /* welcome */
-        .pv-welcome {
-          min-height: 100vh;
-          position: relative;
-          display: flex;
-          flex-direction: column;
-          overflow: hidden;
-        }
-        .pv-welcome-inner {
-          position: relative;
-          z-index: 2;
-          text-align: center;
-          padding: clamp(64px, 14vh, 150px) 24px 0;
-        }
-        .pv-wordmark {
-          font-size: clamp(56px, 9vw, 108px);
-          line-height: 0.98;
-          color: var(--text);
-          letter-spacing: -0.01em;
-        }
-        .pv-welcome-line {
-          font-size: 15.5px;
-          color: var(--text-soft);
-          margin-top: 16px;
-        }
-        .pv-signin {
-          margin-top: 30px;
-          padding: 13px 44px;
-          font-size: 15px;
-        }
-        .pv-sea {
-          position: absolute;
-          inset: auto 0 0 0;
-          width: 100%;
-          height: clamp(260px, 46vh, 480px);
-          display: block;
-          z-index: 1;
-        }
-        .pv-welcome-foot {
-          position: absolute;
-          bottom: 18px;
-          left: 0;
-          right: 0;
-          text-align: center;
-          z-index: 2;
-          font-family: 'JetBrains Mono', monospace;
-          font-size: 10px;
-          letter-spacing: 0.22em;
-          color: #cfe4d6;
-        }
-        .pv-root { --pv-sea-h: clamp(260px, 46vh, 480px); --pv-sun-w: clamp(130px, 13vw, 210px); }
-        .pv-sea { height: var(--pv-sea-h); }
-        .pv-sun {
-          position: absolute;
-          right: 11%;
-          bottom: calc(var(--pv-sea-h) - var(--pv-sun-w) * 0.42);
-          width: var(--pv-sun-w);
-          height: var(--pv-sun-w);
-          z-index: 0;
-        }
-        @media (prefers-reduced-motion: no-preference) {
-          /* each band on its own tide: a few pixels of sideways drift and a
-             breath of rise-and-fall, out of phase so the water reads alive
-             without ever changing shape */
-          .pv-w1 { animation: pvtide 26s ease-in-out infinite alternate; }
-          .pv-w2 { animation: pvtide 19s ease-in-out infinite alternate-reverse; }
-          .pv-w3 { animation: pvtide 31s ease-in-out infinite alternate; }
-          .pv-w4 { animation: pvtide 17s ease-in-out infinite alternate-reverse; }
-          .pv-w5 { animation: pvtide 24s ease-in-out infinite alternate; }
-          .pv-w6 { animation: pvtideY 28s ease-in-out infinite alternate; }
-          .pv-halo-1 { animation: pvbreathe 9s ease-in-out infinite alternate; }
-          .pv-halo-2 { animation: pvbreathe 13s ease-in-out infinite alternate-reverse; }
-        }
-        @keyframes pvtide {
-          from { transform: translate(-18px, -2px); }
-          to { transform: translate(18px, 2px); }
-        }
-        @keyframes pvtideY {
-          from { transform: translateY(-2px); }
-          to { transform: translateY(2px); }
-        }
-        @keyframes pvbreathe {
-          from { stroke-opacity: 0.12; }
-          to { stroke-opacity: 0.42; }
-        }
+        .pv-flag-severe { color: #fbf8f0; background: ${VERM}; }
 
         .prov-shell {
           display: grid;
-          grid-template-columns: 232px 1fr;
+          grid-template-columns: 240px 1fr;
           min-height: 100vh;
           background: var(--bg);
         }
         .prov-side {
           display: flex;
           flex-direction: column;
-          padding: 26px 14px 26px 20px;
-          background: #0d3f47;
-          border-right: 1px solid rgba(255,255,255,0.06);
+          padding: 28px 16px 24px 22px;
+          background: var(--navy);
+          color: var(--on-navy);
           position: sticky;
           top: 0;
           height: 100vh;
         }
+        .prov-wordmark {
+          font-family: var(--font-serif);
+          font-weight: 500;
+          font-size: 23px;
+          letter-spacing: 0.005em;
+          line-height: 1.1;
+          color: #f4efe4;
+          background: none;
+          border: none;
+          padding: 0;
+          margin: 0 0 34px;
+          text-align: left;
+          cursor: pointer;
+        }
+        .prov-nav { position: relative; display: grid; gap: 2px; }
+        .prov-marker {
+          position: absolute;
+          left: 0;
+          width: 3px;
+          border-radius: 2px;
+          background: var(--gold);
+          transition: top 260ms cubic-bezier(.2,.7,.2,1), height 260ms cubic-bezier(.2,.7,.2,1);
+          pointer-events: none;
+        }
+        .prov-navitem {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          width: 100%;
+          text-align: left;
+          font-size: 14px;
+          font-weight: 400;
+          color: var(--on-navy-soft);
+          background: transparent;
+          border: none;
+          border-radius: 0 9px 9px 0;
+          padding: 9px 12px 9px 16px;
+          cursor: pointer;
+          transition: color 160ms ease, background 160ms ease;
+        }
+        .prov-navitem:hover { color: var(--on-navy); }
+        .prov-navitem[aria-current="page"] {
+          color: #f4efe4;
+          font-weight: 500;
+          background: rgba(255,255,255,0.06);
+        }
+        .prov-sidefoot {
+          margin-top: auto;
+          padding-top: 24px;
+          font-size: 11.5px;
+          line-height: 1.5;
+          color: var(--on-navy-soft);
+        }
         .prov-main {
-          padding: 34px clamp(20px, 4.5vw, 56px) 64px;
+          padding: 36px clamp(20px, 4.5vw, 56px) 64px;
           max-width: 980px;
         }
-        .prov-navitem:focus-visible {
-          outline: 2px solid ${MINT};
-          outline-offset: 2px;
+
+        .prov-item {
+          display: grid;
+          grid-template-columns: 3px 1fr auto;
+          gap: 14px;
+          align-items: center;
+          background: var(--bg-elevated);
+          border: 1px solid var(--rule);
+          border-radius: 12px;
+          padding: 13px 16px;
+          text-align: left;
+          cursor: pointer;
+          font: inherit;
+          color: inherit;
+          transition: border-color 160ms ease;
         }
+        .prov-item:hover { border-color: var(--rule-strong); }
+        .prov-item-bar { width: 3px; align-self: stretch; border-radius: 2px; }
+        .prov-item-text { font-size: 14px; line-height: 1.45; }
+        .prov-item-goto { font-size: 12.5px; color: var(--text-muted); white-space: nowrap; }
+        @media (max-width: 600px) {
+          .prov-item { grid-template-columns: 3px 1fr; }
+          .prov-item-bar { grid-row: 1 / span 2; }
+          .prov-item-goto { grid-column: 2; margin-top: -6px; }
+        }
+
+        /* The content settles into place: a short fade up from a few
+           pixels below. It arrives; it does not perform. */
+        .prov-view { animation: provsettle 240ms cubic-bezier(.2,.7,.2,1); }
+        @keyframes provsettle {
+          from { opacity: 0; transform: translateY(6px); }
+          to { opacity: 1; transform: none; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .prov-view { animation: none; }
+          .prov-marker { transition: none; }
+        }
+
         .prov-chain {
           display: grid;
           grid-template-columns: 1fr 120px 1fr;
@@ -666,7 +674,7 @@ function ThemeStyles() {
           width: 64px;
           height: 64px;
           border-radius: 99px;
-          background: var(--text, #1a1713);
+          background: var(--navy);
           flex-shrink: 0;
         }
         @media (max-width: 860px) {
@@ -678,24 +686,16 @@ function ThemeStyles() {
             align-items: center;
             gap: 14px;
             overflow-x: auto;
-            border-right: none;
-            border-bottom: 1px solid var(--rule);
             padding: 14px 16px;
           }
-          .prov-side > div:first-child { margin-bottom: 0; flex-shrink: 0; }
-          .prov-side nav { display: flex; gap: 4px; }
-          .prov-side .prov-navitem { white-space: nowrap; border-left: none; border-bottom: 2px solid transparent; border-radius: 8px; }
-          .prov-side .prov-navitem[aria-current="page"] { border-bottom-color: ${MINT}; }
-          .prov-side > div:last-child { display: none; }
+          .prov-wordmark { margin: 0; flex-shrink: 0; font-size: 19px; }
+          .prov-nav { display: flex; gap: 4px; }
+          .prov-marker { display: none; }
+          .prov-navitem { white-space: nowrap; border-bottom: 2px solid transparent; border-radius: 8px; padding: 8px 10px; }
+          .prov-navitem[aria-current="page"] { border-bottom-color: var(--gold); background: transparent; }
+          .prov-sidefoot { display: none; }
           .prov-chain { grid-template-columns: 1fr; }
           .prov-node { transform: rotate(90deg); width: 120px; margin: 0 auto; }
-        }
-        @media (prefers-reduced-motion: no-preference) {
-          .prov-main > * { animation: provfade 220ms ease-out; }
-        }
-        @keyframes provfade {
-          from { opacity: 0; transform: translateY(4px); }
-          to { opacity: 1; transform: none; }
         }
       `}</style>
   );

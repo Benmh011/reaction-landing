@@ -24,7 +24,7 @@ const CREAM = "#f3eee2";
 const GOLD = "#c9a24a";
 
 const serif: React.CSSProperties = {
-  fontFamily: "Georgia, 'Times New Roman', serif",
+  fontFamily: "var(--font-serif, Georgia), Georgia, 'Times New Roman', serif",
 };
 
 export default function Welcome({ onEnter }: { onEnter: () => void }) {
@@ -82,7 +82,7 @@ export default function Welcome({ onEnter }: { onEnter: () => void }) {
         }}
       >
         <header>
-          <p style={{ ...serif, fontSize: "clamp(20px, 1.6vw, 24px)", letterSpacing: "0.01em", margin: 0 }}>
+          <p style={{ ...serif, fontWeight: 500, fontSize: "clamp(20px, 1.6vw, 24px)", letterSpacing: "0.005em", margin: 0 }}>
             Salcombe Dairy
           </p>
         </header>
