@@ -9,3 +9,4 @@ node_modules/
 prisma/migrations/dev.db*
 .vercel
 .env*.local
+.env*
