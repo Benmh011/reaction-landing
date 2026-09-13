@@ -9,10 +9,9 @@
 // is no separate form.
 // ————————————————————————————————————————————————————————————————
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   SOPS,
-  SEED_RUNS,
   sopById,
   stepById,
   startRun,
@@ -21,8 +20,6 @@ import {
   fmtAgo,
   minsAgo,
   fmtRunDate,
-  loadRuns,
-  saveRuns,
   type Run,
   type Sop,
   type Step,
@@ -121,19 +118,15 @@ function RecordIcon() {
   );
 }
 
-export default function SopDesk({ operator = "" }: { operator?: string }) {
-  const [runs, setRuns] = useState<Run[]>(SEED_RUNS);
-  const [loaded, setLoaded] = useState(false);
-
-  // Storage is read after mount so server and client render the same
-  // thing first; then anything saved comes in on top of the seeds.
-  useEffect(() => {
-    setRuns(loadRuns());
-    setLoaded(true);
-  }, []);
-  useEffect(() => {
-    if (loaded) saveRuns(runs);
-  }, [runs, loaded]);
+export default function SopDesk({
+  operator = "",
+  runs,
+  onRuns,
+}: {
+  operator?: string;
+  runs: Run[];
+  onRuns: (next: Run[]) => void;
+}) {
   const [live, setLive] = useState<Run | null>(null);
   const [viewing, setViewing] = useState<Run | null>(null);
   // Defaults to the signed-in account. Can be changed for the case where
@@ -152,7 +145,7 @@ export default function SopDesk({ operator = "" }: { operator?: string }) {
     const next = answerStep(sop, live, raw);
     setLive(next);
     if (next.outcome !== "in progress") {
-      setRuns((prev) => [next, ...prev]);
+      onRuns([next, ...runs]);
     }
   }
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { DOCUMENTS, TRAINING, PRODUCTION_LOG, QUESTIONNAIRES, type Status } from "./data";
-import { SEED_READINGS, exceptions as checkExceptions } from "./checks";
+import { SEED_READINGS, loadReadings, saveReadings, exceptions as checkExceptions, type Reading } from "./checks";
 import { SEED_MOVEMENTS, shelfLife, declarationGaps, balances, misplaced, loadMovements, saveMovements, type Movement } from "./stock";
 import QuestionnaireDesk from "./QuestionnaireDesk";
 import Welcome from "./Welcome";
@@ -12,7 +12,7 @@ import SopDesk from "./SopDesk";
 import RecallDesk from "./RecallDesk";
 import MonitorDesk from "./MonitorDesk";
 import { source as telemetry, board as telemetryBoard } from "./telemetry";
-import { SEED_RUNS, schedule as sopSchedule, sopById, fmtAgo, minsAgo as runMinsAgo } from "./sop";
+import { SEED_RUNS, loadRuns, saveRuns, schedule as sopSchedule, sopById, fmtAgo, minsAgo as runMinsAgo, type Run } from "./sop";
 
 // ————————————————————————————————————————————————————————————————
 // Salcombe Dairy — demonstration build.
@@ -131,7 +131,7 @@ type SectionId = (typeof SECTIONS)[number]["id"];
 
 type Item = { severe: boolean; text: string; goto: SectionId };
 
-function buildPicture(movements: Movement[]): Item[] {
+function buildPicture(movements: Movement[], readings: Reading[], runs: Run[]): Item[] {
   const items: Item[] = [];
 
   for (const d of DOCUMENTS) {
@@ -152,7 +152,7 @@ function buildPicture(movements: Movement[]): Item[] {
     const first = l.verdict.reason.split(/(?<=\.)\s/)[0];
     items.push({ severe: l.status === "overdue", text: `${l.asset.name}: ${first}`, goto: "coldchain" });
   }
-  for (const e of checkExceptions(SEED_READINGS)) {
+  for (const e of checkExceptions(readings)) {
     if (covered.has(e.assetId)) continue;
     const first = e.reason.split(/(?<=\.)\s/)[0];
     items.push({ severe: e.status === "overdue", text: `${e.assetName}: ${first}`, goto: "checks" });
@@ -169,10 +169,10 @@ function buildPicture(movements: Movement[]): Item[] {
   for (const m of declarationGaps(movements)) items.push({ severe: false, text: `${m.name} is held with no supplier declaration on file.`, goto: "stock" });
   for (const w of misplaced(movements)) items.push({ severe: true, text: w.reason, goto: "stock" });
 
-  for (const d of sopSchedule(SEED_RUNS)) {
+  for (const d of sopSchedule(runs)) {
     if (d.state === "due") items.push({ severe: false, text: `${d.sop.name} has not been run today.`, goto: "procedures" });
   }
-  for (const r of SEED_RUNS) {
+  for (const r of runs) {
     if (r.outcome === "stopped" && runMinsAgo(r) < 60 * 12)
       items.push({ severe: true, text: `${sopById(r.sopId)?.name ?? r.sopId} was stopped ${fmtAgo(runMinsAgo(r))} by ${r.by} — ${r.stopAction?.split(/(?<=\.)\s/)[0] ?? "action outstanding"}`, goto: "procedures" });
   }
@@ -409,7 +409,33 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
     if (stockLoaded) saveMovements(movements);
   }, [movements, stockLoaded]);
 
-  const picture = useMemo(() => buildPicture(movements), [movements]);
+  // Recorded checks and procedure runs sit here for the same two
+  // reasons the stock log does. They survive moving between sections,
+  // and the overview reads the very arrays the desks write to — so a
+  // check recorded at the desk changes this morning's picture and the
+  // sidebar count on the way back, rather than leaving them frozen on
+  // seed data while claiming to be drawn from every register.
+  const [readings, setReadings] = useState<Reading[]>(SEED_READINGS);
+  const [readingsLoaded, setReadingsLoaded] = useState(false);
+  useEffect(() => {
+    setReadings(loadReadings());
+    setReadingsLoaded(true);
+  }, []);
+  useEffect(() => {
+    if (readingsLoaded) saveReadings(readings);
+  }, [readings, readingsLoaded]);
+
+  const [runs, setRuns] = useState<Run[]>(SEED_RUNS);
+  const [runsLoaded, setRunsLoaded] = useState(false);
+  useEffect(() => {
+    setRuns(loadRuns());
+    setRunsLoaded(true);
+  }, []);
+  useEffect(() => {
+    if (runsLoaded) saveRuns(runs);
+  }, [runs, runsLoaded]);
+
+  const picture = useMemo(() => buildPicture(movements, readings, runs), [movements, readings, runs]);
   const counts = useMemo(() => countsFor(picture), [picture]);
   const { refs, box } = useMarker(view === "start" ? "overview" : view);
 
@@ -476,8 +502,8 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
             {active === "stock" && <StockDesk operator={operator} movements={movements} onMovements={setMovements} />}
             {active === "coldchain" && <MonitorDesk />}
             {active === "production" && <ProductionLog />}
-            {active === "checks" && <CheckDesk operator={operator} />}
-            {active === "procedures" && <SopDesk operator={operator} />}
+            {active === "checks" && <CheckDesk operator={operator} readings={readings} onReadings={setReadings} />}
+            {active === "procedures" && <SopDesk operator={operator} runs={runs} onRuns={setRuns} />}
           </div>
         </main>
       </div>

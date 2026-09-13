@@ -17,7 +17,6 @@ import { useMemo, useState } from "react";
 import type { Status } from "./data";
 import {
   ASSETS,
-  SEED_READINGS,
   boardState,
   exceptions,
   evaluate,
@@ -86,8 +85,15 @@ const card: React.CSSProperties = {
 
 // ————————————————————————— the desk —————————————————————————
 
-export default function CheckDesk({ operator = "" }: { operator?: string }) {
-  const [readings, setReadings] = useState<Reading[]>(SEED_READINGS);
+export default function CheckDesk({
+  operator = "",
+  readings,
+  onReadings,
+}: {
+  operator?: string;
+  readings: Reading[];
+  onReadings: (next: Reading[]) => void;
+}) {
   const [openAsset, setOpenAsset] = useState<string | null>(null);
   const [recording, setRecording] = useState<string | null>(null);
 
@@ -101,7 +107,7 @@ export default function CheckDesk({ operator = "" }: { operator?: string }) {
   }, [board]);
 
   function record(r: Reading) {
-    setReadings((prev) => [r, ...prev]);
+    onReadings([r, ...readings]);
     setRecording(null);
   }
 
@@ -361,7 +367,7 @@ function RecordForm({
 
   function submit() {
     if (!preview) return;
-    onSave({ ...preview, id: `r-${Date.now()}`, note: note.trim() || undefined });
+    onSave({ ...preview, id: `r-${Date.now()}`, at: Date.now(), note: note.trim() || undefined });
   }
 
   return (

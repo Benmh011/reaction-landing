@@ -173,6 +173,9 @@ export function assetById(id: string): Asset | undefined {
 export type Reading = {
   id: string;
   assetId: string;
+  // The wall-clock moment a person recorded it, in epoch ms. Absent on
+  // seeded readings, which are pinned relative to "now" instead.
+  at?: number;
   // Minutes before "now". The demo has no clock of its own, so the whole
   // engine works in relative time and reads the same on any day.
   minsAgo: number;
@@ -520,3 +523,43 @@ export const SEED_READINGS: Reading[] = [
   // Nothing is recorded for the Island Street shop beyond r7 — deliberately
   // leaving one asset thin so the board has something to say.
 ];
+
+// ————————————————————————— persistence —————————————————————————
+//
+// Recorded checks survive moving between sections and reloading the
+// page. Only what a person recorded is kept — the seeded board is fixed
+// relative to "now" and regenerates on every load, so the demo always
+// opens on the same picture.
+//
+// Saved readings are re-aged against the clock on the way in. A check
+// recorded an hour ago has to read as an hour old, and fall due on its
+// own schedule, or the board is telling a comfortable lie.
+
+const READINGS_KEY = "salcombe-dairy.checks.readings";
+
+export function loadReadings(): Reading[] {
+  if (typeof window === "undefined") return SEED_READINGS;
+  try {
+    const raw = window.localStorage.getItem(READINGS_KEY);
+    if (!raw) return SEED_READINGS;
+    const saved = JSON.parse(raw) as Reading[];
+    if (!Array.isArray(saved)) return SEED_READINGS;
+    const now = Date.now();
+    const aged = saved
+      .filter((r) => r && typeof r.at === "number" && typeof r.value === "number")
+      .map((r) => ({ ...r, minsAgo: Math.max(0, Math.round((now - (r.at as number)) / 60_000)) }));
+    return [...aged, ...SEED_READINGS].sort((a, b) => a.minsAgo - b.minsAgo);
+  } catch {
+    return SEED_READINGS;
+  }
+}
+
+export function saveReadings(readings: Reading[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    const own = readings.filter((r) => typeof r.at === "number");
+    window.localStorage.setItem(READINGS_KEY, JSON.stringify(own));
+  } catch {
+    // Storage full or blocked: the reading stays in memory for this session.
+  }
+}
