@@ -45,7 +45,18 @@ import {
   type Regime,
 } from "./stock";
 import { parseGoodsIn, resolveLine, type GoodsIn, type GoodsLine, type IssueCode, type ResolveInput } from "./goodsin";
-import { shelfLifeBlob, shelfLifeFilename, holdsBlob, holdsFilename, download } from "./records-pdf";
+import {
+  shelfLifeBlob,
+  shelfLifeFilename,
+  holdsBlob,
+  holdsFilename,
+  download,
+  applyStockFilter,
+  SITES,
+  LINES,
+  type StockFilter,
+  type StockSort,
+} from "./records-pdf";
 
 const GREEN = "#167a5b";
 const BRASS = "#a3772a";
@@ -934,6 +945,33 @@ function OnHandTab({ movements }: { movements: Movement[] }) {
   );
 }
 
+// ————————————————————————— filter row —————————————————————————
+//
+// Wraps the desk's existing pill component with a label. An empty string
+// is the "no filter" value, because Pills is typed to plain strings and
+// a second near-identical component would be worse than a sentinel.
+
+function FilterRow<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: [T, string][];
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div>
+      <p style={{ ...mono, fontSize: 10, letterSpacing: "0.14em", color: MUTED, marginBottom: 6 }}>
+        {label.toUpperCase()}
+      </p>
+      <Pills value={value} onChange={onChange} options={options} />
+    </div>
+  );
+}
+
 // ————————————————————————— export button —————————————————————————
 
 function ExportButton({ label, build }: { label: string; build: () => Promise<void> }) {
@@ -960,7 +998,8 @@ function ExportButton({ label, build }: { label: string; build: () => Promise<vo
 // ————————————————————————— shelf life —————————————————————————
 
 function ShelfLifeTab({ movements, operator = "" }: { movements: Movement[]; operator?: string }) {
-  const rows = useMemo(() => shelfLife(movements), [movements]);
+  const [filter, setFilter] = useState<StockFilter>({ site: null, line: null, sort: "date" });
+  const rows = useMemo(() => applyStockFilter(shelfLife(movements), filter), [movements, filter]);
   const pressing = rows.filter((r) => r.state === "expired" || r.state === "urgent" || r.state === "soon");
 
   return (
@@ -973,16 +1012,52 @@ function ShelfLifeTab({ movements, operator = "" }: { movements: Movement[]; ope
         <div style={{ marginLeft: "auto" }}>
           <ExportButton
             label="Export"
-            build={async () => download(await shelfLifeBlob(movements, operator), shelfLifeFilename())}
+            build={async () =>
+              download(await shelfLifeBlob(movements, operator, filter), shelfLifeFilename(filter))
+            }
           />
         </div>
       </div>
 
-      {pressing.length === 0 && (
+      <FilterRow
+        label="Site"
+        value={filter.site ?? ""}
+        options={[["", "All sites"], ...SITES.map((x) => [x, x] as [string, string])]}
+        onChange={(site) => setFilter((f) => ({ ...f, site: site || null }))}
+      />
+      <FilterRow
+        label="Line"
+        value={filter.line ?? ""}
+        options={[
+          ["", "Both lines"],
+          ...LINES.map((x) => [x, x === "ice cream" ? "Ice cream" : "Chocolate"] as [string, string]),
+        ]}
+        onChange={(line) => setFilter((f) => ({ ...f, line: line || null }))}
+      />
+      <FilterRow
+        label="Order"
+        value={filter.sort ?? "date"}
+        options={[
+          ["date", "Date"],
+          ["material", "Material"],
+          ["location", "Location"],
+        ]}
+        onChange={(sort) => setFilter((f) => ({ ...f, sort: sort as StockSort }))}
+      />
+
+      {rows.length === 0 && (
+        <div style={{ ...card, marginBottom: 16 }}>
+          <p style={{ fontSize: 13.5, color: MUTED }}>
+            Nothing held matches this filter. The register itself is not empty.
+          </p>
+        </div>
+      )}
+
+      {rows.length > 0 && pressing.length === 0 && (
         <div style={{ ...card, marginBottom: 16 }}>
           <p style={{ fontSize: 13.5 }}>
             <Dot color={GREEN} />
-            Nothing is within a month of its date.
+            Nothing {filter.site ? `at ${filter.site} ` : ""}is within a month of its date.
           </p>
         </div>
       )}

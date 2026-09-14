@@ -44,6 +44,34 @@ const W = 210, H = 297, M = 18;
 // Helvetica's plus-minus, spelled out so the source stays plain ASCII.
 const PM = "\u00b1";
 
+// ————————————————————————— filters —————————————————————————
+//
+// The desk and the document take the same filter object. That is the
+// whole point: the scope sentence printed on the page is derived from
+// the same value that decided what went on it, so a document cannot
+// claim a coverage it does not have.
+
+export const SITES = ["Island Street", "Salcombe", "Strete", "Bath", "Mobile"] as const;
+export const LINES = ["ice cream", "chocolate"] as const;
+
+export type CheckSort = "status" | "site" | "name";
+export type CheckFilter = {
+  site?: string | null;
+  attentionOnly?: boolean;
+  sort?: CheckSort;
+};
+
+export type StockSort = "date" | "material" | "location";
+export type StockFilter = {
+  site?: string | null;
+  line?: string | null;
+  sort?: StockSort;
+};
+
+function slug(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
 // ————————————————————————— shared furniture —————————————————————————
 
 type Doc = { doc: jsPDF; y: number };
@@ -197,19 +225,55 @@ function lastLabel(asset: Asset, r?: Reading): string {
 
 // ————————————————————————— check log —————————————————————————
 
-export function checkLogFilename(): string {
-  return `check-log-${stamp()}.pdf`;
+export function checkLogFilename(f: CheckFilter = {}): string {
+  const bits = ["check-log"];
+  if (f.site) bits.push(slug(f.site));
+  if (f.attentionOnly) bits.push("attention");
+  bits.push(stamp());
+  return bits.join("-") + ".pdf";
+}
+
+// What the document covers, in a sentence, derived from the filter that
+// produced it. A log narrowed to one site that does not say so is a
+// misleading document, so this is not optional furniture.
+function checkScope(f: CheckFilter): string {
+  const what = f.attentionOnly ? "assets needing attention" : "every monitored asset";
+  const where = f.site ? `at ${f.site} only` : "at every site";
+  return `${what} ${where}`;
+}
+
+// One place decides what a filter selects, so the board on screen and
+// the rows in the document cannot disagree.
+export function applyCheckFilter<T extends { asset: { site: string; name: string }; status: string }>(
+  rows: T[],
+  f: CheckFilter,
+): T[] {
+  const RANK: Record<string, number> = { ok: 0, due: 1, overdue: 2 };
+  let out = rows;
+  if (f.site) out = out.filter((r) => r.asset.site === f.site);
+  if (f.attentionOnly) out = out.filter((r) => r.status !== "ok");
+  const sort = f.sort ?? "status";
+  return [...out].sort((a, b) => {
+    if (sort === "site") {
+      return a.asset.site.localeCompare(b.asset.site) || a.asset.name.localeCompare(b.asset.name);
+    }
+    if (sort === "name") return a.asset.name.localeCompare(b.asset.name);
+    return (RANK[b.status] ?? 0) - (RANK[a.status] ?? 0) || a.asset.name.localeCompare(b.asset.name);
+  });
 }
 
 export async function buildCheckLogPdf(
   readings: Reading[],
   operator: string,
+  f: CheckFilter = {},
 ): Promise<jsPDF> {
   const d = await open("Monitoring record", "Temperature, climate and calibration checks");
   const h = makeHelpers(d, "CHK-LOG");
 
-  const board = boardState(readings);
-  const exs = exceptions(readings);
+  const board = applyCheckFilter(boardState(readings), f);
+  const inScope = new Set(board.map((b) => b.asset.id));
+  const exs = exceptions(readings).filter((e) => inScope.has(e.assetId));
+  const shown = readings.filter((r) => inScope.has(r.assetId));
   const breaches = exs.filter((e) => e.breach).length;
 
   h.kv("Produced by", operator || "—");
@@ -221,15 +285,21 @@ export async function buildCheckLogPdf(
     exs.length === 0 ? GREEN : breaches ? RED : AMBER,
     true,
   );
-  h.kv("Readings held", String(readings.length));
+  h.kv("Readings held", String(shown.length));
   d.y += 3;
-  provenance(h, "monitoring register", "every monitored asset at every site");
+  provenance(h, "monitoring register", checkScope(f));
   d.y += 4;
 
   // ── exceptions first: it is the first thing anybody looks for ──
   h.head(`Exceptions (${exs.length})`);
   if (exs.length === 0) {
-    h.line("Every asset is in spec and no check is overdue.", 10, GREEN);
+    h.line(
+      f.site
+        ? `Every asset at ${f.site} is in spec and no check is overdue.`
+        : "Every asset is in spec and no check is overdue.",
+      10,
+      GREEN,
+    );
   }
   for (const e of exs) {
     h.ensure(11);
@@ -255,7 +325,7 @@ export async function buildCheckLogPdf(
   d.y += 4;
 
   // ── the board ──
-  h.head(`Every asset (${board.length})`);
+  h.head(`${f.attentionOnly ? "Assets needing attention" : "Every asset"} (${board.length})`);
   d.doc.setFontSize(8);
   d.doc.setTextColor(...MUTED);
   d.doc.text("Asset", M, d.y);
@@ -315,9 +385,9 @@ export async function buildCheckLogPdf(
   d.y += 4;
 
   // ── the readings themselves ──
-  h.head(`Readings recorded (${readings.length})`);
+  h.head(`Readings recorded (${shown.length})`);
   h.line(
-    "Every reading held, most recent first, with the verdict the engine returned at the time.",
+    `Every reading held${f.sort === "site" ? ", by site" : f.sort === "name" ? ", by asset" : ", most recent first"}, with the verdict the engine returned at the time.`,
     9,
     MUTED,
   );
@@ -327,14 +397,23 @@ export async function buildCheckLogPdf(
   d.doc.setTextColor(...MUTED);
   d.doc.text("When", M, d.y);
   d.doc.text("Asset", M + 26, d.y);
-  d.doc.text("Reading", M + 88, d.y);
-  d.doc.text("By", M + 112, d.y);
+  d.doc.text("Reading", M + 84, d.y);
+  d.doc.text("By", M + 116, d.y);
   d.doc.text("Verdict", W - M, d.y, { align: "right" });
   d.y += 2;
   h.rule(d.y, 0.15);
   d.y += 5;
 
-  const ordered = [...readings].sort((a, b) => a.minsAgo - b.minsAgo);
+  const ordered = [...shown].sort((a, b) => {
+    if (f.sort === "name" || f.sort === "site") {
+      const an = assetById(a.assetId), bn = assetById(b.assetId);
+      const key = f.sort === "site"
+        ? (an?.site ?? "").localeCompare(bn?.site ?? "")
+        : 0;
+      return key || (an?.name ?? "").localeCompare(bn?.name ?? "") || a.minsAgo - b.minsAgo;
+    }
+    return a.minsAgo - b.minsAgo;
+  });
   for (const r of ordered) {
     const asset = assetById(r.assetId);
     if (!asset) continue;
@@ -348,11 +427,11 @@ export async function buildCheckLogPdf(
     d.doc.text(clockLabel(r.minsAgo), M, d.y);
     d.doc.setTextColor(...NAVY);
     d.doc.setFontSize(9);
-    d.doc.text(fit(d.doc, asset.name, 58), M + 26, d.y);
-    d.doc.text(fit(d.doc, lastLabel(asset, r), 22), M + 88, d.y);
+    d.doc.text(fit(d.doc, asset.name, 56), M + 26, d.y);
+    d.doc.text(fit(d.doc, lastLabel(asset, r), 30), M + 84, d.y);
     d.doc.setFontSize(8.5);
     d.doc.setTextColor(...MUTED);
-    d.doc.text(fit(d.doc, `${r.by} (${r.via})`, 36), M + 112, d.y);
+    d.doc.text(fit(d.doc, `${r.by} (${r.via})`, 38), M + 116, d.y);
     d.doc.setFont("helvetica", "bold");
     d.doc.setTextColor(...colour);
     d.doc.text(v.status === "ok" ? "Pass" : v.status === "due" ? "Watch" : "Fail", W - M, d.y, {
@@ -388,25 +467,68 @@ export async function buildCheckLogPdf(
   return d.doc;
 }
 
-export async function checkLogBlob(readings: Reading[], operator: string): Promise<Blob> {
-  const doc = await buildCheckLogPdf(readings, operator);
+export async function checkLogBlob(
+  readings: Reading[],
+  operator: string,
+  f: CheckFilter = {},
+): Promise<Blob> {
+  const doc = await buildCheckLogPdf(readings, operator, f);
   return doc.output("blob");
 }
 
 // ————————————————————————— shelf life —————————————————————————
 
-export function shelfLifeFilename(): string {
-  return `shelf-life-${stamp()}.pdf`;
+export function shelfLifeFilename(f: StockFilter = {}): string {
+  const bits = ["shelf-life"];
+  if (f.line) bits.push(slug(f.line));
+  if (f.site) bits.push(slug(f.site));
+  bits.push(stamp());
+  return bits.join("-") + ".pdf";
+}
+
+function stockScope(f: StockFilter): string {
+  const what = f.line ? `every ${f.line} lot held` : "every lot held";
+  const where = f.site ? `at ${f.site} only` : "at every location";
+  return `${what}, ${where}`;
+}
+
+// A material marked "both" belongs to either line, so filtering to ice
+// cream must not quietly drop the sugar it shares with chocolate.
+export function applyStockFilter<T extends { balance: { location?: { site: string; name: string } | undefined; material?: { name: string; line?: string } | undefined } }>(
+  rows: T[],
+  f: StockFilter,
+): T[] {
+  let out = rows;
+  if (f.site) out = out.filter((r) => r.balance.location?.site === f.site);
+  if (f.line) {
+    out = out.filter((r) => {
+      const l = r.balance.material?.line;
+      return l === f.line || l === "both" || l === undefined;
+    });
+  }
+  if (f.sort === "material") {
+    out = [...out].sort((a, b) =>
+      (a.balance.material?.name ?? "").localeCompare(b.balance.material?.name ?? ""),
+    );
+  } else if (f.sort === "location") {
+    out = [...out].sort(
+      (a, b) =>
+        (a.balance.location?.name ?? "").localeCompare(b.balance.location?.name ?? "") ||
+        (a.balance.material?.name ?? "").localeCompare(b.balance.material?.name ?? ""),
+    );
+  }
+  return out;
 }
 
 export async function buildShelfLifePdf(
   movements: Movement[],
   operator: string,
+  f: StockFilter = {},
 ): Promise<jsPDF> {
   const d = await open("Stock record", "Shelf life position");
   const h = makeHelpers(d, "SL-POS");
 
-  const rows = shelfLife(movements);
+  const rows = applyStockFilter(shelfLife(movements), f);
   const expired = rows.filter((r) => r.state === "expired");
   const urgent = rows.filter((r) => r.state === "urgent");
   const unknown = rows.filter((r) => r.state === "unknown");
@@ -418,10 +540,12 @@ export async function buildShelfLifePdf(
   h.kv("Use this week", String(urgent.length), urgent.length ? AMBER : GREEN, urgent.length > 0);
   h.kv("No date held", String(unknown.length), unknown.length ? AMBER : GREEN, unknown.length > 0);
   d.y += 3;
-  provenance(h, "stock register", "every lot held, at every location");
+  provenance(h, "stock register", stockScope(f));
   d.y += 4;
 
-  h.head(`Every lot, soonest first (${rows.length})`);
+  const orderWord =
+    f.sort === "material" ? "by material" : f.sort === "location" ? "by location" : "soonest first";
+  h.head(`${f.line ? f.line.charAt(0).toUpperCase() + f.line.slice(1) + " lots" : "Every lot"}, ${orderWord} (${rows.length})`);
   d.doc.setFontSize(8);
   d.doc.setTextColor(...MUTED);
   d.doc.text("Material", M, d.y);
@@ -433,7 +557,15 @@ export async function buildShelfLifePdf(
   h.rule(d.y, 0.15);
   d.y += 5;
 
-  if (rows.length === 0) h.line("No stock held.", 10, MUTED);
+  if (rows.length === 0) {
+    h.line(
+      f.site || f.line
+        ? "Nothing held matches this filter. The register itself is not empty."
+        : "No stock held.",
+      10,
+      MUTED,
+    );
+  }
 
   for (const r of rows) {
     h.ensure(9);
@@ -494,8 +626,12 @@ export async function buildShelfLifePdf(
   return d.doc;
 }
 
-export async function shelfLifeBlob(movements: Movement[], operator: string): Promise<Blob> {
-  const doc = await buildShelfLifePdf(movements, operator);
+export async function shelfLifeBlob(
+  movements: Movement[],
+  operator: string,
+  f: StockFilter = {},
+): Promise<Blob> {
+  const doc = await buildShelfLifePdf(movements, operator, f);
   return doc.output("blob");
 }
 

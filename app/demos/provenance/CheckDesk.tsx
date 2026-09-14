@@ -15,7 +15,15 @@
 
 import { useMemo, useState } from "react";
 import type { Status } from "./data";
-import { checkLogBlob, checkLogFilename, download } from "./records-pdf";
+import {
+  checkLogBlob,
+  checkLogFilename,
+  download,
+  applyCheckFilter,
+  SITES,
+  type CheckFilter,
+  type CheckSort,
+} from "./records-pdf";
 import {
   ASSETS,
   boardState,
@@ -84,6 +92,49 @@ const card: React.CSSProperties = {
   padding: "14px 18px",
 };
 
+// A row of choices. Small, quiet, and always showing which one is on —
+// a filter you cannot see the state of is worse than no filter.
+function Pills<T extends string | null>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+      <span style={{ ...mono, fontSize: 10, letterSpacing: "0.14em", color: MUTED, marginRight: 2 }}>
+        {label.toUpperCase()}
+      </span>
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <button
+            key={String(o.value)}
+            onClick={() => onChange(o.value)}
+            style={{
+              fontSize: 12,
+              padding: "4px 10px",
+              borderRadius: 99,
+              cursor: "pointer",
+              border: `1px solid ${on ? "var(--text)" : "var(--rule)"}`,
+              background: on ? "var(--text)" : "transparent",
+              color: on ? "var(--bg-elevated)" : MUTED,
+              fontWeight: on ? 500 : 400,
+            }}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // ————————————————————————— the desk —————————————————————————
 
 export default function CheckDesk({
@@ -98,15 +149,26 @@ export default function CheckDesk({
   const [openAsset, setOpenAsset] = useState<string | null>(null);
   const [recording, setRecording] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [filter, setFilter] = useState<CheckFilter>({ site: null, attentionOnly: false, sort: "status" });
 
-  const board = useMemo(() => boardState(readings), [readings]);
-  const queue = useMemo(() => exceptions(readings), [readings]);
+  // The board the desk shows and the board the document reports come from
+  // the same derivation applied to the same filter.
+  const board = useMemo(() => applyCheckFilter(boardState(readings), filter), [readings, filter]);
 
+  // Tallies follow the site, not the attention toggle — otherwise turning
+  // the toggle on would zero the counts it exists to explain.
   const counts = useMemo(() => {
     const c = { ok: 0, due: 0, overdue: 0 };
-    for (const b of board) c[b.status] += 1;
+    for (const b of applyCheckFilter(boardState(readings), { site: filter.site })) c[b.status] += 1;
     return c;
-  }, [board]);
+  }, [readings, filter.site]);
+
+  const queue = useMemo(() => {
+    const inScope = new Set(
+      applyCheckFilter(boardState(readings), { site: filter.site }).map((b) => b.asset.id),
+    );
+    return exceptions(readings).filter((e) => inScope.has(e.assetId));
+  }, [readings, filter.site]);
 
   function record(r: Reading) {
     onReadings([r, ...readings]);
@@ -131,7 +193,7 @@ export default function CheckDesk({
           onClick={async () => {
             setExporting(true);
             try {
-              download(await checkLogBlob(readings, operator), checkLogFilename());
+              download(await checkLogBlob(readings, operator, filter), checkLogFilename(filter));
             } finally {
               setExporting(false);
             }
@@ -142,6 +204,39 @@ export default function CheckDesk({
         >
           {exporting ? "Preparing…" : "Export check log"}
         </button>
+      </div>
+
+      <div style={{ display: "grid", gap: 10, marginBottom: 24 }}>
+        <Pills
+          label="Site"
+          value={filter.site ?? null}
+          options={[
+            { value: null, label: "All sites" },
+            ...SITES.map((s) => ({ value: s as string | null, label: s })),
+          ]}
+          onChange={(site) => setFilter((f) => ({ ...f, site }))}
+        />
+        <div style={{ display: "flex", gap: 22, flexWrap: "wrap" }}>
+          <Pills
+            label="Show"
+            value={filter.attentionOnly ? "attention" : "all"}
+            options={[
+              { value: "all", label: "Everything" },
+              { value: "attention", label: "Needs attention" },
+            ]}
+            onChange={(v) => setFilter((f) => ({ ...f, attentionOnly: v === "attention" }))}
+          />
+          <Pills
+            label="Order"
+            value={filter.sort ?? "status"}
+            options={[
+              { value: "status" as CheckSort, label: "Status" },
+              { value: "site" as CheckSort, label: "Site" },
+              { value: "name" as CheckSort, label: "Name" },
+            ]}
+            onChange={(sort) => setFilter((f) => ({ ...f, sort }))}
+          />
+        </div>
       </div>
 
       {queue.length > 0 && (
