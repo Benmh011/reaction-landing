@@ -167,15 +167,17 @@ async function open(kind: string, title: string): Promise<Doc> {
   return d;
 }
 
-// Every document says plainly what it is a picture of. A register
-// exported at 09:14 is evidence of 09:14 and nothing else, and saying so
-// is the difference between a record and a claim.
-function provenanceNote(
+// Where the document came from, when, and what it covers. The third one
+// is the one that matters: an extract that quietly leaves something out
+// is worse than no extract at all, so the scope is stated on the face of
+// the document rather than left to be inferred from the contents.
+function provenance(
   helpers: ReturnType<typeof makeHelpers>,
-  what: string,
+  register: string,
+  scope: string,
 ) {
   helpers.line(
-    `This is the ${what} as it stood when the document was produced. It is generated from the live register rather than re-keyed, and is not a substitute for the register itself.`,
+    `Extracted from the ${register} at ${fmtNow()}, reproduced without re-keying. Covers ${scope}.`,
     8.5,
     MUTED,
   );
@@ -221,7 +223,7 @@ export async function buildCheckLogPdf(
   );
   h.kv("Readings held", String(readings.length));
   d.y += 3;
-  provenanceNote(h, "monitoring position");
+  provenance(h, "monitoring register", "every monitored asset at every site");
   d.y += 4;
 
   // ── exceptions first: it is the first thing anybody looks for ──
@@ -416,7 +418,7 @@ export async function buildShelfLifePdf(
   h.kv("Use this week", String(urgent.length), urgent.length ? AMBER : GREEN, urgent.length > 0);
   h.kv("No date held", String(unknown.length), unknown.length ? AMBER : GREEN, unknown.length > 0);
   d.y += 3;
-  provenanceNote(h, "shelf life position");
+  provenance(h, "stock register", "every lot held, at every location");
   d.y += 4;
 
   h.head(`Every lot, soonest first (${rows.length})`);
@@ -516,7 +518,7 @@ export async function buildHoldsPdf(
   h.kv("Produced at", fmtNow());
   h.kv("Lots on hold", String(held.length), held.length ? AMBER : GREEN, true);
   d.y += 3;
-  provenanceNote(h, "hold position");
+  provenance(h, "stock register", "every location that holds stock back from use");
   d.y += 4;
 
   h.head(`On hold (${held.length})`);

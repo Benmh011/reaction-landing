@@ -669,6 +669,23 @@ export function fmtQty(qty: number, unit: Unit): string {
 export const SEED_MOVEMENTS: Movement[] = [
   mv("m01", "RM-MILK", "HF-260901", "WH-CHILL", 1850, "L", "goods-in", 1, "M. Reeve", "HF-DN-4471"),
   mv("m02", "RM-CREAM", "HF-260901-C", "WH-CHILL", 380, "L", "goods-in", 2, "M. Reeve", "HF-DN-4471"),
+  // A delivery that failed its intake temperature and was booked into
+  // quarantine rather than the chill store. It is a goods-in like any
+  // other: what makes it held is where it went, not a special kind of
+  // movement. Nothing about it is free to use until someone decides.
+  mv(
+    "m02a",
+    "RM-MILK",
+    "HF-260903",
+    "WH-QUAR",
+    240,
+    "L",
+    "goods-in",
+    0,
+    "S. Trent",
+    "HF-DN-4488",
+    "Arrived at 8.4\u00b0C against a 4\u00b0C intake limit. Driver reported a failed chiller on the second drop. Held pending a decision from production.",
+  ),
   mv("m03", "RM-COCOA", "PE-2606-11", "WH-DRY", 500, "kg", "goods-in", 77, "A. Voss", "IMP-9902"),
   mv("m04", "RM-COUV", "CV-2605-08", "WH-COND", 180, "kg", "goods-in", 80, "A. Voss", "IMP-9871"),
   mv("m05", "RM-SUGAR", "BS-9911-K", "WH-DRY", 940, "kg", "goods-in", 68, "J. Okafor", "BS-77120"),
