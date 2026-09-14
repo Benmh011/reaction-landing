@@ -15,6 +15,7 @@
 
 import { useMemo, useState } from "react";
 import type { Status } from "./data";
+import { checkLogBlob, checkLogFilename, download } from "./records-pdf";
 import {
   ASSETS,
   boardState,
@@ -96,6 +97,7 @@ export default function CheckDesk({
 }) {
   const [openAsset, setOpenAsset] = useState<string | null>(null);
   const [recording, setRecording] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const board = useMemo(() => boardState(readings), [readings]);
   const queue = useMemo(() => exceptions(readings), [readings]);
@@ -121,10 +123,25 @@ export default function CheckDesk({
         sub="Every freezer, vehicle, conditioning room and instrument on one board. Each reading is measured against that asset's own limits, timed against its own schedule, and kept as a record — so an excursion raises an alert while there's still stock to save, and the log stands up afterwards."
       />
 
-      <div style={{ display: "flex", gap: 10, marginBottom: 22, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 10, marginBottom: 22, flexWrap: "wrap", alignItems: "center" }}>
         <Tally n={counts.overdue} label="Exceptions" color={VERM} />
         <Tally n={counts.due} label="Watch" color={BRASS} />
         <Tally n={counts.ok} label="In spec" color={GREEN} />
+        <button
+          onClick={async () => {
+            setExporting(true);
+            try {
+              download(await checkLogBlob(readings, operator), checkLogFilename());
+            } finally {
+              setExporting(false);
+            }
+          }}
+          disabled={exporting}
+          className="btn btn-primary"
+          style={{ marginLeft: "auto", fontSize: 13, padding: "7px 14px" }}
+        >
+          {exporting ? "Preparing…" : "Export check log"}
+        </button>
       </div>
 
       {queue.length > 0 && (

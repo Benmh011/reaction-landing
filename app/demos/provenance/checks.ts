@@ -214,7 +214,7 @@ function deviationFrom(value: number, band: Band): number {
   return 0;
 }
 
-function describeBand(band: Band): string {
+export function describeBand(band: Band): string {
   if (band.min !== undefined && band.max !== undefined) {
     return `${band.min} to ${band.max}${band.unit}`;
   }

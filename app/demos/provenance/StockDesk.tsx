@@ -45,6 +45,7 @@ import {
   type Regime,
 } from "./stock";
 import { parseGoodsIn, resolveLine, type GoodsIn, type GoodsLine, type IssueCode, type ResolveInput } from "./goodsin";
+import { shelfLifeBlob, shelfLifeFilename, holdsBlob, holdsFilename, download } from "./records-pdf";
 
 const GREEN = "#167a5b";
 const BRASS = "#a3772a";
@@ -179,9 +180,9 @@ export default function StockDesk({
 
       {tab === "goodsin" && <GoodsInTab movements={movements} operator={operator} onBook={(ms) => setMovements((p) => [...ms, ...p])} />}
       {tab === "onhand" && <OnHandTab movements={movements} />}
-      {tab === "shelf" && <ShelfLifeTab movements={movements} />}
+      {tab === "shelf" && <ShelfLifeTab movements={movements} operator={operator} />}
       {tab === "allergens" && <AllergenTab movements={movements} />}
-      {tab === "holds" && <HoldsTab movements={movements} />}
+      {tab === "holds" && <HoldsTab movements={movements} operator={operator} />}
       {tab === "log" && <LogTab movements={movements} />}
     </>
   );
@@ -933,18 +934,49 @@ function OnHandTab({ movements }: { movements: Movement[] }) {
   );
 }
 
+// ————————————————————————— export button —————————————————————————
+
+function ExportButton({ label, build }: { label: string; build: () => Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <button
+      onClick={async () => {
+        setBusy(true);
+        try {
+          await build();
+        } finally {
+          setBusy(false);
+        }
+      }}
+      disabled={busy}
+      className="btn btn-primary"
+      style={{ fontSize: 13, padding: "7px 14px", flexShrink: 0 }}
+    >
+      {busy ? "Preparing…" : label}
+    </button>
+  );
+}
+
 // ————————————————————————— shelf life —————————————————————————
 
-function ShelfLifeTab({ movements }: { movements: Movement[] }) {
+function ShelfLifeTab({ movements, operator = "" }: { movements: Movement[]; operator?: string }) {
   const rows = useMemo(() => shelfLife(movements), [movements]);
   const pressing = rows.filter((r) => r.state === "expired" || r.state === "urgent" || r.state === "soon");
 
   return (
     <>
-      <p style={{ fontSize: 13, color: MUTED, marginBottom: 16, lineHeight: 1.55, maxWidth: 640 }}>
-        Every lot in date order, soonest first. Dates come off the delivery note at goods-in, so nothing here is
-        re-keyed. On a perishable product across six sites this is the difference between a markdown and a skip.
-      </p>
+      <div style={{ display: "flex", gap: 16, alignItems: "flex-start", marginBottom: 16 }}>
+        <p style={{ fontSize: 13, color: MUTED, lineHeight: 1.55, maxWidth: 640 }}>
+          Every lot in date order, soonest first. Dates come off the delivery note at goods-in, so nothing here is
+          re-keyed. On a perishable product across six sites this is the difference between a markdown and a skip.
+        </p>
+        <div style={{ marginLeft: "auto" }}>
+          <ExportButton
+            label="Export"
+            build={async () => download(await shelfLifeBlob(movements, operator), shelfLifeFilename())}
+          />
+        </div>
+      </div>
 
       {pressing.length === 0 && (
         <div style={{ ...card, marginBottom: 16 }}>
@@ -1065,7 +1097,7 @@ function AllergenTab({ movements }: { movements: Movement[] }) {
 
 // ————————————————————————— holds —————————————————————————
 
-function HoldsTab({ movements }: { movements: Movement[] }) {
+function HoldsTab({ movements, operator = "" }: { movements: Movement[]; operator?: string }) {
   const held = useMemo(
     () => balances(movements).filter((b) => b.location?.holding),
     [movements],
@@ -1073,10 +1105,18 @@ function HoldsTab({ movements }: { movements: Movement[] }) {
 
   return (
     <>
-      <p style={{ fontSize: 13, color: MUTED, marginBottom: 16, lineHeight: 1.55, maxWidth: 640 }}>
-        Stock taken in but not released. Physically on site, deliberately not free to use, and waiting on a decision
-        from someone. Nothing leaves here without that decision being recorded against it.
-      </p>
+      <div style={{ display: "flex", gap: 16, alignItems: "flex-start", marginBottom: 16 }}>
+        <p style={{ fontSize: 13, color: MUTED, lineHeight: 1.55, maxWidth: 640 }}>
+          Stock taken in but not released. Physically on site, deliberately not free to use, and waiting on a decision
+          from someone. Nothing leaves here without that decision being recorded against it.
+        </p>
+        <div style={{ marginLeft: "auto" }}>
+          <ExportButton
+            label="Export"
+            build={async () => download(await holdsBlob(movements, operator), holdsFilename())}
+          />
+        </div>
+      </div>
 
       {held.length === 0 ? (
         <div style={{ ...card }}>
