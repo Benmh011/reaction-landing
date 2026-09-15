@@ -31,6 +31,7 @@ import {
   REASON_WORD,
   type Movement,
 } from "./stock";
+import type { GoodsIn, GoodsLine } from "./goodsin";
 
 const NAVY: [number, number, number] = [20, 33, 58];
 const MUTED: [number, number, number] = [111, 116, 130];
@@ -747,6 +748,229 @@ export async function buildHoldsPdf(
 
 export async function holdsBlob(movements: Movement[], operator: string): Promise<Blob> {
   const doc = await buildHoldsPdf(movements, operator);
+  return doc.output("blob");
+}
+
+// ————————————————————————— goods in —————————————————————————
+//
+// The delivery check record. More audit weight than the other three:
+// supplier, allergen screening, intake temperature and the decision on
+// every line that failed, all in one document. This is the record that
+// would be asked for first after a supplier complaint, and the one that
+// caught the milk now sitting in quarantine.
+
+export function goodsInFilename(g: GoodsIn): string {
+  const ref = g.report.noteRef ? slug(g.report.noteRef) : "no-ref";
+  return `goods-in-${ref}-${stamp()}.pdf`;
+}
+
+function lineColour(l: GoodsLine): [number, number, number] {
+  if (l.rejected || l.state === "exception") return RED;
+  if (l.quarantine || l.state === "held") return AMBER;
+  return GREEN;
+}
+
+function lineWord(l: GoodsLine): string {
+  if (l.rejected) return "Rejected";
+  if (l.quarantine) return "Quarantined";
+  if (l.booked) return "Booked in";
+  if (l.state === "exception") return "Stopped";
+  if (l.state === "held") return "Needs a person";
+  return "Accepted";
+}
+
+export async function buildGoodsInPdf(
+  g: GoodsIn,
+  operator: string,
+  intoName?: string,
+): Promise<jsPDF> {
+  const r = g.report;
+  const d = await open("Goods received record", r.supplier ?? "Supplier not stated");
+  const h = makeHelpers(d, r.noteRef ?? "GOODS-IN");
+
+  const booked = g.lines.filter((l) => l.booked);
+  const rejected = g.lines.filter((l) => l.rejected);
+  const quarantined = g.lines.filter((l) => l.quarantine);
+  const raised = (l: GoodsLine, code: string) =>
+    l.issues.some((i) => i.code === code) || (l.resolutions ?? []).some((r) => r.code === code);
+  const prohibited = g.lines.filter((l) => raised(l, "prohibited"));
+  const tempBreach = g.lines.filter((l) => raised(l, "temp-breach"));
+  const unsettled = g.lines.filter((l) => l.state !== "accepted" && !l.rejected && !l.booked);
+
+  h.kv("Delivery note", r.noteRef ?? "not stated");
+  h.kv("Delivery date", r.deliveryDate ?? "not stated");
+  h.kv("Checked by", operator || "\u2014");
+  h.kv("Lines on note", String(g.lines.length));
+  h.kv(
+    "Booked in",
+    booked.length ? `${booked.length}${intoName ? ` to ${intoName}` : ""}` : "None",
+    booked.length ? GREEN : MUTED,
+    booked.length > 0,
+  );
+  if (quarantined.length) h.kv("Quarantined", String(quarantined.length), AMBER, true);
+  if (rejected.length) h.kv("Rejected", String(rejected.length), RED, true);
+  if (unsettled.length) h.kv("Still open", String(unsettled.length), AMBER, true);
+  d.y += 3;
+
+  h.line(
+    `Read from ${r.fileName}${r.sheetName ? `, sheet ${r.sheetName}` : ""} (${r.fileKind.toUpperCase()}, table from row ${r.headerRow}) without re-keying. Covers every line on this delivery note.`,
+    8.5,
+    MUTED,
+  );
+  d.y += 5;
+
+  // ── the allergen screen: the claim the whole site rests on ──
+  h.head("Allergen screening");
+  h.line(
+    "Every line screened against the site's prohibited list \u2014 nut, gluten, egg, soya and palm oil \u2014 on the wording from the supplier's own note, before the material register was consulted.",
+    9.5,
+    MUTED,
+  );
+  d.y += 2;
+  if (prohibited.length === 0) {
+    h.line("No line matched a prohibited material.", 10, GREEN, true);
+  } else {
+    h.line(
+      `${prohibited.length} line${prohibited.length === 1 ? "" : "s"} matched a prohibited material and ${prohibited.length === 1 ? "was" : "were"} stopped at the door.`,
+      10,
+      RED,
+      true,
+    );
+    for (const l of prohibited) {
+      h.line(`\u2022 ${l.rawMaterial}`, 9.5, RED, true);
+      const txt = l.issues.find((i) => i.code === "prohibited")?.text;
+      if (txt) h.line(txt, 8.5, RED);
+      for (const res of (l.resolutions ?? []).filter((r) => r.code === "prohibited")) {
+        h.line(`Settled: ${res.action} \u2014 ${res.by}${res.note ? ` \u2014 ${res.note}` : ""}`, 8.5, NAVY);
+      }
+    }
+  }
+  d.y += 5;
+
+  // ── intake temperature ──
+  if (tempBreach.length) {
+    h.head("Intake temperature");
+    for (const l of tempBreach) {
+      const colour = l.rejected ? RED : AMBER;
+      h.line(
+        `${l.material?.name ?? l.rawMaterial} \u2014 lot ${l.lot || "not stated"}${l.tempC !== undefined && l.tempC !== null ? `, arrived at ${l.tempC}\u00b0C` : ""}`,
+        9.5,
+        colour,
+        true,
+      );
+      const txt = l.issues.find((i) => i.code === "temp-breach")?.text;
+      if (txt) h.line(txt, 8.5, colour);
+      for (const res of (l.resolutions ?? []).filter((r) => r.code === "temp-breach")) {
+        h.line(`Settled: ${res.action} \u2014 ${res.by}${res.note ? ` \u2014 ${res.note}` : ""}`, 8.5, NAVY);
+      }
+    }
+    d.y += 5;
+  }
+
+  // ── every line ──
+  h.head(`Every line (${g.lines.length})`);
+  d.doc.setFontSize(8);
+  d.doc.setTextColor(...MUTED);
+  d.doc.text("Material", M, d.y);
+  d.doc.text("Lot", M + 62, d.y);
+  d.doc.text("Qty", M + 100, d.y, { align: "right" });
+  d.doc.text("Best before", M + 108, d.y);
+  d.doc.text("Outcome", W - M, d.y, { align: "right" });
+  d.y += 2;
+  h.rule(d.y, 0.15);
+  d.y += 5;
+
+  for (const l of g.lines) {
+    h.ensure(11);
+    const colour = lineColour(l);
+    if (colour !== GREEN) {
+      d.doc.setFillColor(...colour);
+      d.doc.rect(M - 4, d.y - 3.2, 1.2, 7.6, "F");
+    }
+
+    d.doc.setFont("helvetica", "normal");
+    d.doc.setFontSize(9.5);
+    d.doc.setTextColor(...NAVY);
+    d.doc.text(fit(d.doc, l.material?.name ?? l.rawMaterial, 58), M, d.y);
+    d.doc.setFontSize(8.5);
+    d.doc.setTextColor(...MUTED);
+    d.doc.text(fit(d.doc, l.lot || "no lot", 34), M + 62, d.y);
+    d.doc.setTextColor(...NAVY);
+    d.doc.setFontSize(9);
+    d.doc.text(
+      l.qty !== null && l.unit ? fmtQty(l.qty, l.unit) : l.qty !== null ? String(l.qty) : "\u2014",
+      M + 100,
+      d.y,
+      { align: "right" },
+    );
+    d.doc.setFontSize(8.5);
+    d.doc.setTextColor(...MUTED);
+    d.doc.text(l.bestBefore ?? "not held", M + 108, d.y);
+    d.doc.setFont("helvetica", "bold");
+    d.doc.setFontSize(8.5);
+    d.doc.setTextColor(...colour);
+    d.doc.text(lineWord(l), W - M, d.y, { align: "right" });
+    d.y += 4.4;
+
+    // The raw wording from the note, kept because the whole point of a
+    // goods-in record is what the supplier actually said.
+    if (l.material && l.rawMaterial && l.material.name !== l.rawMaterial) {
+      d.doc.setFont("helvetica", "normal");
+      d.doc.setFontSize(8);
+      d.doc.setTextColor(...MUTED);
+      d.doc.text(fit(d.doc, `note read: ${l.rawMaterial}`, 90), M, d.y);
+      d.y += 3.8;
+    }
+
+    for (const iss of l.issues) {
+      d.doc.setFont("helvetica", "normal");
+      d.doc.setFontSize(8);
+      d.doc.setTextColor(...colour);
+      const il = d.doc.splitTextToSize(iss.text, W - M * 2 - 4);
+      h.ensure(il.length * 3.8 + 2);
+      d.doc.text(il, M, d.y);
+      d.y += il.length * 3.8;
+    }
+
+    for (const res of l.resolutions ?? []) {
+      d.doc.setFont("helvetica", "normal");
+      d.doc.setFontSize(8);
+      d.doc.setTextColor(...NAVY);
+      const rl = d.doc.splitTextToSize(
+        `Settled: ${res.action} \u2014 ${res.by}${res.note ? ` \u2014 ${res.note}` : ""}`,
+        W - M * 2 - 4,
+      );
+      h.ensure(rl.length * 3.8 + 2);
+      d.doc.text(rl, M, d.y);
+      d.y += rl.length * 3.8;
+    }
+
+    d.y += 2;
+    h.rule(d.y - 1.6, 0.1);
+    d.y += 1.5;
+  }
+
+  // ── anything still open, said plainly ──
+  if (unsettled.length) {
+    d.y += 4;
+    h.head("Open at the time of this record");
+    h.line(
+      `${unsettled.length} line${unsettled.length === 1 ? "" : "s"} had not been settled or booked when this was produced. The delivery is not fully accepted until ${unsettled.length === 1 ? "it is" : "they are"}.`,
+      9.5,
+      AMBER,
+    );
+  }
+
+  h.footer();
+  return d.doc;
+}
+
+export async function goodsInBlob(
+  g: GoodsIn,
+  operator: string,
+  intoName?: string,
+): Promise<Blob> {
+  const doc = await buildGoodsInPdf(g, operator, intoName);
   return doc.output("blob");
 }
 

@@ -52,6 +52,8 @@ import {
   holdsFilename,
   download,
   applyStockFilter,
+  goodsInBlob,
+  goodsInFilename,
   SITES,
   LINES,
   type StockFilter,
@@ -416,7 +418,7 @@ function GoodsInTab({ movements, onBook, operator = "" }: { movements: Movement[
                 {result.report.fileKind.toUpperCase()} · table from row {result.report.headerRow}
               </p>
             </div>
-            <div style={{ display: "flex", gap: 18, flexWrap: "wrap", fontSize: 13 }}>
+            <div style={{ display: "flex", gap: 18, flexWrap: "wrap", fontSize: 13, alignItems: "center" }}>
               <span>
                 <Dot color={GREEN} />
                 {result.report.accepted} ready
@@ -429,6 +431,17 @@ function GoodsInTab({ movements, onBook, operator = "" }: { movements: Movement[
                 <Dot color={VERM} />
                 {result.report.exceptions} stopped
               </span>
+              <div style={{ marginLeft: "auto" }}>
+                <ExportButton
+                  label="Export record"
+                  build={async () =>
+                    download(
+                      await goodsInBlob(result, who.trim() || operator, target?.name),
+                      goodsInFilename(result),
+                    )
+                  }
+                />
+              </div>
             </div>
           </div>
 
