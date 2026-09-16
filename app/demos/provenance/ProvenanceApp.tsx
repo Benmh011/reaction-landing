@@ -547,8 +547,8 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
           <div key={active} className="prov-view">
             {prev && prev !== active && (
               <button onClick={back} className="prov-back">
-                <span aria-hidden>&#8592;</span>
-                {prev === "start" ? "Welcome" : SECTIONS.find((x) => x.id === prev)?.label}
+                <span aria-hidden className="prov-back-arrow">&#8592;</span>
+                Back to {prev === "start" ? "the welcome page" : SECTIONS.find((x) => x.id === prev)?.label}
               </button>
             )}
             {active === "overview" && <Overview items={picture} onGo={setView} />}
@@ -596,15 +596,28 @@ function ThemeStyles() {
           min-height: 100vh;
         }
         .pv-root .prov-back {
-          display: inline-flex; align-items: center; gap: 8px;
-          background: none; border: none; padding: 0;
-          margin-bottom: 18px;
-          font-family: var(--font-mono); font-size: 12px;
-          letter-spacing: 0.04em;
-          color: var(--text-muted); cursor: pointer;
-          transition: color 140ms ease;
+          display: inline-flex; align-items: center; gap: 10px;
+          background: var(--bg-elevated);
+          border: 1px solid var(--rule-strong);
+          border-radius: 99px;
+          padding: 9px 18px 9px 14px;
+          margin-bottom: 24px;
+          font-family: var(--font-sans); font-size: 13.5px;
+          font-weight: 500;
+          color: var(--text); cursor: pointer;
+          box-shadow: 0 1px 2px rgba(20, 33, 58, 0.06);
+          transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
         }
-        .pv-root .prov-back:hover { color: var(--text); }
+        .pv-root .prov-back:hover {
+          background: var(--bg-surface);
+          border-color: var(--navy);
+          box-shadow: 0 2px 6px rgba(20, 33, 58, 0.1);
+        }
+        .pv-root .prov-back:active { box-shadow: none; }
+        .pv-root .prov-back-arrow {
+          font-size: 16px; line-height: 1;
+          color: var(--navy);
+        }
         .pv-root .btn-primary { background: var(--navy); color: #f4efe4; font-family: var(--font-sans); }
         .pv-root .btn-primary:hover:not(:disabled) { background: var(--navy-deep); }
         .pv-root .btn-ghost { color: var(--navy); font-family: var(--font-sans); }
