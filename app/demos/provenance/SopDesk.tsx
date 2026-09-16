@@ -131,7 +131,9 @@ export default function SopDesk({
   const [viewing, setViewing] = useState<Run | null>(null);
   // Defaults to the signed-in account. Can be changed for the case where
   // one person is recording on another's behalf, and the record says so.
-  const [who, setWho] = useState(operator);
+  // The account, not a text box. See the note in CheckDesk: a record
+  // signed with a typed name is not attributable to anybody.
+  const who = operator;
 
   const due = useMemo(() => schedule(runs), [runs]);
 
@@ -173,7 +175,7 @@ export default function SopDesk({
       <div style={{ ...card, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 20 }}>
         <label style={{ fontSize: 13, color: MUTED }}>
           Running as
-          <input value={who} onChange={(e) => setWho(e.target.value)} placeholder="Name" style={{ ...input, fontSize: 13, padding: "6px 10px", marginLeft: 8, width: 190 }} />
+          <span style={{ ...mono, fontSize: 13, marginLeft: 8 }}>{who || "Not signed in"}</span>
         </label>
         <span style={{ fontSize: 12.5, color: MUTED }}>
           {operator && who === operator ? "From your account. " : ""}This name goes on every answer in the record.

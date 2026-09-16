@@ -38,6 +38,9 @@ import {
   REGIME_SPEC,
   ALLERGEN_LABEL,
   FRESHNESS_LABEL,
+  locationLabel,
+  ageLabel,
+  daysSince,
   SITE_FREE_FROM,
   type Movement,
   type StockLocation,
@@ -210,7 +213,9 @@ function GoodsInTab({ movements, onBook, operator = "" }: { movements: Movement[
   const [into, setInto] = useState("WH-DRY");
   const [booked, setBooked] = useState<string | null>(null);
   const [drag, setDrag] = useState(false);
-  const [who, setWho] = useState(operator);
+  // The account, not a text box. A delivery booked in under a typed
+  // name tells you nothing about who actually stood on the dock.
+  const who = operator;
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function handle(file: File) {
@@ -467,15 +472,12 @@ function GoodsInTab({ movements, onBook, operator = "" }: { movements: Movement[
                   ))}
                 </select>
               </label>
-              <label style={{ fontSize: 13, color: MUTED }}>
-                Received by
-                <input
-                  value={who}
-                  onChange={(e) => setWho(e.target.value)}
-                  placeholder="M. Reeve"
-                  style={{ ...inputStyle, marginLeft: 8, width: 150 }}
-                />
-              </label>
+              <span style={{ fontSize: 13, color: MUTED }}>
+                Received by{" "}
+                <span style={{ ...mono, fontSize: 13, color: "var(--text)" }}>
+                  {who || "not signed in"}
+                </span>
+              </span>
               <button onClick={book} className="btn btn-primary" disabled={readyCount === 0}>
                 Book in {readyCount} {readyCount === 1 ? "line" : "lines"}
               </button>
@@ -1066,17 +1068,24 @@ function ShelfLifeTab({ movements, operator = "" }: { movements: Movement[]; ope
         </div>
       )}
 
-      {rows.length > 0 && pressing.length === 0 && (
-        <div style={{ ...card, marginBottom: 16 }}>
-          <p style={{ fontSize: 13.5 }}>
-            <Dot color={GREEN} />
-            Nothing {filter.site ? `at ${filter.site} ` : ""}is within a month of its date.
-          </p>
-        </div>
-      )}
-
-      <div style={{ display: "grid", gap: 6 }}>
-        {rows.map((r) => (
+      {(["expired", "urgent", "soon", "fresh", "unknown"] as Freshness[]).map((group) => {
+        const inGroup = rows.filter((r) => r.state === group);
+        if (inGroup.length === 0) return null;
+        return (
+          <div key={group} style={{ marginBottom: 22 }}>
+            <p
+              style={{
+                ...mono,
+                fontSize: 10.5,
+                letterSpacing: "0.16em",
+                color: FRESH_COLOR[group],
+                marginBottom: 8,
+              }}
+            >
+              {FRESHNESS_LABEL[group].toUpperCase()} ({inGroup.length})
+            </p>
+            <div style={{ display: "grid", gap: 6 }}>
+              {inGroup.map((r) => (
           <div
             key={`${r.balance.materialCode}-${r.balance.lot}-${r.balance.locationId}`}
             style={{
@@ -1094,7 +1103,8 @@ function ShelfLifeTab({ movements, operator = "" }: { movements: Movement[]; ope
                 {r.balance.material?.name ?? r.balance.materialCode}
               </p>
               <p style={{ ...mono, fontSize: 10.5, color: MUTED, paddingLeft: 16, marginTop: 2 }}>
-                lot {r.balance.lot} · {r.balance.location?.name} · {fmtQty(r.balance.qty, r.balance.unit)}
+                lot {r.balance.lot} · {locationLabel(r.balance.location, r.balance.locationId)} ·{" "}
+                {fmtQty(r.balance.qty, r.balance.unit)}
               </p>
             </div>
             <div style={{ textAlign: "right", whiteSpace: "nowrap" }}>
@@ -1110,8 +1120,11 @@ function ShelfLifeTab({ movements, operator = "" }: { movements: Movement[]; ope
               </p>
             </div>
           </div>
-        ))}
-      </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
     </>
   );
 }
@@ -1216,7 +1229,10 @@ function HoldsTab({ movements, operator = "" }: { movements: Movement[]; operato
       ) : (
         <div style={{ display: "grid", gap: 6 }}>
           {held.map((b) => {
-            const m = movements.find((x) => x.materialCode === b.materialCode && x.lot === b.lot && x.locationId === b.locationId);
+            const m = movements
+              .filter((x) => x.materialCode === b.materialCode && x.lot === b.lot && x.locationId === b.locationId)
+              .sort((x, y) => y.ts - x.ts)[0];
+            const age = m ? daysSince(m.ts) : null;
             return (
               <div key={`${b.materialCode}-${b.lot}`} style={{ ...card, borderLeft: `2px solid ${BRASS}`, padding: "12px 16px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -1224,11 +1240,26 @@ function HoldsTab({ movements, operator = "" }: { movements: Movement[]; operato
                     <Dot color={BRASS} />
                     {b.material?.name ?? b.materialCode}
                   </p>
-                  <span style={{ ...mono, fontSize: 14, fontWeight: 500 }}>{fmtQty(b.qty, b.unit)}</span>
+                  <div style={{ textAlign: "right" }}>
+                    <span style={{ ...mono, fontSize: 14, fontWeight: 500 }}>{fmtQty(b.qty, b.unit)}</span>
+                    {m && (
+                      <p
+                        style={{
+                          ...mono,
+                          fontSize: 10.5,
+                          marginTop: 2,
+                          fontWeight: 500,
+                          color: age !== null && age >= 7 ? VERM : age !== null && age >= 3 ? BRASS : MUTED,
+                        }}
+                      >
+                        held {ageLabel(m.ts)}
+                      </p>
+                    )}
+                  </div>
                 </div>
                 <p style={{ ...mono, fontSize: 10.5, color: MUTED, paddingLeft: 16, marginTop: 3 }}>
-                  lot {b.lot} · {b.location?.name}
-                  {m?.at ? ` · held since ${m.at}` : ""}
+                  lot {b.lot} · {locationLabel(b.location, b.locationId)}
+                  {m?.at ? ` · since ${m.at}` : ""}
                   {m?.ref ? ` · ${m.ref}` : ""}
                 </p>
                 {m?.note && (

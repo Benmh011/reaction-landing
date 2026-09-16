@@ -681,7 +681,7 @@ export const SEED_MOVEMENTS: Movement[] = [
     240,
     "L",
     "goods-in",
-    0,
+    4,
     "S. Trent",
     "HF-DN-4488",
     "Arrived at 8.4\u00b0C against a 4\u00b0C intake limit. Driver reported a failed chiller on the second drop. Held pending a decision from production.",
@@ -810,6 +810,25 @@ export function fmtDate(d: Date): string {
 // and a skip.
 
 export type Freshness = "fresh" | "soon" | "urgent" | "expired" | "unknown";
+
+export function locationLabel(l?: StockLocation | null, fallback = ""): string {
+  if (!l) return fallback;
+  return l.name.toLowerCase().includes(l.site.toLowerCase()) ? l.name : `${l.name} \u00b7 ${l.site}`;
+}
+
+// How long something has been where it is. A hold with no age is a
+// status; a hold with an age is a finding — nobody has made a decision
+// about that stock for eleven days while its shelf life runs down.
+export function daysSince(ts: number): number {
+  return Math.max(0, Math.floor((Date.now() - ts) / 86_400_000));
+}
+
+export function ageLabel(ts: number): string {
+  const d = daysSince(ts);
+  if (d === 0) return "today";
+  if (d === 1) return "1 day";
+  return `${d} days`;
+}
 
 export const FRESHNESS_LABEL: Record<Freshness, string> = {
   fresh: "In date",

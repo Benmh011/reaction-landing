@@ -29,7 +29,11 @@ import {
   fmtQty,
   FRESHNESS_LABEL,
   REASON_WORD,
+  locationLabel,
+  ageLabel,
+  daysSince,
   type Movement,
+  type Freshness,
 } from "./stock";
 import type { GoodsIn, GoodsLine } from "./goodsin";
 
@@ -286,6 +290,7 @@ export async function buildCheckLogPdf(
     exs.length === 0 ? GREEN : breaches ? RED : AMBER,
     true,
   );
+  h.kv("Covers", f.site ? f.site : "All sites", NAVY, !!f.site);
   h.kv("Readings held", String(shown.length));
   d.y += 3;
   provenance(h, "monitoring register", checkScope(f));
@@ -542,23 +547,15 @@ export async function buildShelfLifePdf(
   h.kv("No date held", String(unknown.length), unknown.length ? AMBER : GREEN, unknown.length > 0);
   d.y += 3;
   provenance(h, "stock register", stockScope(f));
-  d.y += 4;
-
   const orderWord =
     f.sort === "material" ? "by material" : f.sort === "location" ? "by location" : "soonest first";
-  h.head(`${f.line ? f.line.charAt(0).toUpperCase() + f.line.slice(1) + " lots" : "Every lot"}, ${orderWord} (${rows.length})`);
-  d.doc.setFontSize(8);
-  d.doc.setTextColor(...MUTED);
-  d.doc.text("Material", M, d.y);
-  d.doc.text("Lot", M + 58, d.y);
-  d.doc.text("Location", M + 88, d.y);
-  d.doc.text("Qty", M + 142, d.y, { align: "right" });
-  d.doc.text("Best before", W - M, d.y, { align: "right" });
   d.y += 2;
-  h.rule(d.y, 0.15);
-  d.y += 5;
+  h.line(`Grouped by how close each lot is to its date, then ${orderWord} within each group.`, 8.5, MUTED);
+  d.y += 4;
+
 
   if (rows.length === 0) {
+    h.head("Nothing to report");
     h.line(
       f.site || f.line
         ? "Nothing held matches this filter. The register itself is not empty."
@@ -566,9 +563,60 @@ export async function buildShelfLifePdf(
       10,
       MUTED,
     );
+    h.footer();
+    return d.doc;
   }
 
-  for (const r of rows) {
+  // Anything past its date is its own section at the top rather than a
+  // coloured row somewhere in a long list. A reader should not have to
+  // scan for the thing that needs acting on today.
+  const ORDER: Freshness[] = ["expired", "urgent", "soon", "fresh", "unknown"];
+  const colourOf: Record<Freshness, [number, number, number]> = {
+    expired: RED, urgent: AMBER, soon: AMBER, fresh: GREEN, unknown: MUTED,
+  };
+
+  const columns = () => {
+    d.doc.setFontSize(8);
+    d.doc.setTextColor(...MUTED);
+    d.doc.text("Material", M, d.y);
+    d.doc.text("Lot", M + 52, d.y);
+    d.doc.text("Location", M + 80, d.y);
+    d.doc.text("Qty", M + 150, d.y, { align: "right" });
+    d.doc.text("Best before", W - M, d.y, { align: "right" });
+    d.y += 2;
+    h.rule(d.y, 0.15);
+    d.y += 5;
+  };
+
+  for (const group of ORDER) {
+    const inGroup = rows.filter((r) => r.state === group);
+    if (inGroup.length === 0) continue;
+
+    d.y += 3;
+    h.ensure(20);
+    d.doc.setFont("helvetica", "bold");
+    d.doc.setFontSize(11.5);
+    d.doc.setTextColor(...colourOf[group]);
+    d.doc.text(`${FRESHNESS_LABEL[group]} (${inGroup.length})`, M, d.y);
+    d.y += 2.5;
+    h.rule(d.y);
+    d.y += 6;
+
+    if (group === "expired") {
+      h.line("Past its best before and still on the register. Nothing here is free to use.", 9, RED);
+      d.y += 2;
+    }
+    if (group === "unknown") {
+      h.line(
+        "Arrived without a readable best before on the delivery note. The date was not invented, so it is absent rather than estimated.",
+        9,
+        AMBER,
+      );
+      d.y += 2;
+    }
+    columns();
+
+  for (const r of inGroup) {
     h.ensure(9);
     const b = r.balance;
     const colour =
@@ -583,15 +631,15 @@ export async function buildShelfLifePdf(
     d.doc.setFontSize(9.5);
     d.doc.setTextColor(...NAVY);
     const name = b.material?.name ?? b.materialCode;
-    d.doc.text(fit(d.doc, name, 55), M, d.y);
+    d.doc.text(fit(d.doc, name, 49), M, d.y);
     d.doc.setFontSize(8.5);
     d.doc.setTextColor(...MUTED);
-    d.doc.text(fit(d.doc, b.lot, 28), M + 58, d.y);
-    const loc = (b.location?.name ?? b.locationId) + (b.location?.holding ? " \u00b7 on hold" : "");
-    d.doc.text(fit(d.doc, loc, 50), M + 88, d.y);
+    d.doc.text(fit(d.doc, b.lot, 26), M + 52, d.y);
+    const loc = locationLabel(b.location, b.locationId) + (b.location?.holding ? " \u00b7 on hold" : "");
+    d.doc.text(fit(d.doc, loc, 62), M + 80, d.y);
     d.doc.setTextColor(...NAVY);
     d.doc.setFontSize(9);
-    d.doc.text(fmtQty(b.qty, b.unit), M + 142, d.y, { align: "right" });
+    d.doc.text(fmtQty(b.qty, b.unit), M + 150, d.y, { align: "right" });
     d.doc.setFont("helvetica", "bold");
     d.doc.setTextColor(...colour);
     d.doc.setFontSize(8.5);
@@ -612,15 +660,6 @@ export async function buildShelfLifePdf(
     h.rule(d.y - 1.8, 0.1);
     d.y += 1;
   }
-
-  if (unknown.length) {
-    d.y += 5;
-    h.head("Lots with no date held");
-    h.line(
-      `${unknown.length} lot${unknown.length === 1 ? "" : "s"} arrived without a readable best before on the delivery note. The date was not invented, so it is absent here rather than estimated.`,
-      9.5,
-      AMBER,
-    );
   }
 
   h.footer();
@@ -654,6 +693,16 @@ export async function buildHoldsPdf(
   h.kv("Produced by", operator || "—");
   h.kv("Produced at", fmtNow());
   h.kv("Lots on hold", String(held.length), held.length ? AMBER : GREEN, true);
+  {
+    const ages = held
+      .map((b) => movements.filter((m) => m.materialCode === b.materialCode && m.lot === b.lot && m.locationId === b.locationId).sort((x, y) => y.ts - x.ts)[0])
+      .filter(Boolean)
+      .map((m) => daysSince(m.ts));
+    if (ages.length) {
+      const oldest = Math.max(...ages);
+      h.kv("Longest held", ageLabel(Date.now() - oldest * 86_400_000), oldest >= 7 ? RED : AMBER, oldest >= 7);
+    }
+  }
   d.y += 3;
   provenance(h, "stock register", "every location that holds stock back from use");
   d.y += 4;
@@ -706,15 +755,22 @@ export async function buildHoldsPdf(
     d.doc.setFontSize(8.5);
     d.doc.setTextColor(...MUTED);
     d.doc.text(`Lot ${b.lot}`, M, d.y);
-    d.doc.text(b.location?.name ?? b.locationId, M + 62, d.y);
+    d.doc.text(fit(d.doc, locationLabel(b.location, b.locationId), 70), M + 62, d.y);
     if (b.bestBefore) d.doc.text(`Best before ${b.bestBefore}`, W - M, d.y, { align: "right" });
     d.y += 4.4;
 
     if (mv) {
       d.doc.setFontSize(8.5);
       d.doc.setTextColor(...NAVY);
+      const age = daysSince(mv.ts);
       const why = `${REASON_WORD[mv.reason]} · ${mv.by} · ${mv.at}${mv.ref ? ` · ${mv.ref}` : ""}`;
       d.doc.text(why, M, d.y);
+      // How long it has sat there, in the colour the wait deserves.
+      d.doc.setFont("helvetica", "bold");
+      d.doc.setTextColor(...(age >= 7 ? RED : age >= 3 ? AMBER : MUTED));
+      d.doc.text(`Held ${ageLabel(mv.ts)}`, W - M, d.y, { align: "right" });
+      d.doc.setFont("helvetica", "normal");
+      d.doc.setTextColor(...MUTED);
       d.y += 4;
       if (mv.note) {
         d.doc.setTextColor(...MUTED);
@@ -738,6 +794,11 @@ export async function buildHoldsPdf(
   h.head("Release");
   h.line(
     "Nothing leaves hold without a decision recorded against it. Releases are movements on the stock log and appear there, not here.",
+    9.5,
+    MUTED,
+  );
+  h.line(
+    "Anything held more than a week is flagged. Stock waiting on a decision is still using shelf life while it waits.",
     9.5,
     MUTED,
   );
@@ -867,14 +928,34 @@ export async function buildGoodsInPdf(
     d.y += 5;
   }
 
-  // ── every line ──
+  // ── anything else still needing a person ──
+  const otherOpen = g.lines.filter(
+    (l) => l.state !== "accepted" && !l.rejected && !raised(l, "prohibited") && !raised(l, "temp-breach"),
+  );
+  if (otherOpen.length) {
+    h.head(`Lines needing a decision (${otherOpen.length})`);
+    for (const l of otherOpen) {
+      h.line(`${l.material?.name ?? l.rawMaterial} \u2014 row ${l.sourceRow} on the note`, 9.5, AMBER, true);
+      for (const iss of l.issues) h.line(iss.text, 8.5, AMBER);
+    }
+    d.y += 5;
+  }
+
+  // ── every line, in the order the supplier wrote them ──
   h.head(`Every line (${g.lines.length})`);
+  h.line(
+    "In the order they appear on the supplier's note, so this reconciles against their document line by line.",
+    9,
+    MUTED,
+  );
+  d.y += 2;
   d.doc.setFontSize(8);
   d.doc.setTextColor(...MUTED);
-  d.doc.text("Material", M, d.y);
-  d.doc.text("Lot", M + 62, d.y);
-  d.doc.text("Qty", M + 100, d.y, { align: "right" });
-  d.doc.text("Best before", M + 108, d.y);
+  d.doc.text("Row", M, d.y);
+  d.doc.text("Material", M + 10, d.y);
+  d.doc.text("Lot", M + 68, d.y);
+  d.doc.text("Qty", M + 104, d.y, { align: "right" });
+  d.doc.text("Best before", M + 110, d.y);
   d.doc.text("Outcome", W - M, d.y, { align: "right" });
   d.y += 2;
   h.rule(d.y, 0.15);
@@ -888,24 +969,29 @@ export async function buildGoodsInPdf(
       d.doc.rect(M - 4, d.y - 3.2, 1.2, 7.6, "F");
     }
 
+    // The row on the supplier's own note, so this document reconciles
+    // against theirs line by line rather than only in total.
     d.doc.setFont("helvetica", "normal");
+    d.doc.setFontSize(8);
+    d.doc.setTextColor(...MUTED);
+    d.doc.text(String(l.sourceRow), M, d.y);
     d.doc.setFontSize(9.5);
     d.doc.setTextColor(...NAVY);
-    d.doc.text(fit(d.doc, l.material?.name ?? l.rawMaterial, 58), M, d.y);
+    d.doc.text(fit(d.doc, l.material?.name ?? l.rawMaterial, 56), M + 10, d.y);
     d.doc.setFontSize(8.5);
     d.doc.setTextColor(...MUTED);
-    d.doc.text(fit(d.doc, l.lot || "no lot", 34), M + 62, d.y);
+    d.doc.text(fit(d.doc, l.lot || "no lot", 32), M + 68, d.y);
     d.doc.setTextColor(...NAVY);
     d.doc.setFontSize(9);
     d.doc.text(
       l.qty !== null && l.unit ? fmtQty(l.qty, l.unit) : l.qty !== null ? String(l.qty) : "\u2014",
-      M + 100,
+      M + 104,
       d.y,
       { align: "right" },
     );
     d.doc.setFontSize(8.5);
     d.doc.setTextColor(...MUTED);
-    d.doc.text(l.bestBefore ?? "not held", M + 108, d.y);
+    d.doc.text(l.bestBefore ?? "not held", M + 110, d.y);
     d.doc.setFont("helvetica", "bold");
     d.doc.setFontSize(8.5);
     d.doc.setTextColor(...colour);
@@ -918,7 +1004,7 @@ export async function buildGoodsInPdf(
       d.doc.setFont("helvetica", "normal");
       d.doc.setFontSize(8);
       d.doc.setTextColor(...MUTED);
-      d.doc.text(fit(d.doc, `note read: ${l.rawMaterial}`, 90), M, d.y);
+      d.doc.text(fit(d.doc, `note read: ${l.rawMaterial}`, 90), M + 10, d.y);
       d.y += 3.8;
     }
 

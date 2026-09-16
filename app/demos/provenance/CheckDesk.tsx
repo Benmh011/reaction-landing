@@ -454,7 +454,12 @@ function RecordForm({
   const [value2, setValue2] = useState("");
   const [expected, setExpected] = useState(asset.kind === "calibration" ? "1000" : "");
   const [mins, setMins] = useState("0");
-  const [by, setBy] = useState(defaultBy);
+  // Not editable, and deliberately so. The name on a record is the
+  // account that recorded it. A free-text box means a reading can be
+  // signed with anyone's name, which is exactly how accountability is
+  // avoided — and every standard the site is audited against turns on
+  // records being attributable to a person.
+  const by = defaultBy;
   const [note, setNote] = useState("");
 
   const parsed = parseFloat(value);
@@ -519,7 +524,7 @@ function RecordForm({
           />
         )}
 
-        <Field label="Checked by" value={by} onChange={setBy} placeholder="M. Reeve" />
+        <Signed label="Checked by" name={by} />
         <Field label="Note (optional)" value={note} onChange={setNote} placeholder="Door-open spike, recovering" />
       </div>
 
@@ -557,6 +562,20 @@ function RecordForm({
         original stands in the log.
       </p>
     </Overlay>
+  );
+}
+
+// A signed-by line: shown, never typed. Reads as a field so the form
+// still scans, but there is nothing to change.
+function Signed({ label, name }: { label: string; name: string }) {
+  return (
+    <div>
+      <span style={{ display: "block", fontSize: 12, color: MUTED, marginBottom: 4 }}>{label}</span>
+      <p style={{ ...mono, fontSize: 13, padding: "8px 0" }}>
+        {name || "Not signed in"}
+      </p>
+      <span style={{ fontSize: 11, color: MUTED }}>From your account</span>
+    </div>
   );
 }
 
