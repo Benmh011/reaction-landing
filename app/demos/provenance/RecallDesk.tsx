@@ -290,10 +290,22 @@ function LiveExercise({
 
       <TraceView t={t} />
 
-      <Head text={`Count what is there${outstanding ? ` — ${outstanding} to go` : ""}`} />
-      <p style={{ fontSize: 13, color: MUTED, marginBottom: 10, lineHeight: 1.5, maxWidth: 620 }}>
+      <Head text="Count what is there" />
+      <p style={{ fontSize: 13, color: MUTED, marginBottom: 12, lineHeight: 1.5, maxWidth: 620 }}>
         Go to each location holding affected stock and enter what is physically there. The book says what should be; the count says what is. The exercise cannot be completed until every location is counted.
       </p>
+      {(() => {
+        const toCount = t.onHand.filter((b) => !b.location?.holding).length;
+        const done = toCount - outstanding;
+        return (
+          <div style={{ ...card, marginBottom: 12, padding: "11px 15px", borderLeft: `2px solid ${outstanding ? BRASS : GREEN}` }}>
+            <p style={{ fontSize: 13.5 }}>
+              <strong style={{ fontWeight: 500 }}>{done} of {toCount}</strong> location{toCount === 1 ? "" : "s"} counted
+              {outstanding ? ` — ${outstanding} still to do.` : ". Every location has been counted."}
+            </p>
+          </div>
+        );
+      })()}
       <div style={{ display: "grid", gap: 6 }}>
         {t.onHand.map((b) => {
           const k = countKey(b);
@@ -304,21 +316,37 @@ function LiveExercise({
             <div key={k} style={{ ...card, display: "grid", gridTemplateColumns: "1fr auto auto auto", gap: 14, alignItems: "center", padding: "11px 15px", borderLeft: diff === null ? undefined : `2px solid ${diff === 0 ? GREEN : VERM}` }}>
               <div>
                 <p style={{ fontSize: 14 }}>{b.location?.name ?? b.locationId}{b.location?.holding ? " · on hold" : ""}</p>
-                <p style={{ ...mono, fontSize: 11, color: MUTED, marginTop: 2 }}>{b.material?.name ?? b.materialCode} · {b.lot} · book {fmtQty(b.qty, b.unit)}</p>
+                <p style={{ ...mono, fontSize: 11, color: MUTED, marginTop: 2 }}>{b.material?.name ?? b.materialCode} · {b.lot}</p>
+                <p style={{ ...mono, fontSize: 11.5, marginTop: 3 }}>should be {fmtQty(b.qty, b.unit)}</p>
               </div>
               {b.location?.holding ? (
-                <span style={{ ...mono, fontSize: 12.5, color: MUTED }}>{c !== undefined ? `counted ${fmtQty(c, b.unit)}` : "held"}</span>
+                <span style={{ ...mono, fontSize: 12.5, color: MUTED }}>
+                  {c !== undefined ? `counted ${fmtQty(c, b.unit)}` : "on hold · not counted here"}
+                </span>
               ) : (
-                <label style={{ fontSize: 12.5, color: MUTED }}>
-                  Counted
-                  <input
-                    value={c ?? ""}
-                    onChange={(e) => setCount(k, e.target.value)}
-                    inputMode="decimal"
-                    placeholder={String(b.qty)}
-                    style={{ ...input, ...mono, width: 90, marginLeft: 8, padding: "6px 10px" }}
-                  />
-                </label>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <label style={{ fontSize: 12.5, color: MUTED }}>
+                    Counted
+                    {/* No placeholder. Showing the book figure inside the box
+                        makes an empty field look like a filled one, which is
+                        the worst thing a count sheet can do. */}
+                    <input
+                      value={c ?? ""}
+                      onChange={(e) => setCount(k, e.target.value)}
+                      inputMode="decimal"
+                      style={{ ...input, ...mono, width: 90, marginLeft: 8, padding: "6px 10px" }}
+                    />
+                  </label>
+                  {c === undefined && (
+                    <button
+                      onClick={() => setCount(k, String(b.qty))}
+                      style={{ font: "inherit", fontSize: 12, padding: "5px 11px", border: "1px solid var(--rule-strong)", background: "transparent", color: "inherit", borderRadius: 999, cursor: "pointer", whiteSpace: "nowrap" }}
+                      title={`Record the count as ${fmtQty(b.qty, b.unit)}`}
+                    >
+                      Same as book
+                    </button>
+                  )}
+                </div>
               )}
               <span style={{ ...mono, fontSize: 12.5, color: diff === null ? MUTED : diff === 0 ? GREEN : VERM, minWidth: 64, textAlign: "right" }}>
                 {diff === null ? "—" : diff === 0 ? "matches" : diff > 0 ? `+${diff}` : `${diff}`}
@@ -338,7 +366,7 @@ function LiveExercise({
         })}
       </div>
 
-      <Reconciliation t={t} />
+      <Reconciliation t={t} collapsible />
 
       <Head text="Findings" />
       <textarea
@@ -369,7 +397,7 @@ function TraceView({ t }: { t: Trace }) {
     <>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 8 }}>
         <Tally n={t.affected.length} label={t.affected.length === 1 ? "lot affected" : "lots affected"} />
-        <Tally n={t.onHand.filter((b) => !b.location?.holding).length} label="locations holding stock" />
+        <Tally n={t.onHand.filter((b) => !b.location?.holding).length} label="locations to count" />
         <Tally n={t.customers.length} label="customers received it" color={t.customers.length ? VERM : GREEN} />
         <Tally n={t.dispatches.reduce((s, d) => s + d.qty, 0)} label="units with customers" color={t.customers.length ? VERM : GREEN} />
       </div>
@@ -423,10 +451,32 @@ function TraceView({ t }: { t: Trace }) {
   );
 }
 
-function Reconciliation({ t }: { t: Trace }) {
+// Eight numeric columns is a mass balance for an auditor's file, not a
+// working view for somebody halfway round the shops with a clipboard.
+// Folded away by default while the exercise is live; the trace pack
+// carries it in full either way.
+function Reconciliation({ t, collapsible = false }: { t: Trace; collapsible?: boolean }) {
+  const [open, setOpen] = useState(!collapsible);
+  const settled = t.reconciliation.every((r) => r.uncounted === 0);
   return (
     <>
       <Head text="Reconciliation" />
+      {collapsible && (
+        <div style={{ ...card, marginBottom: 12, padding: "11px 15px" }}>
+          <p style={{ fontSize: 13.5, marginBottom: open ? 10 : 0 }}>
+            {settled
+              ? "Every location counted. The full mass balance is below."
+              : "The mass balance cannot settle until every location is counted."}
+          </p>
+          <button
+            onClick={() => setOpen((v) => !v)}
+            style={{ font: "inherit", fontSize: 12.5, padding: "5px 12px", border: "1px solid var(--rule-strong)", background: "transparent", color: "inherit", borderRadius: 999, cursor: "pointer" }}
+          >
+            {open ? "Hide the full reconciliation" : "Show the full reconciliation"}
+          </button>
+        </div>
+      )}
+      {!open ? null : (
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 640, fontSize: 13 }}>
           <thead>
@@ -438,6 +488,10 @@ function Reconciliation({ t }: { t: Trace }) {
           </thead>
           <tbody>
             {t.reconciliation.map((r) => {
+              // A percentage that falls back to book quantity where nothing
+              // has been counted is a projection, not a result. Showing a
+              // green 100% beside an amber "uncounted" was the system
+              // contradicting itself on the same line.
               const ok = r.pct >= 100 && r.uncounted === 0;
               const color = ok ? GREEN : r.uncounted ? BRASS : VERM;
               return (
@@ -447,8 +501,23 @@ function Reconciliation({ t }: { t: Trace }) {
                     <td key={i} style={{ ...mono, textAlign: "right", padding: "9px 10px 9px 0", borderBottom: "1px solid var(--rule)" }}>{Math.round(v * 10) / 10}</td>
                   ))}
                   <td style={{ ...mono, textAlign: "right", padding: "9px 0 9px 0", borderBottom: "1px solid var(--rule)", color, fontWeight: 600 }}>
-                    {r.pct}%
-                    {r.uncounted ? <span style={{ display: "block", fontSize: 11, fontWeight: 400 }}>{r.uncounted} uncounted</span> : r.gap !== 0 ? <span style={{ display: "block", fontSize: 11, fontWeight: 400 }}>{Math.abs(r.gap)} {r.unit} {r.gap > 0 ? "short" : "over"}</span> : null}
+                    {r.uncounted ? (
+                      <>
+                        <span style={{ fontSize: 12, fontWeight: 500 }}>not yet reconciled</span>
+                        <span style={{ display: "block", fontSize: 11, fontWeight: 400 }}>
+                          {r.uncounted} location{r.uncounted === 1 ? "" : "s"} to count
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        {r.pct}%
+                        {r.gap !== 0 ? (
+                          <span style={{ display: "block", fontSize: 11, fontWeight: 400 }}>
+                            {Math.abs(r.gap)} {r.unit} {r.gap > 0 ? "short" : "over"}
+                          </span>
+                        ) : null}
+                      </>
+                    )}
                   </td>
                 </tr>
               );
@@ -456,6 +525,7 @@ function Reconciliation({ t }: { t: Trace }) {
           </tbody>
         </table>
       </div>
+      )}
     </>
   );
 }
