@@ -205,6 +205,10 @@ export default function SopDesk({
       </div>
 
       <h2 style={{ ...serif, fontSize: 20, color: "var(--text)", marginBottom: 12 }}>Recent runs</h2>
+      <p style={{ fontSize: 13, color: MUTED, marginBottom: 16, lineHeight: 1.55, maxWidth: 620 }}>
+        Grouped by procedure, most recent first within each. A run is the record — there is no separate sheet to
+        fill in afterwards.
+      </p>
       <style>{`
         .sop-record-btn {
           display: inline-grid; place-items: center;
@@ -218,8 +222,13 @@ export default function SopDesk({
         }
         .sop-record-btn:hover { background: var(--bg); border-color: var(--rule-strong); }
       `}</style>
+      {SOPS.filter((definition) => runs.some((r) => r.sopId === definition.id)).map((definition) => (
+        <div key={definition.id} style={{ marginBottom: 22 }}>
+          <p style={{ ...mono, fontSize: 10.5, letterSpacing: "0.16em", color: MUTED, marginBottom: 8 }}>
+            {definition.name.toUpperCase()} ({runs.filter((r) => r.sopId === definition.id).length})
+          </p>
       <div style={{ display: "grid", gap: 6 }}>
-        {runs.map((r) => {
+        {runs.filter((r) => r.sopId === definition.id).map((r) => {
           const sop = sopById(r.sopId);
           const color = r.outcome === "complete" ? GREEN : r.outcome === "stopped" ? VERM : BRASS;
           const flagged = r.answers.some((a) => a.flag);
@@ -251,6 +260,8 @@ export default function SopDesk({
           );
         })}
       </div>
+        </div>
+      ))}
     </>
   );
 }

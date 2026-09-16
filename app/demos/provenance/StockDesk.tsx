@@ -934,15 +934,28 @@ function OnHandTab({ movements }: { movements: Movement[] }) {
                     <div>
                       <p style={{ fontSize: 14 }}>{b.material?.name ?? b.materialCode}</p>
                       <p style={{ ...mono, fontSize: 10.5, color: MUTED, marginTop: 2 }}>
-                        lot {b.lot} · {b.location?.name}
+                        lot {b.lot} · {locationLabel(b.location, b.locationId)}
                         {b.material?.origin ? ` · ${b.material.origin}` : ""}
-                        {b.bestBefore ? ` · BBE ${b.bestBefore}` : ""}
                       </p>
                     </div>
                     <div style={{ textAlign: "right" }}>
                       <p style={{ ...mono, fontSize: 15, fontWeight: 500 }}>{fmtQty(b.qty, b.unit)}</p>
+                      {/* The date is the thing people came to this page for,
+                          so it reads as a date rather than trailing the lot
+                          code in grey. */}
+                      <p
+                        style={{
+                          ...mono,
+                          fontSize: 11.5,
+                          fontWeight: 500,
+                          color: b.bestBefore ? FRESH_COLOR[f.state] : MUTED,
+                          marginTop: 3,
+                        }}
+                      >
+                        {b.bestBefore ? `BBE ${b.bestBefore}` : "no date held"}
+                      </p>
                       {f.state !== "fresh" && f.state !== "unknown" && (
-                        <p style={{ ...mono, fontSize: 10.5, color: FRESH_COLOR[f.state], marginTop: 2 }}>
+                        <p style={{ ...mono, fontSize: 10.5, color: FRESH_COLOR[f.state], marginTop: 1 }}>
                           {FRESHNESS_LABEL[f.state]}
                         </p>
                       )}
@@ -1370,14 +1383,83 @@ function LotTrace({
 // ————————————————————————— movement log —————————————————————————
 
 function LogTab({ movements }: { movements: Movement[] }) {
+  const [dir, setDir] = useState("");
+  const [site, setSite] = useState("");
+  const [span, setSpan] = useState("day");
+
+  // Chronological is what makes a log evidence, so the order never
+  // changes. Filters narrow what is shown; they do not reorder it.
+  const shown = useMemo(() => {
+    let out = movements;
+    if (dir === "in") out = out.filter((m) => m.qty >= 0);
+    if (dir === "out") out = out.filter((m) => m.qty < 0);
+    if (site) out = out.filter((m) => locationById(m.locationId)?.site === site);
+    return out;
+  }, [movements, dir, site]);
+
+  // Dated headings, so a long log reads as days rather than one wall.
+  const buckets = useMemo(() => {
+    const map = new Map<string, Movement[]>();
+    for (const m of shown) {
+      const d = new Date(m.ts);
+      const key =
+        span === "week"
+          ? (() => {
+              const monday = new Date(d);
+              monday.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+              return `Week of ${monday.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`;
+            })()
+          : d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+      const list = map.get(key) ?? [];
+      list.push(m);
+      map.set(key, list);
+    }
+    return [...map.entries()];
+  }, [shown, span]);
+
   return (
     <>
       <p style={{ fontSize: 13, color: MUTED, marginBottom: 14, lineHeight: 1.55, maxWidth: 620 }}>
         Append only. A correction is a further movement, never an edit, so the log always explains how a balance got
         where it is.
       </p>
+
+      <div style={{ display: "grid", gap: 10, marginBottom: 20 }}>
+        <FilterRow
+          label="Direction"
+          value={dir}
+          options={[["", "Everything"], ["in", "Came in"], ["out", "Went out"]]}
+          onChange={setDir}
+        />
+        <FilterRow
+          label="Site"
+          value={site}
+          options={[["", "All sites"], ...SITES.map((x) => [x, x] as [string, string])]}
+          onChange={setSite}
+        />
+        <FilterRow
+          label="Grouped by"
+          value={span}
+          options={[["day", "Day"], ["week", "Week"]]}
+          onChange={setSpan}
+        />
+      </div>
+
+      {shown.length === 0 && (
+        <div style={{ ...card, marginBottom: 16 }}>
+          <p style={{ fontSize: 13.5, color: MUTED }}>
+            No movements match this filter. The log itself is not empty.
+          </p>
+        </div>
+      )}
+
+      {buckets.map(([heading, inBucket]) => (
+        <div key={heading} style={{ marginBottom: 22 }}>
+          <p style={{ ...mono, fontSize: 10.5, letterSpacing: "0.16em", color: MUTED, marginBottom: 8 }}>
+            {heading.toUpperCase()} ({inBucket.length})
+          </p>
       <div style={{ display: "grid", gap: 6 }}>
-        {movements.map((m) => {
+        {inBucket.map((m) => {
           const material = MATERIALS.find((x) => x.code === m.materialCode);
           return (
             <div key={m.id} style={{ ...card, display: "grid", gridTemplateColumns: "1fr auto", gap: 12, padding: "11px 15px" }}>
@@ -1388,7 +1470,7 @@ function LogTab({ movements }: { movements: Movement[] }) {
                   <span style={{ color: MUTED }}> · {REASON_WORD[m.reason]}</span>
                 </p>
                 <p style={{ ...mono, fontSize: 10.5, color: MUTED, paddingLeft: 16, marginTop: 2 }}>
-                  lot {m.lot} · {locationById(m.locationId)?.name} · {m.at} · {m.by}
+                  lot {m.lot} · {locationLabel(locationById(m.locationId), m.locationId)} · {m.at} · {m.by}
                   {m.ref ? ` · ${m.ref}` : ""}
                 </p>
               </div>
@@ -1400,6 +1482,8 @@ function LogTab({ movements }: { movements: Movement[] }) {
           );
         })}
       </div>
+        </div>
+      ))}
     </>
   );
 }

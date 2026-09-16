@@ -212,23 +212,59 @@ function todayLabel(): string {
   );
 }
 
+// Which part of the business each section belongs to. A flat list of
+// everything needing a decision does not tell you whether this is a
+// stock morning or an audit morning; grouping does, at a glance.
+const AREAS: { key: string; title: string; sections: SectionId[] }[] = [
+  { key: "stock", title: "Stock and traceability", sections: ["stock", "trace"] },
+  { key: "monitoring", title: "Monitoring", sections: ["checks", "coldchain"] },
+  { key: "making", title: "Making and procedures", sections: ["procedures", "production"] },
+  { key: "audit", title: "Documents and audit", sections: ["documents", "questionnaires"] },
+];
+
 function Overview({ items, onGo }: { items: Item[]; onGo: (id: SectionId) => void }) {
   const [today, setToday] = useState("");
   useEffect(() => setToday(todayLabel()), []);
   const label = (id: SectionId) => SECTIONS.find((s) => s.id === id)?.label ?? id;
 
+  const grouped = AREAS.map((a) => ({
+    ...a,
+    items: items.filter((e) => a.sections.includes(e.goto)),
+  }));
+  const busy = grouped.filter((g) => g.items.length > 0);
+  const quiet = grouped.filter((g) => g.items.length === 0);
+
   return (
     <>
       <SectionTitle title="This morning's picture" sub={today ? `Island Street, ${today}. Everything that needs a decision, drawn from every register. Quiet lines are working lines.` : undefined} />
-      <div style={{ display: "grid", gap: 10 }}>
-        {items.map((e, i) => (
-          <button key={i} onClick={() => onGo(e.goto)} className="prov-item">
-            <span className="prov-item-bar" style={{ background: e.severe ? VERM : BRASS }} />
-            <span className="prov-item-text">{e.text}</span>
-            <span className="prov-item-goto">{label(e.goto)}</span>
-          </button>
-        ))}
-      </div>
+      {busy.map((g) => (
+        <div key={g.key} style={{ marginBottom: 26 }}>
+          <p style={{ ...mono, fontSize: 10.5, letterSpacing: "0.16em", color: MUTED, marginBottom: 10 }}>
+            {g.title.toUpperCase()} ({g.items.length})
+          </p>
+          <div style={{ display: "grid", gap: 10 }}>
+            {g.items.map((e, i) => (
+              <button key={i} onClick={() => onGo(e.goto)} className="prov-item">
+                <span className="prov-item-bar" style={{ background: e.severe ? VERM : BRASS }} />
+                <span className="prov-item-text">{e.text}</span>
+                <span className="prov-item-goto">{label(e.goto)}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {busy.length === 0 && (
+        <div style={{ display: "grid", gap: 10 }}>
+          <p style={{ fontSize: 14, color: GREEN }}>Nothing needs a decision this morning.</p>
+        </div>
+      )}
+
+      {quiet.length > 0 && busy.length > 0 && (
+        <p style={{ fontSize: 13, color: MUTED, marginBottom: 6, lineHeight: 1.55 }}>
+          Nothing outstanding in {quiet.map((g) => g.title.toLowerCase()).join(", ")}.
+        </p>
+      )}
       <p style={{ fontSize: 13, color: MUTED, marginTop: 18, lineHeight: 1.55 }}>
         {PRODUCTION_LOG.length} production records captured today. Last CCP check passed{" "}
         {PRODUCTION_LOG.filter((r) => r.kind === "ccp").slice(-1)[0]?.time ?? "—"}. Next audit window opens March 2027.
@@ -390,7 +426,21 @@ function useMarker(active: SectionId) {
 export type AppUser = { name?: string | null; email?: string | null };
 
 export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
-  const [view, setView] = useState<"start" | SectionId>("start");
+  const [view, setViewRaw] = useState<"start" | SectionId>("start");
+  // Where you were before this. Jumping from the overview into a section
+  // left no way back except finding it again in the sidebar.
+  const [prev, setPrev] = useState<"start" | SectionId | null>(null);
+  const setView = (next: "start" | SectionId) => {
+    setViewRaw((current) => {
+      setPrev(current === next ? null : current);
+      return next;
+    });
+  };
+  const back = () => {
+    if (!prev) return;
+    setViewRaw(prev);
+    setPrev(null);
+  };
   // The name that goes on records. A person's name where the account has
   // one, the email where it does not — never a blank, never a text box a
   // second person could type someone else's name into.
@@ -495,6 +545,12 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
 
         <main className="prov-main">
           <div key={active} className="prov-view">
+            {prev && prev !== active && (
+              <button onClick={back} className="prov-back">
+                <span aria-hidden>&#8592;</span>
+                {prev === "start" ? "Welcome" : SECTIONS.find((x) => x.id === prev)?.label}
+              </button>
+            )}
             {active === "overview" && <Overview items={picture} onGo={setView} />}
             {active === "questionnaires" && <Questionnaires />}
             {active === "documents" && <Documents />}
@@ -539,6 +595,16 @@ function ThemeStyles() {
           color: var(--text-soft);
           min-height: 100vh;
         }
+        .pv-root .prov-back {
+          display: inline-flex; align-items: center; gap: 8px;
+          background: none; border: none; padding: 0;
+          margin-bottom: 18px;
+          font-family: var(--font-mono); font-size: 12px;
+          letter-spacing: 0.04em;
+          color: var(--text-muted); cursor: pointer;
+          transition: color 140ms ease;
+        }
+        .pv-root .prov-back:hover { color: var(--text); }
         .pv-root .btn-primary { background: var(--navy); color: #f4efe4; font-family: var(--font-sans); }
         .pv-root .btn-primary:hover:not(:disabled) { background: var(--navy-deep); }
         .pv-root .btn-ghost { color: var(--navy); font-family: var(--font-sans); }
