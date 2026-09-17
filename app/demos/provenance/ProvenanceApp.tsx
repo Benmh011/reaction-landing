@@ -516,6 +516,7 @@ function Tally({ n, label, color = "var(--text)" }: { n: number; label: string; 
 function Personnel() {
   const [open, setOpen] = useState<string | null>(null);
   const [showReasons, setShowReasons] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   const people = PEOPLE.map((p) => {
     const certs = TRAINING.filter((t) => t.person === p.name).map((t) => ({ cert: t.cert, expires: t.expires }));
@@ -581,7 +582,7 @@ function Personnel() {
                 <span style={{ flex: 1 }}>
                   <span style={{ display: "block", fontSize: 15 }}>{p.name}</span>
                   <span style={{ display: "block", fontSize: 12, color: MUTED, marginTop: 2 }}>
-                    {p.role} \u00b7 {p.site}
+                    {p.role} · {p.site}
                   </span>
                 </span>
                 <span style={{ fontSize: 12.5, color: STATUS_COLOR[p.worst], whiteSpace: "nowrap" }}>{summary}</span>
@@ -600,6 +601,11 @@ function Personnel() {
                   </PersonBlock>
 
                   <PersonBlock title={`Certificates (${p.certs.length})`}>
+                    <div style={{ ...rowStyle, paddingBottom: 6 }}>
+                      <span style={{ ...mono, flex: 1, fontSize: 10, letterSpacing: "0.12em", color: MUTED }}>CERTIFICATE</span>
+                      <span style={{ ...mono, fontSize: 10, letterSpacing: "0.12em", color: MUTED }}>EXPIRES</span>
+                      <span style={{ ...mono, fontSize: 10, letterSpacing: "0.12em", color: MUTED, minWidth: 96, textAlign: "right" }}>REMAINING</span>
+                    </div>
                     {[...p.certs]
                       .sort((a, b) => (daysUntil(a.expires) ?? 0) - (daysUntil(b.expires) ?? 0))
                       .map((c) => {
@@ -621,11 +627,16 @@ function Personnel() {
                       Assessed against the task by a named person. A procedure run should be attributable to
                       somebody holding the sign-off for it.
                     </p>
+                    <div style={{ ...rowStyle, paddingBottom: 6 }}>
+                      <span style={{ ...mono, flex: 1, fontSize: 10, letterSpacing: "0.12em", color: MUTED }}>TASK</span>
+                      <span style={{ ...mono, fontSize: 10, letterSpacing: "0.12em", color: MUTED }}>ASSESSED BY</span>
+                      <span style={{ ...mono, fontSize: 10, letterSpacing: "0.12em", color: MUTED, minWidth: 82, textAlign: "right" }}>ON</span>
+                    </div>
                     {p.signOffs.map((sg) => (
                       <div key={sg.task} style={rowStyle}>
                         <span style={{ flex: 1, fontSize: 13.5 }}>
                           {sg.task}
-                          {sg.sop ? <span style={{ ...mono, fontSize: 11, color: MUTED }}> \u00b7 {sg.sop}</span> : null}
+                          {sg.sop ? <span style={{ ...mono, fontSize: 11, color: MUTED }}> · {sg.sop}</span> : null}
                         </span>
                         <span style={{ fontSize: 12, color: MUTED }}>{sg.assessedBy}</span>
                         <span style={{ ...mono, fontSize: 12, color: MUTED, minWidth: 82, textAlign: "right" }}>{sg.assessed}</span>
@@ -646,12 +657,46 @@ function Personnel() {
                       <p style={{ fontSize: 13, color: MUTED }}>No declarations recorded.</p>
                     ) : (
                       <>
-                        <button
-                          onClick={() => setShowReasons((v) => !v)}
-                          style={{ font: "inherit", fontSize: 12, padding: "4px 11px", border: "1px solid var(--rule-strong)", background: "transparent", color: "inherit", borderRadius: 999, cursor: "pointer", marginBottom: 8 }}
-                        >
-                          {showReasons ? "Hide reasons" : "Show reasons"}
-                        </button>
+                        {showReasons ? (
+                          <button
+                            onClick={() => { setShowReasons(false); setConfirming(false); }}
+                            style={{ font: "inherit", fontSize: 12, padding: "4px 11px", border: "1px solid var(--rule-strong)", background: "transparent", color: "inherit", borderRadius: 999, cursor: "pointer", marginBottom: 8 }}
+                          >
+                            Hide reasons
+                          </button>
+                        ) : confirming ? (
+                          <div style={{ border: `1px solid ${VERM}`, borderRadius: 10, padding: "12px 14px", marginBottom: 10, maxWidth: 520 }}>
+                            <p style={{ fontSize: 13, marginBottom: 4 }}>
+                              Reasons for absence are restricted to the quality manager and directors.
+                            </p>
+                            <p style={{ fontSize: 12, color: MUTED, marginBottom: 10, lineHeight: 1.5 }}>
+                              Opening them is your confirmation that you hold that role. Enforcement by account role
+                              arrives when the system moves off this browser.
+                            </p>
+                            <div style={{ display: "flex", gap: 8 }}>
+                              <button
+                                onClick={() => { setShowReasons(true); setConfirming(false); }}
+                                className="btn btn-primary"
+                                style={{ fontSize: 12.5, padding: "6px 13px" }}
+                              >
+                                I am authorised
+                              </button>
+                              <button
+                                onClick={() => setConfirming(false)}
+                                style={{ font: "inherit", fontSize: 12.5, padding: "6px 13px", border: "1px solid var(--rule-strong)", background: "transparent", color: "inherit", borderRadius: 999, cursor: "pointer" }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setConfirming(true)}
+                            style={{ font: "inherit", fontSize: 12, padding: "4px 11px", border: `1px solid ${VERM}`, color: VERM, background: "transparent", borderRadius: 999, cursor: "pointer", marginBottom: 8 }}
+                          >
+                            Show reasons
+                          </button>
+                        )}
                         {p.fitness.map((f) => (
                           <div key={f.date} style={rowStyle}>
                             <span style={{ flex: 1, fontSize: 13.5 }}>
