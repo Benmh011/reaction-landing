@@ -603,8 +603,8 @@ function Personnel() {
                   <PersonBlock title={`Certificates (${p.certs.length})`}>
                     <div style={{ ...rowStyle, paddingBottom: 6 }}>
                       <span style={{ ...mono, flex: 1, fontSize: 10, letterSpacing: "0.12em", color: MUTED }}>CERTIFICATE</span>
-                      <span style={{ ...mono, fontSize: 10, letterSpacing: "0.12em", color: MUTED }}>EXPIRES</span>
-                      <span style={{ ...mono, fontSize: 10, letterSpacing: "0.12em", color: MUTED, minWidth: 96, textAlign: "right" }}>REMAINING</span>
+                      <span style={{ ...mono, fontSize: 10, letterSpacing: "0.12em", color: MUTED, ...col(110) }}>EXPIRES</span>
+                      <span style={{ ...mono, fontSize: 10, letterSpacing: "0.12em", color: MUTED, ...col(150) }}>REMAINING</span>
                     </div>
                     {[...p.certs]
                       .sort((a, b) => (daysUntil(a.expires) ?? 0) - (daysUntil(b.expires) ?? 0))
@@ -612,9 +612,9 @@ function Personnel() {
                         const st = dateStatus(c.expires);
                         return (
                           <div key={c.cert} style={rowStyle}>
-                            <span style={{ flex: 1, fontSize: 13.5 }}>{c.cert}</span>
-                            <span style={{ ...mono, fontSize: 12, color: MUTED }}>{c.expires}</span>
-                            <span style={{ ...mono, fontSize: 12, color: STATUS_COLOR[st], minWidth: 96, textAlign: "right" }}>
+                            <span style={{ flex: 1, minWidth: 0, fontSize: 13.5 }}>{c.cert}</span>
+                            <span style={{ ...mono, fontSize: 12, color: MUTED, ...col(110) }}>{c.expires}</span>
+                            <span style={{ ...mono, fontSize: 12, color: STATUS_COLOR[st], ...col(150) }}>
                               {st === "overdue" ? `expired ${dueLabel(c.expires)}` : dueLabel(c.expires)}
                             </span>
                           </div>
@@ -629,17 +629,17 @@ function Personnel() {
                     </p>
                     <div style={{ ...rowStyle, paddingBottom: 6 }}>
                       <span style={{ ...mono, flex: 1, fontSize: 10, letterSpacing: "0.12em", color: MUTED }}>TASK</span>
-                      <span style={{ ...mono, fontSize: 10, letterSpacing: "0.12em", color: MUTED }}>ASSESSED BY</span>
-                      <span style={{ ...mono, fontSize: 10, letterSpacing: "0.12em", color: MUTED, minWidth: 82, textAlign: "right" }}>ON</span>
+                      <span style={{ ...mono, fontSize: 10, letterSpacing: "0.12em", color: MUTED, ...col(150) }}>ASSESSED BY</span>
+                      <span style={{ ...mono, fontSize: 10, letterSpacing: "0.12em", color: MUTED, ...col(110) }}>ON</span>
                     </div>
                     {p.signOffs.map((sg) => (
                       <div key={sg.task} style={rowStyle}>
-                        <span style={{ flex: 1, fontSize: 13.5 }}>
+                        <span style={{ flex: 1, minWidth: 0, fontSize: 13.5 }}>
                           {sg.task}
                           {sg.sop ? <span style={{ ...mono, fontSize: 11, color: MUTED }}> · {sg.sop}</span> : null}
                         </span>
-                        <span style={{ fontSize: 12, color: MUTED }}>{sg.assessedBy}</span>
-                        <span style={{ ...mono, fontSize: 12, color: MUTED, minWidth: 82, textAlign: "right" }}>{sg.assessed}</span>
+                        <span style={{ fontSize: 12, color: MUTED, ...col(150) }}>{sg.assessedBy}</span>
+                        <span style={{ ...mono, fontSize: 12, color: MUTED, ...col(110) }}>{sg.assessed}</span>
                       </div>
                     ))}
                   </PersonBlock>
@@ -699,11 +699,11 @@ function Personnel() {
                         )}
                         {p.fitness.map((f) => (
                           <div key={f.date} style={rowStyle}>
-                            <span style={{ flex: 1, fontSize: 13.5 }}>
+                            <span style={{ flex: 1, minWidth: 0, fontSize: 13.5 }}>
                               {showReasons ? f.reason : "Declaration completed"}
                             </span>
-                            <span style={{ ...mono, fontSize: 12, color: MUTED }}>{f.date}</span>
-                            <span style={{ ...mono, fontSize: 12, color: f.returned ? GREEN : VERM, minWidth: 110, textAlign: "right" }}>
+                            <span style={{ ...mono, fontSize: 12, color: MUTED, ...col(110) }}>{f.date}</span>
+                            <span style={{ ...mono, fontSize: 12, color: f.returned ? GREEN : VERM, ...col(150) }}>
                               {f.returned ? `returned ${f.returned}` : "no return recorded"}
                             </span>
                           </div>
@@ -728,6 +728,13 @@ const rowStyle: React.CSSProperties = {
   borderBottom: "1px solid var(--rule)",
 };
 
+// A fixed-width column has to be told not to shrink: the default lets a
+// long value squeeze its own cell and drag the next one out from under
+// its heading, which is exactly what made the dates drift row to row.
+function col(width: number, extra: React.CSSProperties = {}): React.CSSProperties {
+  return { width, flexShrink: 0, textAlign: "right", ...extra };
+}
+
 function PersonBlock({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: 20 }}>
@@ -743,7 +750,7 @@ function Detail({ k, v }: { k: string; v: string }) {
   return (
     <div style={rowStyle}>
       <span style={{ flex: 1, fontSize: 13, color: MUTED }}>{k}</span>
-      <span style={{ ...mono, fontSize: 13 }}>{v}</span>
+      <span style={{ ...mono, fontSize: 13, ...col(260) }}>{v}</span>
     </div>
   );
 }
