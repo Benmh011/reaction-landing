@@ -36,6 +36,7 @@ import {
   type Freshness,
 } from "./stock";
 import type { GoodsIn, GoodsLine } from "./goodsin";
+import { dateStatus, daysUntil, dueLabel } from "./data";
 
 const NAVY: [number, number, number] = [20, 33, 58];
 const MUTED: [number, number, number] = [111, 116, 130];
@@ -1057,6 +1058,227 @@ export async function goodsInBlob(
   intoName?: string,
 ): Promise<Blob> {
   const doc = await buildGoodsInPdf(g, operator, intoName);
+  return doc.output("blob");
+}
+
+// ————————————————————————— documents and training —————————————————————————
+//
+// Two documents an auditor asks for by name: the controlled document
+// register, and the training matrix. Both derive their status from the
+// dates they carry rather than a stored flag, so neither can print a
+// review as upcoming after it has passed.
+
+type DocRow = { name: string; ref: string; version: string; reviewed: string; next: string; owner?: string };
+type TrainRow = { person: string; role: string; cert: string; expires: string };
+
+export function documentRegisterFilename(): string {
+  return `document-register-${stamp()}.pdf`;
+}
+
+export async function buildDocumentRegisterPdf(docs: DocRow[], operator: string): Promise<jsPDF> {
+  const d = await open("Quality record", "Controlled document register");
+  const h = makeHelpers(d, "DOC-REG");
+
+  const rows = [...docs].sort((a, b) => (daysUntil(a.next) ?? 0) - (daysUntil(b.next) ?? 0));
+  const overdue = rows.filter((r) => dateStatus(r.next) === "overdue");
+  const soon = rows.filter((r) => dateStatus(r.next) === "due");
+
+  h.kv("Produced by", operator || "\u2014");
+  h.kv("Produced at", fmtNow());
+  h.kv("Documents held", String(rows.length));
+  h.kv("Past review", String(overdue.length), overdue.length ? RED : GREEN, overdue.length > 0);
+  h.kv("Due within 60 days", String(soon.length), soon.length ? AMBER : GREEN, soon.length > 0);
+  d.y += 3;
+  provenance(h, "document register", "every controlled document held on site");
+  d.y += 4;
+
+  const GROUPS: [string, (r: DocRow) => boolean, [number, number, number]][] = [
+    ["Past review", (r) => dateStatus(r.next) === "overdue", RED],
+    ["Due within 60 days", (r) => dateStatus(r.next) === "due", AMBER],
+    ["In date", (r) => dateStatus(r.next) === "ok", GREEN],
+  ];
+
+  for (const [title, test, colour] of GROUPS) {
+    const inGroup = rows.filter(test);
+    if (!inGroup.length) continue;
+    d.y += 3;
+    h.ensure(20);
+    d.doc.setFont("helvetica", "bold");
+    d.doc.setFontSize(11.5);
+    d.doc.setTextColor(...colour);
+    d.doc.text(`${title} (${inGroup.length})`, M, d.y);
+    d.y += 2.5;
+    h.rule(d.y);
+    d.y += 6;
+
+    d.doc.setFontSize(8);
+    d.doc.setTextColor(...MUTED);
+    d.doc.text("Document", M, d.y);
+    d.doc.text("Ref", M + 64, d.y);
+    d.doc.text("Version", M + 86, d.y);
+    d.doc.text("Owner", M + 106, d.y);
+    d.doc.text("Last review", M + 130, d.y);
+    d.doc.text("Next review", W - M, d.y, { align: "right" });
+    d.y += 2;
+    h.rule(d.y, 0.15);
+    d.y += 5;
+
+    for (const r of inGroup) {
+      h.ensure(9);
+      if (colour !== GREEN) {
+        d.doc.setFillColor(...colour);
+        d.doc.rect(M - 4, d.y - 3.2, 1.2, 7.6, "F");
+      }
+      d.doc.setFont("helvetica", "normal");
+      d.doc.setFontSize(9.5);
+      d.doc.setTextColor(...NAVY);
+      d.doc.text(fit(d.doc, r.name, 61), M, d.y);
+      d.doc.setFontSize(8.5);
+      d.doc.setTextColor(...MUTED);
+      d.doc.text(fit(d.doc, r.ref, 20), M + 64, d.y);
+      d.doc.text(fit(d.doc, r.version, 18), M + 86, d.y);
+      d.doc.text(fit(d.doc, r.owner ?? "\u2014", 22), M + 106, d.y);
+      d.doc.text(fit(d.doc, r.reviewed, 26), M + 130, d.y);
+      d.doc.setTextColor(...colour);
+      d.doc.setFont("helvetica", "bold");
+      d.doc.text(r.next, W - M, d.y, { align: "right" });
+      d.y += 4.2;
+      d.doc.setFont("helvetica", "normal");
+      d.doc.setFontSize(8);
+      d.doc.setTextColor(...colour);
+      d.doc.text(dueLabel(r.next), W - M, d.y, { align: "right" });
+      d.y += 4.4;
+      h.rule(d.y - 1.8, 0.1);
+      d.y += 1;
+    }
+  }
+
+  d.y += 5;
+  h.head("Superseded versions");
+  h.line(
+    "Previous versions of every document above are retained. If an incident is investigated, the question is what the procedure said at the time, not what it says now.",
+    9.5,
+    MUTED,
+  );
+
+  h.footer();
+  return d.doc;
+}
+
+export async function documentRegisterBlob(docs: DocRow[], operator: string): Promise<Blob> {
+  const doc = await buildDocumentRegisterPdf(docs, operator);
+  return doc.output("blob");
+}
+
+export function trainingMatrixFilename(): string {
+  return `training-matrix-${stamp()}.pdf`;
+}
+
+export async function buildTrainingMatrixPdf(rows: TrainRow[], operator: string): Promise<jsPDF> {
+  const d = await open("Quality record", "Training matrix");
+  const h = makeHelpers(d, "TRN-MTX");
+
+  const names = [...new Set(rows.map((r) => r.person))];
+  const people = names.map((name) => {
+    const own = rows.filter((r) => r.person === name);
+    return {
+      name,
+      role: own[0].role,
+      certs: [...own].sort((a, b) => (daysUntil(a.expires) ?? 0) - (daysUntil(b.expires) ?? 0)),
+    };
+  });
+  const lapsed = people.filter((p) => p.certs.some((c) => dateStatus(c.expires) === "overdue"));
+  const soon = people.filter(
+    (p) => !p.certs.some((c) => dateStatus(c.expires) === "overdue") && p.certs.some((c) => dateStatus(c.expires) === "due"),
+  );
+
+  h.kv("Produced by", operator || "\u2014");
+  h.kv("Produced at", fmtNow());
+  h.kv("People", String(people.length));
+  h.kv("Certificates held", String(rows.length));
+  h.kv("Lapsed certificates", String(lapsed.length), lapsed.length ? RED : GREEN, lapsed.length > 0);
+  h.kv("Due within 60 days", String(soon.length), soon.length ? AMBER : GREEN, soon.length > 0);
+  d.y += 3;
+  provenance(h, "training register", "every person and every certificate held");
+  d.y += 4;
+
+  if (lapsed.length) {
+    h.head(`Lapsed (${lapsed.length})`);
+    h.line("Working now on a certificate that has expired. This is the first thing an auditor looks for.", 9.5, RED);
+    d.y += 2;
+    for (const p of lapsed) {
+      for (const c of p.certs.filter((x) => dateStatus(x.expires) === "overdue")) {
+        h.line(`${p.name} \u2014 ${c.cert}, expired ${c.expires} (${dueLabel(c.expires)})`, 9.5, RED);
+      }
+    }
+    d.y += 5;
+  }
+
+  // By person, because that is the question being asked: what is this
+  // person signed off to do, and what has run out.
+  const ordered = [...people].sort((a, b) => {
+    const rank = (p: (typeof people)[number]) =>
+      p.certs.some((c) => dateStatus(c.expires) === "overdue") ? 0
+      : p.certs.some((c) => dateStatus(c.expires) === "due") ? 1
+      : 2;
+    return rank(a) - rank(b) || a.name.localeCompare(b.name);
+  });
+
+  h.head(`Every person (${ordered.length})`);
+  for (const p of ordered) {
+    h.ensure(16);
+    const worst: [number, number, number] = p.certs.some((c) => dateStatus(c.expires) === "overdue")
+      ? RED
+      : p.certs.some((c) => dateStatus(c.expires) === "due")
+        ? AMBER
+        : GREEN;
+
+    d.doc.setFillColor(...worst);
+    d.doc.rect(M - 4, d.y - 3.4, 1.2, 5 + p.certs.length * 4.6, "F");
+
+    d.doc.setFont("helvetica", "bold");
+    d.doc.setFontSize(10.5);
+    d.doc.setTextColor(...NAVY);
+    d.doc.text(p.name, M, d.y);
+    d.doc.setFont("helvetica", "normal");
+    d.doc.setFontSize(8.5);
+    d.doc.setTextColor(...MUTED);
+    d.doc.text(fit(d.doc, p.role, 80), M + 46, d.y);
+    d.doc.text(`${p.certs.length} certificate${p.certs.length === 1 ? "" : "s"}`, W - M, d.y, { align: "right" });
+    d.y += 5;
+
+    for (const c of p.certs) {
+      h.ensure(7);
+      const st = dateStatus(c.expires);
+      const colour = st === "overdue" ? RED : st === "due" ? AMBER : GREEN;
+      d.doc.setFont("helvetica", "normal");
+      d.doc.setFontSize(9);
+      d.doc.setTextColor(...NAVY);
+      d.doc.text(fit(d.doc, c.cert, 76), M + 6, d.y);
+      d.doc.setFontSize(8.5);
+      d.doc.setTextColor(...MUTED);
+      d.doc.text(c.expires, M + 96, d.y);
+      d.doc.setTextColor(...colour);
+      d.doc.setFont("helvetica", st === "ok" ? "normal" : "bold");
+      d.doc.text(
+        st === "overdue" ? `expired ${dueLabel(c.expires)}` : dueLabel(c.expires),
+        W - M,
+        d.y,
+        { align: "right" },
+      );
+      d.y += 4.6;
+    }
+    d.y += 3;
+    h.rule(d.y - 2, 0.1);
+    d.y += 2;
+  }
+
+  h.footer();
+  return d.doc;
+}
+
+export async function trainingMatrixBlob(rows: TrainRow[], operator: string): Promise<Blob> {
+  const doc = await buildTrainingMatrixPdf(rows, operator);
   return doc.output("blob");
 }
 

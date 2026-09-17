@@ -104,20 +104,86 @@ export const ANSWER_BANK: BankEntry[] = [
   },
 ];
 
+// ————————————————————————— dates —————————————————————————
+//
+// A hardcoded status goes stale the moment the date it describes passes.
+// M. Reeve's certificate sat at "due" three days after it had expired,
+// and the overview reported it as still upcoming. Status is derived from
+// the date now, so it cannot say one thing while the date says another.
+
+export function parseUkDate(s: string): Date | null {
+  const MONTHS = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
+  const m = s.trim().match(/^(\d{1,2})\s+([A-Za-z]{3,})\s+(\d{4})$/);
+  if (!m) return null;
+  const mi = MONTHS.indexOf(m[2].slice(0, 3).toLowerCase());
+  if (mi < 0) return null;
+  return new Date(Number(m[3]), mi, Number(m[1]));
+}
+
+export function daysUntil(s: string): number | null {
+  const d = parseUkDate(s);
+  if (!d) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.round((d.getTime() - today.getTime()) / 86_400_000);
+}
+
+// Sixty days is the window a review or a renewal needs to be booked in.
+export function dateStatus(s: string): Status {
+  const d = daysUntil(s);
+  if (d === null) return "ok";
+  if (d < 0) return "overdue";
+  if (d <= 60) return "due";
+  return "ok";
+}
+
+export function dueLabel(s: string): string {
+  const d = daysUntil(s);
+  if (d === null) return s;
+  if (d < 0) return `${-d} day${-d === 1 ? "" : "s"} ago`;
+  if (d === 0) return "today";
+  if (d === 1) return "tomorrow";
+  return `in ${d} days`;
+}
+
+// Status is not stored — it is derived from `next` by dateStatus, so a
+// review date that has passed cannot still read as upcoming.
 export const DOCUMENTS = [
-  { name: "HACCP Study", ref: "QMS-01", version: "v11", reviewed: "04 Mar 2026", next: "04 Mar 2027", status: "ok" as Status },
-  { name: "Allergen Policy", ref: "QMS-04", version: "v7", reviewed: "12 Jan 2026", next: "12 Jan 2027", status: "ok" as Status },
-  { name: "Supplier Declaration — Cocoa (Lot importer)", ref: "SUP-11", version: "v3", reviewed: "30 Aug 2025", next: "30 Aug 2026", status: "due" as Status },
-  { name: "Supplier Declaration — Dairy (Home Farm)", ref: "SUP-02", version: "v9", reviewed: "02 Jul 2026", next: "02 Jul 2027", status: "ok" as Status },
-  { name: "Glass & Brittle Plastic Register", ref: "QMS-09", version: "v5", reviewed: "19 May 2025", next: "19 May 2026", status: "overdue" as Status },
-  { name: "Pest Control Contract & Reports", ref: "EXT-03", version: "—", reviewed: "01 Jul 2026", next: "01 Oct 2026", status: "ok" as Status },
+  { name: "HACCP Study", ref: "QMS-01", version: "v11", reviewed: "04 Mar 2026", next: "04 Mar 2027", owner: "A. Voss" },
+  { name: "Allergen Policy", ref: "QMS-04", version: "v7", reviewed: "12 Jan 2026", next: "12 Jan 2027", owner: "A. Voss" },
+  { name: "Supplier Declaration \u2014 Cocoa (Lot importer)", ref: "SUP-11", version: "v3", reviewed: "30 Aug 2025", next: "30 Aug 2026", owner: "A. Voss" },
+  { name: "Supplier Declaration \u2014 Dairy (Home Farm)", ref: "SUP-02", version: "v9", reviewed: "02 Jul 2026", next: "02 Jul 2027", owner: "A. Voss" },
+  { name: "Glass & Brittle Plastic Register", ref: "QMS-09", version: "v5", reviewed: "19 May 2025", next: "19 May 2026", owner: "M. Reeve" },
+  { name: "Pest Control Contract & Reports", ref: "EXT-03", version: "\u2014", reviewed: "01 Jul 2026", next: "01 Oct 2026", owner: "A. Voss" },
+  { name: "Cleaning Schedule", ref: "QMS-11", version: "v6", reviewed: "08 Feb 2026", next: "08 Feb 2027", owner: "M. Reeve" },
+  { name: "Traceability Procedure", ref: "QMS-07", version: "v4", reviewed: "21 Nov 2025", next: "21 Nov 2026", owner: "A. Voss" },
 ];
 
+// One row per certificate, several per person. A training matrix is read
+// by person — what is this person allowed to do, and what has lapsed —
+// so the desk groups it that way rather than listing certificates.
 export const TRAINING = [
-  { person: "M. Reeve", role: "Production", cert: "Level 2 Food Hygiene", expires: "14 Sep 2026", status: "due" as Status },
-  { person: "J. Okafor", role: "Production", cert: "Level 2 Food Hygiene", expires: "02 Feb 2027", status: "ok" as Status },
-  { person: "S. Trent", role: "Shop — Quay", cert: "Allergen Awareness", expires: "28 Jun 2026", status: "overdue" as Status },
-  { person: "A. Voss", role: "Quality", cert: "HACCP Level 3", expires: "11 Nov 2027", status: "ok" as Status },
+  { person: "M. Reeve", role: "Production \u00b7 Island Street", cert: "Level 2 Food Hygiene", expires: "14 Sep 2026" },
+  { person: "M. Reeve", role: "Production \u00b7 Island Street", cert: "Allergen Awareness", expires: "03 Nov 2026" },
+  { person: "M. Reeve", role: "Production \u00b7 Island Street", cert: "Manual Handling", expires: "22 Apr 2027" },
+
+  { person: "J. Okafor", role: "Production \u00b7 Island Street", cert: "Level 2 Food Hygiene", expires: "02 Feb 2027" },
+  { person: "J. Okafor", role: "Production \u00b7 Island Street", cert: "Allergen Awareness", expires: "19 Oct 2026" },
+  { person: "J. Okafor", role: "Production \u00b7 Island Street", cert: "Counter Balance FLT", expires: "08 Aug 2028" },
+  { person: "J. Okafor", role: "Production \u00b7 Island Street", cert: "Metal Detection Verification", expires: "30 Nov 2026" },
+
+  { person: "S. Trent", role: "Shop \u00b7 Salcombe", cert: "Allergen Awareness", expires: "28 Jun 2026" },
+  { person: "S. Trent", role: "Shop \u00b7 Salcombe", cert: "Level 2 Food Hygiene", expires: "15 Mar 2027" },
+  { person: "S. Trent", role: "Shop \u00b7 Salcombe", cert: "Emergency First Aid at Work", expires: "07 Sep 2026" },
+
+  { person: "A. Voss", role: "Quality \u00b7 Island Street", cert: "HACCP Level 3", expires: "11 Nov 2027" },
+  { person: "A. Voss", role: "Quality \u00b7 Island Street", cert: "Level 3 Food Safety", expires: "26 Jan 2028" },
+  { person: "A. Voss", role: "Quality \u00b7 Island Street", cert: "Internal Auditing", expires: "14 Oct 2026" },
+  { person: "A. Voss", role: "Quality \u00b7 Island Street", cert: "Allergen Awareness", expires: "02 Dec 2026" },
+
+  { person: "D. Hallam", role: "Distribution \u00b7 Mobile", cert: "Level 2 Food Hygiene", expires: "21 May 2027" },
+  { person: "D. Hallam", role: "Distribution \u00b7 Mobile", cert: "Cold Chain Handling", expires: "29 Sep 2026" },
+  { person: "D. Hallam", role: "Distribution \u00b7 Mobile", cert: "Driver CPC", expires: "16 Jun 2029" },
 ];
 
 // One batch traced both directions.

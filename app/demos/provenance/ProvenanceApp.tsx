@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { DOCUMENTS, TRAINING, PRODUCTION_LOG, QUESTIONNAIRES, type Status } from "./data";
+import { DOCUMENTS, TRAINING, PRODUCTION_LOG, QUESTIONNAIRES, dateStatus, dueLabel, daysUntil, type Status } from "./data";
+import {
+  documentRegisterBlob,
+  documentRegisterFilename,
+  trainingMatrixBlob,
+  trainingMatrixFilename,
+  download,
+} from "./records-pdf";
 import { SEED_READINGS, loadReadings, saveReadings, exceptions as checkExceptions, type Reading } from "./checks";
 import { SEED_MOVEMENTS, shelfLife, declarationGaps, balances, misplaced, loadMovements, saveMovements, type Movement } from "./stock";
 import QuestionnaireDesk from "./QuestionnaireDesk";
@@ -135,12 +142,14 @@ function buildPicture(movements: Movement[], readings: Reading[], runs: Run[]): 
   const items: Item[] = [];
 
   for (const d of DOCUMENTS) {
-    if (d.status === "overdue") items.push({ severe: true, text: `${d.name} review is overdue — was due ${d.next}.`, goto: "documents" });
-    else if (d.status === "due") items.push({ severe: false, text: `${d.name} falls due ${d.next}.`, goto: "documents" });
+    const st = dateStatus(d.next);
+    if (st === "overdue") items.push({ severe: true, text: `${d.name} review is overdue — was due ${d.next}, ${dueLabel(d.next)}.`, goto: "documents" });
+    else if (st === "due") items.push({ severe: false, text: `${d.name} falls due ${d.next}, ${dueLabel(d.next)}.`, goto: "documents" });
   }
   for (const t of TRAINING) {
-    if (t.status === "overdue") items.push({ severe: true, text: `${t.person}'s ${t.cert} certificate expired ${t.expires}.`, goto: "documents" });
-    else if (t.status === "due") items.push({ severe: false, text: `${t.person}'s ${t.cert} certificate expires ${t.expires}.`, goto: "documents" });
+    const st = dateStatus(t.expires);
+    if (st === "overdue") items.push({ severe: true, text: `${t.person}'s ${t.cert} certificate expired ${t.expires}, ${dueLabel(t.expires)}.`, goto: "documents" });
+    else if (st === "due") items.push({ severe: false, text: `${t.person}'s ${t.cert} certificate expires ${t.expires}, ${dueLabel(t.expires)}.`, goto: "documents" });
   }
 
   // Live telemetry is the truth for the assets it covers. The check
@@ -285,74 +294,232 @@ function Questionnaires() {
   );
 }
 
+// ————————————————————————— documents and training —————————————————————————
+//
+// "Audit readiness" was a word, not a measurement — there was nothing
+// behind it. What an auditor actually asks is narrower and answerable:
+// which controlled documents are past review, and who is working today
+// on a certificate that has lapsed.
+//
+// Training reads by person, because that is the question. One row per
+// certificate told you a certificate had expired; it did not tell you
+// that S. Trent is on the counter without allergen awareness.
+
+function DocStatusPill({ status }: { status: Status }) {
+  return (
+    <span
+      style={{
+        ...mono,
+        fontSize: 11,
+        letterSpacing: "0.06em",
+        color: STATUS_COLOR[status],
+        border: `1px solid ${STATUS_COLOR[status]}`,
+        borderRadius: 99,
+        padding: "2px 9px",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {STATUS_WORD[status].toUpperCase()}
+    </span>
+  );
+}
+
+function Person({
+  name,
+  role,
+  certs,
+}: {
+  name: string;
+  role: string;
+  certs: { cert: string; expires: string }[];
+}) {
+  const [open, setOpen] = useState(false);
+  const expired = certs.filter((c) => dateStatus(c.expires) === "overdue");
+  const soon = certs.filter((c) => dateStatus(c.expires) === "due");
+  const worst: Status = expired.length ? "overdue" : soon.length ? "due" : "ok";
+
+  const summary = expired.length
+    ? `${expired.length} expired${soon.length ? `, ${soon.length} due soon` : ""}`
+    : soon.length
+      ? `${soon.length} due soon`
+      : "all current";
+
+  return (
+    <div style={{ border: "1px solid var(--rule)", borderRadius: 12, marginBottom: 8, overflow: "hidden" }}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          width: "100%", display: "flex", alignItems: "center", gap: 14,
+          padding: "13px 16px", background: "none", border: "none",
+          borderLeft: `3px solid ${STATUS_COLOR[worst]}`,
+          font: "inherit", color: "inherit", cursor: "pointer", textAlign: "left",
+        }}
+      >
+        <span aria-hidden style={{ ...mono, fontSize: 12, color: MUTED, width: 12 }}>
+          {open ? "\u2212" : "+"}
+        </span>
+        <span style={{ flex: 1 }}>
+          <span style={{ display: "block", fontSize: 14.5 }}>{name}</span>
+          <span style={{ display: "block", fontSize: 12, color: MUTED, marginTop: 2 }}>{role}</span>
+        </span>
+        <span style={{ fontSize: 12.5, color: STATUS_COLOR[worst], whiteSpace: "nowrap" }}>{summary}</span>
+        <span style={{ ...mono, fontSize: 11.5, color: MUTED, whiteSpace: "nowrap" }}>
+          {certs.length} certificate{certs.length === 1 ? "" : "s"}
+        </span>
+      </button>
+
+      {open && (
+        <div style={{ borderTop: "1px solid var(--rule)", padding: "4px 16px 12px 42px" }}>
+          {[...certs]
+            .sort((a, b) => (daysUntil(a.expires) ?? 0) - (daysUntil(b.expires) ?? 0))
+            .map((c) => {
+              const st = dateStatus(c.expires);
+              return (
+                <div
+                  key={c.cert}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 12,
+                    padding: "9px 0", borderBottom: "1px solid var(--rule)",
+                  }}
+                >
+                  <span style={{ flex: 1, fontSize: 13.5 }}>{c.cert}</span>
+                  <span style={{ ...mono, fontSize: 12, color: MUTED }}>{c.expires}</span>
+                  <span style={{ ...mono, fontSize: 12, color: STATUS_COLOR[st], minWidth: 92, textAlign: "right" }}>
+                    {st === "overdue" ? `expired ${dueLabel(c.expires)}` : dueLabel(c.expires)}
+                  </span>
+                </div>
+              );
+            })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Documents() {
+  const docs = [...DOCUMENTS].sort(
+    (a, b) => (daysUntil(a.next) ?? 0) - (daysUntil(b.next) ?? 0),
+  );
+  const docOverdue = docs.filter((d) => dateStatus(d.next) === "overdue");
+  const docSoon = docs.filter((d) => dateStatus(d.next) === "due");
+
+  const people = [...new Set(TRAINING.map((t) => t.person))].map((name) => {
+    const rows = TRAINING.filter((t) => t.person === name);
+    return { name, role: rows[0].role, certs: rows.map((r) => ({ cert: r.cert, expires: r.expires })) };
+  });
+  const lapsed = people.filter((p) => p.certs.some((c) => dateStatus(c.expires) === "overdue"));
+
   return (
     <>
       <SectionTitle
-        title="Documents & audit readiness"
-        sub="The controlled register the questionnaire answers draw from. Anything drifting out of date surfaces here long before an auditor finds it."
+        title="Documents and training"
+        sub="The controlled register the questionnaire answers draw from, and who is currently signed off to do what. Both are read from their dates, so nothing here can say a review is upcoming after it has passed."
       />
+
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 24, alignItems: "center" }}>
+        <Tally n={docOverdue.length} label="documents past review" color={docOverdue.length ? VERM : GREEN} />
+        <Tally n={docSoon.length} label="due within 60 days" color={docSoon.length ? BRASS : GREEN} />
+        <Tally n={lapsed.length} label={lapsed.length === 1 ? "person with a lapsed certificate" : "people with a lapsed certificate"} color={lapsed.length ? VERM : GREEN} />
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+          <DocExport
+            label="Export register"
+            build={async () => download(await documentRegisterBlob(DOCUMENTS, ""), documentRegisterFilename())}
+          />
+          <DocExport
+            label="Export training matrix"
+            build={async () => download(await trainingMatrixBlob(TRAINING, ""), trainingMatrixFilename())}
+          />
+        </div>
+      </div>
+
+      <h3 style={{ ...serif, fontWeight: 500, fontSize: 19, color: "var(--text)", marginBottom: 4 }}>
+        Controlled documents
+      </h3>
+      <p style={{ fontSize: 13, color: MUTED, marginBottom: 14, lineHeight: 1.55, maxWidth: 640 }}>
+        Soonest review first. Superseded versions are kept — if an incident happened in March, an auditor asks what
+        the procedure said in March, not what it says now.
+      </p>
       <div style={{ overflowX: "auto", marginBottom: 34 }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 620 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 660 }}>
           <thead>
             <tr>
               <th style={th}>Document</th>
               <th style={th}>Ref</th>
               <th style={th}>Version</th>
+              <th style={th}>Owner</th>
               <th style={th}>Last review</th>
-              <th style={th}>Next</th>
+              <th style={th}>Next review</th>
               <th style={th}>State</th>
             </tr>
           </thead>
           <tbody>
-            {DOCUMENTS.map((d) => (
-              <tr key={d.ref}>
-                <td style={td}>{d.name}</td>
-                <td style={{ ...td, ...mono, fontSize: 12.5 }}>{d.ref}</td>
-                <td style={{ ...td, ...mono, fontSize: 12.5 }}>{d.version}</td>
-                <td style={{ ...td, ...mono, fontSize: 12.5 }}>{d.reviewed}</td>
-                <td style={{ ...td, ...mono, fontSize: 12.5 }}>{d.next}</td>
-                <td style={{ ...td, whiteSpace: "nowrap" }}>
-                  <Dot status={d.status} />
-                  <span style={{ fontSize: 12.5, color: STATUS_COLOR[d.status] }}>{STATUS_WORD[d.status]}</span>
-                </td>
-              </tr>
-            ))}
+            {docs.map((d) => {
+              const st = dateStatus(d.next);
+              return (
+                <tr key={d.ref}>
+                  <td style={td}>{d.name}</td>
+                  <td style={{ ...td, ...mono, fontSize: 12.5 }}>{d.ref}</td>
+                  <td style={{ ...td, ...mono, fontSize: 12.5 }}>{d.version}</td>
+                  <td style={{ ...td, fontSize: 13, color: MUTED }}>{d.owner}</td>
+                  <td style={{ ...td, ...mono, fontSize: 12.5 }}>{d.reviewed}</td>
+                  <td style={{ ...td, ...mono, fontSize: 12.5, whiteSpace: "nowrap" }}>
+                    {d.next}
+                    <span style={{ display: "block", fontSize: 11, color: STATUS_COLOR[st] }}>{dueLabel(d.next)}</span>
+                  </td>
+                  <td style={{ ...td, whiteSpace: "nowrap" }}>
+                    <DocStatusPill status={st} />
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
 
-      <h3 style={{ ...serif, fontWeight: 500, fontSize: 19, color: "var(--text)", marginBottom: 12 }}>
-        Training certificates
+      <h3 style={{ ...serif, fontWeight: 500, fontSize: 19, color: "var(--text)", marginBottom: 4 }}>
+        Training
       </h3>
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 560 }}>
-          <thead>
-            <tr>
-              <th style={th}>Person</th>
-              <th style={th}>Role</th>
-              <th style={th}>Certificate</th>
-              <th style={th}>Expires</th>
-              <th style={th}>State</th>
-            </tr>
-          </thead>
-          <tbody>
-            {TRAINING.map((t) => (
-              <tr key={t.person + t.cert}>
-                <td style={td}>{t.person}</td>
-                <td style={{ ...td, color: MUTED, fontSize: 13 }}>{t.role}</td>
-                <td style={td}>{t.cert}</td>
-                <td style={{ ...td, ...mono, fontSize: 12.5 }}>{t.expires}</td>
-                <td style={{ ...td, whiteSpace: "nowrap" }}>
-                  <Dot status={t.status} />
-                  <span style={{ fontSize: 12.5, color: STATUS_COLOR[t.status] }}>{STATUS_WORD[t.status]}</span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <p style={{ fontSize: 13, color: MUTED, marginBottom: 14, lineHeight: 1.55, maxWidth: 640 }}>
+        By person, worst first. Open a name for their certificates and renewal dates.
+      </p>
+      {people
+        .sort((a, b) => {
+          const rank = (p: typeof a) =>
+            p.certs.some((c) => dateStatus(c.expires) === "overdue") ? 0
+            : p.certs.some((c) => dateStatus(c.expires) === "due") ? 1
+            : 2;
+          return rank(a) - rank(b) || a.name.localeCompare(b.name);
+        })
+        .map((p) => (
+          <Person key={p.name} name={p.name} role={p.role} certs={p.certs} />
+        ))}
     </>
+  );
+}
+
+function DocExport({ label, build }: { label: string; build: () => Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <button
+      onClick={async () => {
+        setBusy(true);
+        try { await build(); } finally { setBusy(false); }
+      }}
+      disabled={busy}
+      className="btn btn-primary"
+      style={{ fontSize: 13, padding: "7px 14px", whiteSpace: "nowrap" }}
+    >
+      {busy ? "Preparing\u2026" : label}
+    </button>
+  );
+}
+
+function Tally({ n, label, color = "var(--text)" }: { n: number; label: string; color?: string }) {
+  return (
+    <div style={{ border: "1px solid var(--rule)", borderRadius: 12, padding: "10px 16px", background: "var(--bg-elevated)" }}>
+      <p style={{ ...mono, fontSize: 22, fontWeight: 500, color, lineHeight: 1.1 }}>{n.toLocaleString("en-GB")}</p>
+      <p style={{ fontSize: 11.5, color: MUTED }}>{label}</p>
+    </div>
   );
 }
 
