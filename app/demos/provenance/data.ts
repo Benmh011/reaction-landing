@@ -186,6 +186,118 @@ export const TRAINING = [
   { person: "D. Hallam", role: "Distribution \u00b7 Mobile", cert: "Driver CPC", expires: "16 Jun 2029" },
 ];
 
+// ————————————————————————— personnel —————————————————————————
+//
+// Who works here, what they hold, and what they are cleared to do. The
+// last of those is the one that earns its place: a procedure run should
+// be attributable to somebody signed off to perform it, and a training
+// certificate on its own does not say that.
+//
+// Fitness-to-work declarations record the reason, because the exclusion
+// decision depends on it — a food business has to know whether somebody
+// is carrying something transmissible through food, and "unwell" does
+// not answer that. It is held here and nowhere else: it never reaches an
+// export, and an auditor is shown that a declaration was completed
+// before the person handled food, not what they had.
+
+export type SignOff = {
+  task: string;
+  // The procedure this clears them to run, where there is one.
+  sop?: string;
+  assessedBy: string;
+  assessed: string;
+};
+
+export type Fitness = {
+  date: string;
+  // Restricted. Never exported, never shown to an auditor.
+  reason: string;
+  clearedBy: string;
+  returned: string;
+};
+
+export type PersonRecord = {
+  name: string;
+  role: string;
+  site: string;
+  started: string;
+  inducted: string;
+  signOffs: SignOff[];
+  fitness: Fitness[];
+};
+
+export const PEOPLE: PersonRecord[] = [
+  {
+    name: "M. Reeve",
+    role: "Production operative",
+    site: "Island Street",
+    started: "04 Apr 2022",
+    inducted: "04 Apr 2022",
+    signOffs: [
+      { task: "Pasteuriser start-up", sop: "SOP-04", assessedBy: "A. Voss", assessed: "12 May 2026" },
+      { task: "Allergen changeover clean", sop: "SOP-07", assessedBy: "A. Voss", assessed: "12 May 2026" },
+      { task: "Coldstore excursion response", sop: "SOP-09", assessedBy: "A. Voss", assessed: "03 Feb 2026" },
+    ],
+    fitness: [
+      { date: "11 Aug 2026", reason: "Vomiting and diarrhoea", clearedBy: "A. Voss", returned: "14 Aug 2026" },
+    ],
+  },
+  {
+    name: "J. Okafor",
+    role: "Production operative",
+    site: "Island Street",
+    started: "17 Jan 2024",
+    inducted: "17 Jan 2024",
+    signOffs: [
+      { task: "Metal detector challenge test", sop: "SOP-05", assessedBy: "A. Voss", assessed: "28 Jul 2026" },
+      { task: "Goods-in receipt \u2014 chilled", sop: "SOP-12", assessedBy: "M. Reeve", assessed: "09 Mar 2026" },
+      { task: "Counter balance forklift", assessedBy: "External \u2014 RTITB", assessed: "08 Aug 2025" },
+    ],
+    fitness: [],
+  },
+  {
+    name: "S. Trent",
+    role: "Shop supervisor",
+    site: "Salcombe",
+    started: "22 Jun 2023",
+    inducted: "22 Jun 2023",
+    signOffs: [
+      { task: "Shop freezer checks", assessedBy: "A. Voss", assessed: "14 Jan 2026" },
+      { task: "Trade counter scales calibration", assessedBy: "A. Voss", assessed: "14 Jan 2026" },
+    ],
+    fitness: [
+      { date: "02 Mar 2026", reason: "Sore throat, no fever", clearedBy: "A. Voss", returned: "03 Mar 2026" },
+      { date: "19 Jul 2026", reason: "Infected cut to left hand", clearedBy: "A. Voss", returned: "29 Jul 2026" },
+    ],
+  },
+  {
+    name: "A. Voss",
+    role: "Quality manager",
+    site: "Island Street",
+    started: "08 Sep 2021",
+    inducted: "08 Sep 2021",
+    signOffs: [
+      { task: "HACCP plan ownership", assessedBy: "External \u2014 Highfield", assessed: "11 Nov 2024" },
+      { task: "Internal auditing", assessedBy: "External \u2014 Highfield", assessed: "14 Oct 2024" },
+      { task: "Recall exercise lead", assessedBy: "Director", assessed: "02 Feb 2026" },
+      { task: "Coldstore excursion response", sop: "SOP-09", assessedBy: "Director", assessed: "02 Feb 2026" },
+    ],
+    fitness: [],
+  },
+  {
+    name: "D. Hallam",
+    role: "Delivery driver",
+    site: "Mobile",
+    started: "06 Nov 2025",
+    inducted: "06 Nov 2025",
+    signOffs: [
+      { task: "Van temperature checks", assessedBy: "M. Reeve", assessed: "20 Nov 2025" },
+      { task: "Cold chain handling", assessedBy: "M. Reeve", assessed: "20 Nov 2025" },
+    ],
+    fitness: [],
+  },
+];
+
 // One batch traced both directions.
 export const TRACE = {
   batch: "IC-2607-14",

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { DOCUMENTS, TRAINING, PRODUCTION_LOG, QUESTIONNAIRES, dateStatus, dueLabel, daysUntil, type Status } from "./data";
+import { DOCUMENTS, TRAINING, PEOPLE, PRODUCTION_LOG, QUESTIONNAIRES, dateStatus, dueLabel, daysUntil, type Status } from "./data";
 import {
   documentRegisterBlob,
   documentRegisterFilename,
@@ -119,7 +119,8 @@ const td: React.CSSProperties = {
 const SECTIONS = [
   { id: "overview", label: "Overview" },
   { id: "questionnaires", label: "Questionnaires" },
-  { id: "documents", label: "Documents & audit" },
+  { id: "documents", label: "Documents" },
+  { id: "personnel", label: "Personnel" },
   { id: "trace", label: "Traceability" },
   { id: "stock", label: "Stock" },
   { id: "coldchain", label: "Cold chain" },
@@ -148,8 +149,8 @@ function buildPicture(movements: Movement[], readings: Reading[], runs: Run[]): 
   }
   for (const t of TRAINING) {
     const st = dateStatus(t.expires);
-    if (st === "overdue") items.push({ severe: true, text: `${t.person}'s ${t.cert} certificate expired ${t.expires}, ${dueLabel(t.expires)}.`, goto: "documents" });
-    else if (st === "due") items.push({ severe: false, text: `${t.person}'s ${t.cert} certificate expires ${t.expires}, ${dueLabel(t.expires)}.`, goto: "documents" });
+    if (st === "overdue") items.push({ severe: true, text: `${t.person}'s ${t.cert} certificate expired ${t.expires}, ${dueLabel(t.expires)}.`, goto: "personnel" });
+    else if (st === "due") items.push({ severe: false, text: `${t.person}'s ${t.cert} certificate expires ${t.expires}, ${dueLabel(t.expires)}.`, goto: "personnel" });
   }
 
   // Live telemetry is the truth for the assets it covers. The check
@@ -199,6 +200,7 @@ function countsFor(items: Item[]) {
     overview: { n: 0, severe: false },
     questionnaires: { n: 0, severe: false },
     documents: { n: 0, severe: false },
+    personnel: { n: 0, severe: false },
     trace: { n: 0, severe: false },
     stock: { n: 0, severe: false },
     coldchain: { n: 0, severe: false },
@@ -229,6 +231,7 @@ const AREAS: { key: string; title: string; sections: SectionId[] }[] = [
   { key: "monitoring", title: "Monitoring", sections: ["checks", "coldchain"] },
   { key: "making", title: "Making and procedures", sections: ["procedures", "production"] },
   { key: "audit", title: "Documents and audit", sections: ["documents", "questionnaires"] },
+  { key: "people", title: "People", sections: ["personnel"] },
 ];
 
 function Overview({ items, onGo }: { items: Item[]; onGo: (id: SectionId) => void }) {
@@ -403,31 +406,20 @@ function Documents() {
   const docOverdue = docs.filter((d) => dateStatus(d.next) === "overdue");
   const docSoon = docs.filter((d) => dateStatus(d.next) === "due");
 
-  const people = [...new Set(TRAINING.map((t) => t.person))].map((name) => {
-    const rows = TRAINING.filter((t) => t.person === name);
-    return { name, role: rows[0].role, certs: rows.map((r) => ({ cert: r.cert, expires: r.expires })) };
-  });
-  const lapsed = people.filter((p) => p.certs.some((c) => dateStatus(c.expires) === "overdue"));
-
   return (
     <>
       <SectionTitle
-        title="Documents and training"
-        sub="The controlled register the questionnaire answers draw from, and who is currently signed off to do what. Both are read from their dates, so nothing here can say a review is upcoming after it has passed."
+        title="Controlled documents"
+        sub="The register the questionnaire answers draw from. Status is read from the review date, so nothing here can call a review upcoming after it has passed. Training and sign-offs live under Personnel."
       />
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 24, alignItems: "center" }}>
         <Tally n={docOverdue.length} label="documents past review" color={docOverdue.length ? VERM : GREEN} />
         <Tally n={docSoon.length} label="due within 60 days" color={docSoon.length ? BRASS : GREEN} />
-        <Tally n={lapsed.length} label={lapsed.length === 1 ? "person with a lapsed certificate" : "people with a lapsed certificate"} color={lapsed.length ? VERM : GREEN} />
-        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+        <div style={{ marginLeft: "auto" }}>
           <DocExport
             label="Export register"
             build={async () => download(await documentRegisterBlob(DOCUMENTS, ""), documentRegisterFilename())}
-          />
-          <DocExport
-            label="Export training matrix"
-            build={async () => download(await trainingMatrixBlob(TRAINING, ""), trainingMatrixFilename())}
           />
         </div>
       </div>
@@ -476,23 +468,6 @@ function Documents() {
         </table>
       </div>
 
-      <h3 style={{ ...serif, fontWeight: 500, fontSize: 19, color: "var(--text)", marginBottom: 4 }}>
-        Training
-      </h3>
-      <p style={{ fontSize: 13, color: MUTED, marginBottom: 14, lineHeight: 1.55, maxWidth: 640 }}>
-        By person, worst first. Open a name for their certificates and renewal dates.
-      </p>
-      {people
-        .sort((a, b) => {
-          const rank = (p: typeof a) =>
-            p.certs.some((c) => dateStatus(c.expires) === "overdue") ? 0
-            : p.certs.some((c) => dateStatus(c.expires) === "due") ? 1
-            : 2;
-          return rank(a) - rank(b) || a.name.localeCompare(b.name);
-        })
-        .map((p) => (
-          <Person key={p.name} name={p.name} role={p.role} certs={p.certs} />
-        ))}
     </>
   );
 }
@@ -519,6 +494,211 @@ function Tally({ n, label, color = "var(--text)" }: { n: number; label: string; 
     <div style={{ border: "1px solid var(--rule)", borderRadius: 12, padding: "10px 16px", background: "var(--bg-elevated)" }}>
       <p style={{ ...mono, fontSize: 22, fontWeight: 500, color, lineHeight: 1.1 }}>{n.toLocaleString("en-GB")}</p>
       <p style={{ fontSize: 11.5, color: MUTED }}>{label}</p>
+    </div>
+  );
+}
+
+// ————————————————————————— personnel —————————————————————————
+//
+// Four questions about a person, in the order they get asked: who are
+// they, what do they hold, what are they cleared to do, and have they
+// declared themselves fit to work.
+//
+// The third is the one a certificate cannot answer. Level 2 Food Hygiene
+// does not say somebody may start the pasteuriser; a named assessor on a
+// named date does.
+//
+// Fitness records carry the reason, because the exclusion decision
+// depends on it. They are marked restricted, they stay on this page, and
+// they are in no export. What leaves this system is that a declaration
+// was completed before the person handled food.
+
+function Personnel() {
+  const [open, setOpen] = useState<string | null>(null);
+  const [showReasons, setShowReasons] = useState(false);
+
+  const people = PEOPLE.map((p) => {
+    const certs = TRAINING.filter((t) => t.person === p.name).map((t) => ({ cert: t.cert, expires: t.expires }));
+    const expired = certs.filter((c) => dateStatus(c.expires) === "overdue");
+    const soon = certs.filter((c) => dateStatus(c.expires) === "due");
+    return { ...p, certs, expired, soon, worst: (expired.length ? "overdue" : soon.length ? "due" : "ok") as Status };
+  });
+
+  const lapsed = people.filter((p) => p.expired.length);
+  const openRecords = people.filter((p) => p.fitness.some((f) => !f.returned));
+
+  return (
+    <>
+      <SectionTitle
+        title="Personnel"
+        sub="Who works here, what they hold, and what each of them is signed off to do. A certificate says somebody was trained; a sign-off says somebody assessed them against a named task on a named date."
+      />
+
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 24, alignItems: "center" }}>
+        <Tally n={people.length} label="people" />
+        <Tally n={lapsed.length} label={lapsed.length === 1 ? "with a lapsed certificate" : "with lapsed certificates"} color={lapsed.length ? VERM : GREEN} />
+        <Tally n={people.reduce((a, p) => a + p.signOffs.length, 0)} label="task sign-offs held" />
+        <div style={{ marginLeft: "auto" }}>
+          <DocExport
+            label="Export training matrix"
+            build={async () => download(await trainingMatrixBlob(TRAINING, ""), trainingMatrixFilename())}
+          />
+        </div>
+      </div>
+
+      {openRecords.length > 0 && (
+        <div style={{ border: `1px solid ${VERM}`, borderRadius: 12, padding: "12px 16px", marginBottom: 20 }}>
+          <p style={{ fontSize: 13.5, color: VERM }}>
+            {openRecords.length} fitness-to-work declaration{openRecords.length === 1 ? "" : "s"} without a recorded return.
+          </p>
+        </div>
+      )}
+
+      {people
+        .sort((a, b) => {
+          const rank = (x: (typeof people)[number]) => (x.worst === "overdue" ? 0 : x.worst === "due" ? 1 : 2);
+          return rank(a) - rank(b) || a.name.localeCompare(b.name);
+        })
+        .map((p) => {
+          const isOpen = open === p.name;
+          const summary = p.expired.length
+            ? `${p.expired.length} expired${p.soon.length ? `, ${p.soon.length} due soon` : ""}`
+            : p.soon.length
+              ? `${p.soon.length} due soon`
+              : "all current";
+          return (
+            <div key={p.name} style={{ border: "1px solid var(--rule)", borderRadius: 12, marginBottom: 8, overflow: "hidden" }}>
+              <button
+                onClick={() => setOpen(isOpen ? null : p.name)}
+                style={{
+                  width: "100%", display: "flex", alignItems: "center", gap: 14,
+                  padding: "14px 16px", background: "none", border: "none",
+                  borderLeft: `3px solid ${STATUS_COLOR[p.worst]}`,
+                  font: "inherit", color: "inherit", cursor: "pointer", textAlign: "left",
+                }}
+              >
+                <span aria-hidden style={{ ...mono, fontSize: 12, color: MUTED, width: 12 }}>{isOpen ? "\u2212" : "+"}</span>
+                <span style={{ flex: 1 }}>
+                  <span style={{ display: "block", fontSize: 15 }}>{p.name}</span>
+                  <span style={{ display: "block", fontSize: 12, color: MUTED, marginTop: 2 }}>
+                    {p.role} \u00b7 {p.site}
+                  </span>
+                </span>
+                <span style={{ fontSize: 12.5, color: STATUS_COLOR[p.worst], whiteSpace: "nowrap" }}>{summary}</span>
+                <span style={{ ...mono, fontSize: 11.5, color: MUTED, whiteSpace: "nowrap" }}>
+                  {p.signOffs.length} sign-off{p.signOffs.length === 1 ? "" : "s"}
+                </span>
+              </button>
+
+              {isOpen && (
+                <div style={{ borderTop: "1px solid var(--rule)", padding: "16px 20px 18px 42px" }}>
+                  <PersonBlock title="Details">
+                    <Detail k="Role" v={p.role} />
+                    <Detail k="Site" v={p.site} />
+                    <Detail k="Started" v={p.started} />
+                    <Detail k="Inducted" v={p.inducted} />
+                  </PersonBlock>
+
+                  <PersonBlock title={`Certificates (${p.certs.length})`}>
+                    {[...p.certs]
+                      .sort((a, b) => (daysUntil(a.expires) ?? 0) - (daysUntil(b.expires) ?? 0))
+                      .map((c) => {
+                        const st = dateStatus(c.expires);
+                        return (
+                          <div key={c.cert} style={rowStyle}>
+                            <span style={{ flex: 1, fontSize: 13.5 }}>{c.cert}</span>
+                            <span style={{ ...mono, fontSize: 12, color: MUTED }}>{c.expires}</span>
+                            <span style={{ ...mono, fontSize: 12, color: STATUS_COLOR[st], minWidth: 96, textAlign: "right" }}>
+                              {st === "overdue" ? `expired ${dueLabel(c.expires)}` : dueLabel(c.expires)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                  </PersonBlock>
+
+                  <PersonBlock title={`Signed off to do (${p.signOffs.length})`}>
+                    <p style={{ fontSize: 12.5, color: MUTED, marginBottom: 8, lineHeight: 1.5 }}>
+                      Assessed against the task by a named person. A procedure run should be attributable to
+                      somebody holding the sign-off for it.
+                    </p>
+                    {p.signOffs.map((sg) => (
+                      <div key={sg.task} style={rowStyle}>
+                        <span style={{ flex: 1, fontSize: 13.5 }}>
+                          {sg.task}
+                          {sg.sop ? <span style={{ ...mono, fontSize: 11, color: MUTED }}> \u00b7 {sg.sop}</span> : null}
+                        </span>
+                        <span style={{ fontSize: 12, color: MUTED }}>{sg.assessedBy}</span>
+                        <span style={{ ...mono, fontSize: 12, color: MUTED, minWidth: 82, textAlign: "right" }}>{sg.assessed}</span>
+                      </div>
+                    ))}
+                  </PersonBlock>
+
+                  <PersonBlock title={`Fitness to work (${p.fitness.length})`}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
+                      <span style={{ ...mono, fontSize: 10, letterSpacing: "0.14em", color: VERM, border: `1px solid ${VERM}`, borderRadius: 99, padding: "2px 9px" }}>
+                        RESTRICTED
+                      </span>
+                      <span style={{ fontSize: 12.5, color: MUTED }}>
+                        Held for the exclusion decision. Never exported, never shown to an auditor.
+                      </span>
+                    </div>
+                    {p.fitness.length === 0 ? (
+                      <p style={{ fontSize: 13, color: MUTED }}>No declarations recorded.</p>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => setShowReasons((v) => !v)}
+                          style={{ font: "inherit", fontSize: 12, padding: "4px 11px", border: "1px solid var(--rule-strong)", background: "transparent", color: "inherit", borderRadius: 999, cursor: "pointer", marginBottom: 8 }}
+                        >
+                          {showReasons ? "Hide reasons" : "Show reasons"}
+                        </button>
+                        {p.fitness.map((f) => (
+                          <div key={f.date} style={rowStyle}>
+                            <span style={{ flex: 1, fontSize: 13.5 }}>
+                              {showReasons ? f.reason : "Declaration completed"}
+                            </span>
+                            <span style={{ ...mono, fontSize: 12, color: MUTED }}>{f.date}</span>
+                            <span style={{ ...mono, fontSize: 12, color: f.returned ? GREEN : VERM, minWidth: 110, textAlign: "right" }}>
+                              {f.returned ? `returned ${f.returned}` : "no return recorded"}
+                            </span>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </PersonBlock>
+                </div>
+              )}
+            </div>
+          );
+        })}
+    </>
+  );
+}
+
+const rowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 12,
+  padding: "8px 0",
+  borderBottom: "1px solid var(--rule)",
+};
+
+function PersonBlock({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <p style={{ ...mono, fontSize: 10, letterSpacing: "0.16em", color: MUTED, marginBottom: 8 }}>
+        {title.toUpperCase()}
+      </p>
+      {children}
+    </div>
+  );
+}
+
+function Detail({ k, v }: { k: string; v: string }) {
+  return (
+    <div style={rowStyle}>
+      <span style={{ flex: 1, fontSize: 13, color: MUTED }}>{k}</span>
+      <span style={{ ...mono, fontSize: 13 }}>{v}</span>
     </div>
   );
 }
@@ -721,6 +901,7 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
             {active === "overview" && <Overview items={picture} onGo={setView} />}
             {active === "questionnaires" && <Questionnaires />}
             {active === "documents" && <Documents />}
+            {active === "personnel" && <Personnel />}
             {active === "trace" && <RecallDesk movements={movements} onMovements={setMovements} operator={operator} />}
             {active === "stock" && <StockDesk operator={operator} movements={movements} onMovements={setMovements} />}
             {active === "coldchain" && <MonitorDesk />}
