@@ -148,20 +148,96 @@ export function dueLabel(s: string): string {
 
 // Status is not stored — it is derived from `next` by dateStatus, so a
 // review date that has passed cannot still read as upcoming.
-export const DOCUMENTS = [
-  { name: "HACCP Study", ref: "QMS-01", version: "v11", reviewed: "04 Mar 2026", next: "04 Mar 2027", owner: "A. Voss" },
-  { name: "Allergen Policy", ref: "QMS-04", version: "v7", reviewed: "12 Jan 2026", next: "12 Jan 2027", owner: "A. Voss" },
-  { name: "Supplier Declaration \u2014 Cocoa (Lot importer)", ref: "SUP-11", version: "v3", reviewed: "30 Aug 2025", next: "30 Aug 2026", owner: "A. Voss" },
-  { name: "Supplier Declaration \u2014 Dairy (Home Farm)", ref: "SUP-02", version: "v9", reviewed: "02 Jul 2026", next: "02 Jul 2027", owner: "A. Voss" },
-  { name: "Glass & Brittle Plastic Register", ref: "QMS-09", version: "v5", reviewed: "19 May 2025", next: "19 May 2026", owner: "M. Reeve" },
-  { name: "Pest Control Contract & Reports", ref: "EXT-03", version: "\u2014", reviewed: "01 Jul 2026", next: "01 Oct 2026", owner: "A. Voss" },
-  { name: "Cleaning Schedule", ref: "QMS-11", version: "v6", reviewed: "08 Feb 2026", next: "08 Feb 2027", owner: "M. Reeve" },
-  { name: "Traceability Procedure", ref: "QMS-07", version: "v4", reviewed: "21 Nov 2025", next: "21 Nov 2026", owner: "A. Voss" },
+//
+// Each document carries its version history. The register claiming that
+// superseded versions are kept, while showing none of them, was an
+// assertion rather than a feature: if an incident is investigated the
+// question is what the procedure said at the time, and that has to be
+// answerable from the record rather than promised by it.
+
+export type DocVersion = {
+  version: string;
+  issued: string;
+  by: string;
+  change: string;
+};
+
+export type ControlledDoc = {
+  name: string;
+  ref: string;
+  version: string;
+  reviewed: string;
+  next: string;
+  owner: string;
+  history: DocVersion[];
+};
+
+export const DOCUMENTS: ControlledDoc[] = [
+  {
+    name: "HACCP Study", ref: "QMS-01", version: "v11", reviewed: "04 Mar 2026", next: "04 Mar 2027", owner: "A. Voss",
+    history: [
+      { version: "v11", issued: "04 Mar 2026", by: "A. Voss", change: "Annual review. Metal detection at pack-off restated as a CCP after the line 2 rebuild." },
+      { version: "v10", issued: "18 Aug 2025", by: "A. Voss", change: "Chocolate tempering added as a process step following the bean-to-bar line install." },
+      { version: "v9", issued: "02 Mar 2025", by: "A. Voss", change: "Annual review. No change to critical limits." },
+      { version: "v8", issued: "11 Jul 2024", by: "A. Voss", change: "Pasteurisation hold time corrected from 12s to 15s after validation." },
+    ],
+  },
+  {
+    name: "Allergen Policy", ref: "QMS-04", version: "v7", reviewed: "12 Jan 2026", next: "12 Jan 2027", owner: "A. Voss",
+    history: [
+      { version: "v7", issued: "12 Jan 2026", by: "A. Voss", change: "Nut-free site declaration extended to cover the trade counter and all own shops." },
+      { version: "v6", issued: "09 Jan 2025", by: "A. Voss", change: "Annual review. Supplier declaration wording aligned to the goods-in screen." },
+      { version: "v5", issued: "22 Feb 2024", by: "M. Reeve", change: "Changeover clean verification moved from visual to swab-verified." },
+    ],
+  },
+  {
+    name: "Supplier Declaration \u2014 Cocoa (Lot importer)", ref: "SUP-11", version: "v3", reviewed: "30 Aug 2025", next: "30 Aug 2026", owner: "A. Voss",
+    history: [
+      { version: "v3", issued: "30 Aug 2025", by: "A. Voss", change: "Reissued on the importer's current template. Origin lots unchanged." },
+      { version: "v2", issued: "14 Sep 2024", by: "A. Voss", change: "Nut cross-contact statement added at our request." },
+      { version: "v1", issued: "03 Oct 2023", by: "A. Voss", change: "First issue on supplier approval." },
+    ],
+  },
+  {
+    name: "Supplier Declaration \u2014 Dairy (Home Farm)", ref: "SUP-02", version: "v9", reviewed: "02 Jul 2026", next: "02 Jul 2027", owner: "A. Voss",
+    history: [
+      { version: "v9", issued: "02 Jul 2026", by: "A. Voss", change: "Annual reissue. Intake temperature limit confirmed at 4\u00b0C." },
+      { version: "v8", issued: "28 Jun 2025", by: "A. Voss", change: "Annual reissue. Herd health declaration attached." },
+      { version: "v7", issued: "19 Jun 2024", by: "A. Voss", change: "Annual reissue." },
+    ],
+  },
+  {
+    name: "Glass & Brittle Plastic Register", ref: "QMS-09", version: "v5", reviewed: "19 May 2025", next: "19 May 2026", owner: "M. Reeve",
+    history: [
+      { version: "v5", issued: "19 May 2025", by: "M. Reeve", change: "Chocolate room light fittings added after the install." },
+      { version: "v4", issued: "06 May 2024", by: "M. Reeve", change: "Annual walk round. Two sight glasses on the pasteuriser added." },
+      { version: "v3", issued: "28 Apr 2023", by: "M. Reeve", change: "Annual walk round." },
+    ],
+  },
+  {
+    name: "Pest Control Contract & Reports", ref: "EXT-03", version: "\u2014", reviewed: "01 Jul 2026", next: "01 Oct 2026", owner: "A. Voss",
+    history: [
+      { version: "\u2014", issued: "01 Jul 2026", by: "External \u2014 contractor", change: "Quarterly visit. No activity recorded. Bait plan unchanged." },
+      { version: "\u2014", issued: "02 Apr 2026", by: "External \u2014 contractor", change: "Quarterly visit. Two exterior stations relocated away from the loading bay." },
+    ],
+  },
+  {
+    name: "Cleaning Schedule", ref: "QMS-11", version: "v6", reviewed: "08 Feb 2026", next: "08 Feb 2027", owner: "M. Reeve",
+    history: [
+      { version: "v6", issued: "08 Feb 2026", by: "M. Reeve", change: "Chocolate room added. Allergen changeover clean cross-referenced to SOP-07." },
+      { version: "v5", issued: "30 Jan 2025", by: "M. Reeve", change: "Annual review. Frequencies unchanged." },
+    ],
+  },
+  {
+    name: "Traceability Procedure", ref: "QMS-07", version: "v4", reviewed: "21 Nov 2025", next: "21 Nov 2026", owner: "A. Voss",
+    history: [
+      { version: "v4", issued: "21 Nov 2025", by: "A. Voss", change: "Exercise target restated as a site-defined four hours rather than a scheme requirement." },
+      { version: "v3", issued: "14 Nov 2024", by: "A. Voss", change: "Rework recording added after the mass balance failed to close on the July exercise." },
+      { version: "v2", issued: "08 Dec 2023", by: "A. Voss", change: "Annual review." },
+    ],
+  },
 ];
 
-// One row per certificate, several per person. A training matrix is read
-// by person — what is this person allowed to do, and what has lapsed —
-// so the desk groups it that way rather than listing certificates.
 export const TRAINING = [
   { person: "M. Reeve", role: "Production \u00b7 Island Street", cert: "Level 2 Food Hygiene", expires: "14 Sep 2026" },
   { person: "M. Reeve", role: "Production \u00b7 Island Street", cert: "Allergen Awareness", expires: "03 Nov 2026" },

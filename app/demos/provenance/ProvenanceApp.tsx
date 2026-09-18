@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { DOCUMENTS, TRAINING, PEOPLE, PRODUCTION_LOG, QUESTIONNAIRES, dateStatus, dueLabel, daysUntil, type Status } from "./data";
 import {
   documentRegisterBlob,
   documentRegisterFilename,
   trainingMatrixBlob,
   trainingMatrixFilename,
+  docSheetBlob,
+  docSheetFilename,
   download,
 } from "./records-pdf";
 import { SEED_READINGS, loadReadings, saveReadings, exceptions as checkExceptions, type Reading } from "./checks";
@@ -400,6 +402,7 @@ function Person({
 }
 
 function Documents() {
+  const [openDoc, setOpenDoc] = useState<string | null>(null);
   const docs = [...DOCUMENTS].sort(
     (a, b) => (daysUntil(a.next) ?? 0) - (daysUntil(b.next) ?? 0),
   );
@@ -447,9 +450,20 @@ function Documents() {
           <tbody>
             {docs.map((d) => {
               const st = dateStatus(d.next);
+              const isOpen = openDoc === d.ref;
               return (
-                <tr key={d.ref}>
-                  <td style={td}>{d.name}</td>
+                <Fragment key={d.ref}>
+                <tr
+                  onClick={() => setOpenDoc(isOpen ? null : d.ref)}
+                  style={{ cursor: "pointer" }}
+                  title={isOpen ? "Hide version history" : "Show version history"}
+                >
+                  <td style={td}>
+                    <span aria-hidden style={{ ...mono, fontSize: 11, color: MUTED, marginRight: 8 }}>
+                      {isOpen ? "\u2212" : "+"}
+                    </span>
+                    {d.name}
+                  </td>
                   <td style={{ ...td, ...mono, fontSize: 12.5 }}>{d.ref}</td>
                   <td style={{ ...td, ...mono, fontSize: 12.5 }}>{d.version}</td>
                   <td style={{ ...td, fontSize: 13, color: MUTED }}>{d.owner}</td>
@@ -462,6 +476,44 @@ function Documents() {
                     <DocStatusPill status={st} />
                   </td>
                 </tr>
+                {isOpen && (
+                  <tr>
+                    <td colSpan={7} style={{ padding: "4px 0 18px 26px", borderBottom: "1px solid var(--rule)" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
+                        <p style={{ ...mono, fontSize: 10, letterSpacing: "0.16em", color: MUTED }}>
+                          VERSION HISTORY ({d.history.length})
+                        </p>
+                        <DocExport
+                          label="Export record sheet"
+                          build={async () => download(await docSheetBlob(d, ""), docSheetFilename(d))}
+                        />
+                      </div>
+                      <p style={{ fontSize: 12.5, color: MUTED, marginBottom: 10, lineHeight: 1.5, maxWidth: 620 }}>
+                        Superseded versions are retained. An incident is judged against what the document said at the
+                        time, not what it says now.
+                      </p>
+                      {d.history.map((v, i) => (
+                        <div
+                          key={`${v.version}-${v.issued}`}
+                          style={{
+                            display: "flex", gap: 14, padding: "9px 0",
+                            borderBottom: "1px solid var(--rule)",
+                            borderLeft: i === 0 ? "2px solid var(--text)" : "2px solid transparent",
+                            paddingLeft: 12,
+                          }}
+                        >
+                          <span style={{ ...mono, fontSize: 12.5, width: 46, flexShrink: 0, fontWeight: i === 0 ? 500 : 400 }}>
+                            {v.version}
+                          </span>
+                          <span style={{ ...mono, fontSize: 12, color: MUTED, width: 86, flexShrink: 0 }}>{v.issued}</span>
+                          <span style={{ fontSize: 12, color: MUTED, width: 150, flexShrink: 0 }}>{v.by}</span>
+                          <span style={{ flex: 1, minWidth: 0, fontSize: 13 }}>{v.change}</span>
+                        </div>
+                      ))}
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               );
             })}
           </tbody>

@@ -36,7 +36,7 @@ import {
   type Freshness,
 } from "./stock";
 import type { GoodsIn, GoodsLine } from "./goodsin";
-import { dateStatus, daysUntil, dueLabel } from "./data";
+import { dateStatus, daysUntil, dueLabel, type ControlledDoc } from "./data";
 
 const NAVY: [number, number, number] = [20, 33, 58];
 const MUTED: [number, number, number] = [111, 116, 130];
@@ -1168,6 +1168,99 @@ export async function buildDocumentRegisterPdf(docs: DocRow[], operator: string)
 export async function documentRegisterBlob(docs: DocRow[], operator: string): Promise<Blob> {
   const doc = await buildDocumentRegisterPdf(docs, operator);
   return doc.output("blob");
+}
+
+// A record sheet for one document: what it is, who owns it, when it was
+// last reviewed, and every version it has been through. The register
+// says superseded versions are kept; this is where that is answerable
+// rather than asserted.
+
+export function docSheetFilename(d: ControlledDoc): string {
+  return `${slug(d.ref)}-record-sheet-${stamp()}.pdf`;
+}
+
+export async function buildDocSheetPdf(doc_: ControlledDoc, operator: string): Promise<jsPDF> {
+  const d = await open("Quality record", doc_.name);
+  const h = makeHelpers(d, doc_.ref);
+  const st = dateStatus(doc_.next);
+  const colour = st === "overdue" ? RED : st === "due" ? AMBER : GREEN;
+
+  h.kv("Reference", doc_.ref, NAVY, true);
+  h.kv("Current version", doc_.version);
+  h.kv("Owner", doc_.owner);
+  h.kv("Last reviewed", doc_.reviewed);
+  h.kv("Next review", `${doc_.next} (${dueLabel(doc_.next)})`, colour, st !== "ok");
+  h.kv("Versions held", String(doc_.history.length));
+  d.y += 3;
+  provenance(h, "document register", `this document and its ${doc_.history.length} recorded version${doc_.history.length === 1 ? "" : "s"}`);
+  d.y += 5;
+
+  if (st === "overdue") {
+    h.line(
+      `This document is past its review date. It remains in force until reviewed and reissued, but the review itself is overdue by ${dueLabel(doc_.next).replace(" ago", "")}.`,
+      9.5,
+      RED,
+    );
+    d.y += 4;
+  }
+
+  h.head(`Version history (${doc_.history.length})`);
+  h.line(
+    "Most recent first. Superseded versions are retained: an incident is judged against what the document said at the time, not what it says now.",
+    9,
+    MUTED,
+  );
+  d.y += 3;
+
+  d.doc.setFontSize(8);
+  d.doc.setTextColor(...MUTED);
+  d.doc.text("Version", M, d.y);
+  d.doc.text("Issued", M + 24, d.y);
+  d.doc.text("By", M + 54, d.y);
+  d.doc.text("What changed", M + 96, d.y);
+  d.y += 2;
+  h.rule(d.y, 0.15);
+  d.y += 5;
+
+  doc_.history.forEach((v, i) => {
+    const lines = d.doc.splitTextToSize(v.change, W - M - (M + 96));
+    h.ensure(lines.length * 4 + 6);
+    if (i === 0) {
+      d.doc.setFillColor(...NAVY);
+      d.doc.rect(M - 4, d.y - 3.2, 1.2, Math.max(6, lines.length * 4 + 1), "F");
+    }
+    d.doc.setFont("helvetica", i === 0 ? "bold" : "normal");
+    d.doc.setFontSize(9);
+    d.doc.setTextColor(...NAVY);
+    d.doc.text(v.version, M, d.y);
+    d.doc.setFont("helvetica", "normal");
+    d.doc.setFontSize(8.5);
+    d.doc.setTextColor(...MUTED);
+    d.doc.text(v.issued, M + 24, d.y);
+    d.doc.text(fit(d.doc, v.by, 40), M + 54, d.y);
+    d.doc.setTextColor(...NAVY);
+    d.doc.setFontSize(9);
+    d.doc.text(lines, M + 96, d.y);
+    d.y += Math.max(5, lines.length * 4) + 2.5;
+    h.rule(d.y - 2, 0.1);
+    d.y += 1;
+  });
+
+  d.y += 5;
+  h.head("What this sheet is not");
+  h.line(
+    "A record of the document, not the document. The controlled copy is held separately and this sheet does not replace it.",
+    9.5,
+    MUTED,
+  );
+
+  h.footer();
+  return d.doc;
+}
+
+export async function docSheetBlob(doc_: ControlledDoc, operator: string): Promise<Blob> {
+  const built = await buildDocSheetPdf(doc_, operator);
+  return built.output("blob");
 }
 
 export function trainingMatrixFilename(): string {
