@@ -159,6 +159,7 @@ export default function ProductionDesk({ operator = "" }: { operator?: string })
   const [line, setLine] = useState("");
   const [only, setOnly] = useState("");
   const [starting, setStarting] = useState(false);
+  const [justSaved, setJustSaved] = useState<string | null>(null);
 
   // Seeded batches regenerate; imported ones are read back after mount so
   // server and client render the same thing first.
@@ -212,14 +213,6 @@ export default function ProductionDesk({ operator = "" }: { operator?: string })
         <Tally n={counts.units} label="units packed" />
       </div>
 
-      <ChartImport
-        operator={operator}
-        onSaved={(b) => {
-          setBatches((prev) => [b, ...prev.filter((x) => x.id !== b.id)]);
-          setOpen(b.id);
-        }}
-      />
-
       {starting ? (
         <NewBatchForm
           operator={operator}
@@ -228,18 +221,49 @@ export default function ProductionDesk({ operator = "" }: { operator?: string })
             setBatches((prev) => [b, ...prev.filter((x) => x.id !== b.id)]);
             setStarting(false);
             setOpen(b.id);
+            setJustSaved(b.id);
           }}
         />
       ) : (
-        <div style={{ marginBottom: 22 }}>
-          <button
-            onClick={() => setStarting(true)}
-            style={{ font: "inherit", fontSize: 13, padding: "7px 14px", border: "1px solid var(--rule-strong)", background: "transparent", color: "inherit", borderRadius: 999, cursor: "pointer" }}
-          >
-            Start a batch by hand
-          </button>
-        </div>
+        <ChartImport
+          operator={operator}
+          onByHand={() => setStarting(true)}
+          onSaved={(b) => {
+            setBatches((prev) => [b, ...prev.filter((x) => x.id !== b.id)]);
+            setOpen(b.id);
+            setJustSaved(b.id);
+          }}
+        />
       )}
+
+      {/* Saving a chart creates a batch further down the page, which is
+          not obvious from up here. Say where it went and what it still
+          needs. */}
+      {justSaved && (() => {
+        const st = all.find((x) => x.batch.id === justSaved);
+        if (!st) return null;
+        const missing = [
+          st.batch.metal.length === 0 ? "a detector challenge" : null,
+          st.batch.fill.length === 0 ? "a fill weight check" : null,
+          st.batch.line !== "chocolate" && !st.batch.pasteurisation ? "the heat treatment" : null,
+        ].filter(Boolean) as string[];
+        return (
+          <div style={{ ...card, marginBottom: 22, borderLeft: `2px solid ${STATUS_COLOR[st.status]}` }}>
+            <p style={{ fontSize: 13.5, lineHeight: 1.55 }}>
+              Batch <strong style={{ fontWeight: 500 }}>{st.batch.id}</strong> saved and opened below.
+              {missing.length
+                ? ` It still needs ${missing.join(" and ")} — record those inside the batch.`
+                : " Every control is evidenced."}
+            </p>
+            <button
+              onClick={() => setJustSaved(null)}
+              style={{ font: "inherit", fontSize: 12.5, padding: "5px 12px", marginTop: 10, border: "1px solid var(--rule-strong)", background: "transparent", color: "inherit", borderRadius: 999, cursor: "pointer" }}
+            >
+              Dismiss
+            </button>
+          </div>
+        );
+      })()}
 
       <div style={{ display: "grid", gap: 10, marginBottom: 22 }}>
         <Pills
@@ -594,9 +618,11 @@ function PasteurisationForm({ operator, onSave, onCancel }: { operator: string; 
 function ChartImport({
   operator,
   onSaved,
+  onByHand,
 }: {
   operator: string;
   onSaved: (b: Batch) => void;
+  onByHand: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -722,14 +748,23 @@ function ChartImport({
         limit. Nothing is typed off a printout. CSV or Excel — a chart exported as PDF is a picture of a graph
         rather than a table of readings.
       </p>
-      <button
-        onClick={() => input.current?.click()}
-        disabled={busy}
-        className="btn btn-primary"
-        style={{ fontSize: 13, padding: "7px 14px" }}
-      >
-        Choose a file
-      </button>
+      <div style={{ display: "flex", gap: 10, justifyContent: "center", alignItems: "center", flexWrap: "wrap" }}>
+        <button
+          onClick={() => input.current?.click()}
+          disabled={busy}
+          className="btn btn-primary"
+          style={{ fontSize: 13, padding: "7px 14px" }}
+        >
+          Choose a file
+        </button>
+        <span style={{ fontSize: 12.5, color: MUTED }}>or</span>
+        <button
+          onClick={onByHand}
+          style={{ font: "inherit", fontSize: 13, padding: "7px 14px", border: "1px solid var(--rule-strong)", background: "transparent", color: "inherit", borderRadius: 999, cursor: "pointer" }}
+        >
+          Start a batch by hand
+        </button>
+      </div>
       <input
         ref={input}
         type="file"
