@@ -13,9 +13,13 @@
 // Nothing here stores a pass.
 // ————————————————————————————————————————————————————————————————
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { readChart, toPasteurisation, type ChartRead } from "./chart";
 import {
   SEED_BATCHES,
+  loadBatches,
+  saveBatches,
+  judgePasteurisation,
   batchStates,
   batchDate,
   batchDayLabel,
@@ -152,7 +156,19 @@ export default function ProductionDesk({ operator = "" }: { operator?: string })
   const [line, setLine] = useState("");
   const [only, setOnly] = useState("");
 
-  const all = useMemo(() => batchStates(SEED_BATCHES), []);
+  // Seeded batches regenerate; imported ones are read back after mount so
+  // server and client render the same thing first.
+  const [batches, setBatches] = useState<Batch[]>(SEED_BATCHES);
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    setBatches(loadBatches());
+    setLoaded(true);
+  }, []);
+  useEffect(() => {
+    if (loaded) saveBatches(batches);
+  }, [batches, loaded]);
+
+  const all = useMemo(() => batchStates(batches), [batches]);
   const states = useMemo(() => {
     let out = all;
     if (line) out = out.filter((s) => s.batch.line === line);
@@ -185,6 +201,14 @@ export default function ProductionDesk({ operator = "" }: { operator?: string })
         <Tally n={counts.held} label="not releasable" color={counts.held ? VERM : GREEN} />
         <Tally n={counts.units} label="units packed" />
       </div>
+
+      <ChartImport
+        operator={operator}
+        onSaved={(b) => {
+          setBatches((prev) => [b, ...prev.filter((x) => x.id !== b.id)]);
+          setOpen(b.id);
+        }}
+      />
 
       <div style={{ display: "grid", gap: 10, marginBottom: 22 }}>
         <Pills
@@ -219,6 +243,168 @@ export default function ProductionDesk({ operator = "" }: { operator?: string })
         />
       ))}
     </>
+  );
+}
+
+// ————————————————————————— chart import —————————————————————————
+//
+// Drop the recorder's export and the desk reads the trace: peak, hold,
+// and whether product ever went forward under temperature. Nobody types
+// a number off a printout, which is the whole point — a mistyped peak is
+// invisible afterwards, and a derived one is checkable against the file
+// it came from.
+
+function ChartImport({
+  operator,
+  onSaved,
+}: {
+  operator: string;
+  onSaved: (b: Batch) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [read, setRead] = useState<ChartRead | null>(null);
+  const [over, setOver] = useState(false);
+  const input = useRef<HTMLInputElement | null>(null);
+
+  async function take(file: File | undefined) {
+    if (!file) return;
+    setBusy(true);
+    setError(null);
+    setRead(null);
+    try {
+      setRead(await readChart(file));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "That file could not be read.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (read) {
+    const p = toPasteurisation(read, operator);
+    const v = judgePasteurisation(p, "ice cream");
+    const a = read.analysis;
+    return (
+      <div style={{ ...card, marginBottom: 22, borderLeft: `2px solid ${STATUS_COLOR[v.status]}` }}>
+        <p style={{ ...mono, fontSize: 10, letterSpacing: "0.16em", color: MUTED, marginBottom: 10 }}>
+          READ FROM {read.fileName.toUpperCase()}
+        </p>
+        <p style={{ fontSize: 14.5, marginBottom: 4 }}>{read.product ?? "Product not stated on the chart"}</p>
+        <p style={{ ...mono, fontSize: 11.5, color: MUTED, marginBottom: 14 }}>
+          {read.batchCode ?? "no batch code on the chart"}
+          {read.instrument ? ` \u00b7 ${read.instrument}` : ""}
+          {read.date ? ` \u00b7 ${read.date}` : ""}
+          {` \u00b7 ${read.samples.length} readings`}
+        </p>
+
+        <Line status={v.status} text={v.reason} />
+
+        <Detail k="Peak temperature" v={`${a.peakC}\u00b0C`} />
+        <Detail k="Longest hold above the limit" v={`${a.holdSeconds}s (${a.holdFrom} to ${a.holdTo})`} />
+        <Detail k="Sample interval" v={`${a.intervalSeconds}s`} />
+        <Detail k="Trace runs" v={`${a.firstAt} to ${a.lastAt}`} />
+        <Detail
+          k="Divert valve"
+          v={a.divertKnown ? (a.divertSeen ? "Seen operating on this run" : "Column present, never opened") : "Not in this export"}
+        />
+        <Detail
+          k="Forward flow below the limit"
+          v={a.divertKnown ? `${a.belowLimitForwardSeconds}s` : "Cannot be judged without a divert column"}
+        />
+
+        {read.notes.map((nt, i) => (
+          <p key={i} style={{ fontSize: 12.5, color: BRASS, marginTop: 10, lineHeight: 1.5 }}>
+            {nt}
+          </p>
+        ))}
+
+        <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
+          <button
+            onClick={() => {
+              const id = read.batchCode ?? `IMP-${Date.now()}`;
+              onSaved({
+                id,
+                product: read.product ?? id,
+                line: "ice cream",
+                volume: 0,
+                volumeUnit: "L",
+                unitsMade: 0,
+                packSize: "\u2014",
+                startedAt: a.firstAt,
+                daysAgo: 0,
+                by: operator || "\u2014",
+                madeOn: read.date,
+                pasteurisation: toPasteurisation(read, operator),
+                metal: [],
+                fill: [],
+                imported: true,
+              });
+              setRead(null);
+            }}
+            className="btn btn-primary"
+            style={{ fontSize: 13, padding: "7px 14px" }}
+          >
+            Record against {read.batchCode ?? "a new batch"}
+          </button>
+          <button
+            onClick={() => setRead(null)}
+            style={{ font: "inherit", fontSize: 13, padding: "7px 14px", border: "1px solid var(--rule-strong)", background: "transparent", color: "inherit", borderRadius: 999, cursor: "pointer" }}
+          >
+            Discard
+          </button>
+        </div>
+        <p style={{ fontSize: 12, color: MUTED, marginTop: 12, lineHeight: 1.5 }}>
+          Recording this creates the batch with its heat treatment evidenced. Detector challenges and fill weights are
+          still to come, so it will read as not yet releasable until they are.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      onDragOver={(e) => { e.preventDefault(); setOver(true); }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => { e.preventDefault(); setOver(false); void take(e.dataTransfer.files?.[0]); }}
+      style={{
+        ...card,
+        marginBottom: 22,
+        borderStyle: "dashed",
+        borderColor: over ? "var(--text)" : "var(--rule)",
+        textAlign: "center",
+        padding: "22px 18px",
+      }}
+    >
+      <p style={{ fontSize: 14, marginBottom: 4 }}>
+        {busy ? "Reading the trace\u2026" : "Drop a chart recorder export"}
+      </p>
+      <p style={{ fontSize: 12.5, color: MUTED, marginBottom: 12, lineHeight: 1.55, maxWidth: 520, marginLeft: "auto", marginRight: "auto" }}>
+        The desk reads the trace and works out the peak, the hold, and whether product ever went forward below the
+        limit. Nothing is typed off a printout. CSV or Excel — a chart exported as PDF is a picture of a graph
+        rather than a table of readings.
+      </p>
+      <button
+        onClick={() => input.current?.click()}
+        disabled={busy}
+        className="btn btn-primary"
+        style={{ fontSize: 13, padding: "7px 14px" }}
+      >
+        Choose a file
+      </button>
+      <input
+        ref={input}
+        type="file"
+        accept=".csv,.txt,.xlsx,.xls,.xlsm"
+        onChange={(e) => void take(e.target.files?.[0] ?? undefined)}
+        style={{ display: "none" }}
+      />
+      {error && (
+        <p style={{ fontSize: 13, color: VERM, marginTop: 12, lineHeight: 1.5, maxWidth: 560, marginLeft: "auto", marginRight: "auto" }}>
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -259,7 +445,7 @@ function BatchRow({
         <span style={{ flex: 1, minWidth: 0 }}>
           <span style={{ display: "block", fontSize: 14.5 }}>{b.product}</span>
           <span style={{ ...mono, display: "block", fontSize: 11.5, color: MUTED, marginTop: 3 }}>
-            {b.id} \u00b7 {batchDayLabel(b)} \u00b7 {b.by}
+            {b.id} · {batchDayLabel(b)} · {b.by}
           </span>
         </span>
         <span style={{ ...mono, fontSize: 12, color: MUTED, ...col(90) }}>

@@ -40,6 +40,10 @@ export type Pasteurisation = {
   peakC: number;
   holdSeconds: number;
   chartRef: string;
+  // Seconds of product going forward while below the critical limit,
+  // where the chart is able to say. A peak and a hold can both look fine
+  // while this is non-zero, and this is the one that matters.
+  belowLimitForwardSeconds?: number;
   divertTested: boolean;
   divertTestedBy?: string;
   at: string;
@@ -85,6 +89,10 @@ export type Batch = {
   fill: FillCheck[];
   // Set only when somebody stopped the batch.
   stopped?: string;
+  // Created by importing a chart rather than shipped with the demo.
+  imported?: boolean;
+  // The date the chart said, where it said one.
+  madeOn?: string;
 };
 
 // ————————————————————————— judging —————————————————————————
@@ -111,6 +119,12 @@ export function judgePasteurisation(p: Pasteurisation | undefined, line: Batch["
     return {
       status: "overdue",
       reason: `Held ${p.holdSeconds}s against a ${PASTEURISATION.holdSeconds}s minimum. Temperature alone does not pasteurise.`,
+    };
+  }
+  if (p.belowLimitForwardSeconds !== undefined && p.belowLimitForwardSeconds > 0) {
+    return {
+      status: "overdue",
+      reason: `${p.belowLimitForwardSeconds}s of product went forward below ${PASTEURISATION.criticalC}°C. The peak and the hold are met elsewhere on the run, but under-temperature product reached the filler.`,
     };
   }
   if (PASTEURISATION.divertTestRequired && !p.divertTested) {
@@ -303,15 +317,52 @@ export function productionExceptions(batches: Batch[]) {
 // ————————————————————————— dates —————————————————————————
 
 export function batchDate(b: Batch): string {
+  if (b.madeOn) return b.madeOn;
   const d = new Date();
   d.setDate(d.getDate() - b.daysAgo);
   return new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(d);
 }
 
 export function batchDayLabel(b: Batch): string {
+  if (b.madeOn) return b.madeOn;
   if (b.daysAgo === 0) return "Today";
   if (b.daysAgo === 1) return "Yesterday";
   return `${b.daysAgo} days ago`;
+}
+
+// ————————————————————————— persistence —————————————————————————
+//
+// Imported batches survive a reload; the seeded week regenerates every
+// time. Only what somebody actually brought in is stored, so the demo
+// always opens on the same picture with their own work on top of it.
+
+const BATCHES_KEY = "salcombe-dairy.production.batches";
+
+export function loadBatches(): Batch[] {
+  if (typeof window === "undefined") return SEED_BATCHES;
+  try {
+    const raw = window.localStorage.getItem(BATCHES_KEY);
+    if (!raw) return SEED_BATCHES;
+    const saved = JSON.parse(raw) as Batch[];
+    if (!Array.isArray(saved)) return SEED_BATCHES;
+    const mine = saved.filter((b) => b && b.imported && typeof b.id === "string");
+    // An imported batch with the same code as a seeded one replaces it:
+    // a chart for IC-2609-31 is evidence about that batch, not a second
+    // batch that happens to share its number.
+    const ids = new Set(mine.map((b) => b.id));
+    return [...mine, ...SEED_BATCHES.filter((b) => !ids.has(b.id))];
+  } catch {
+    return SEED_BATCHES;
+  }
+}
+
+export function saveBatches(batches: Batch[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(BATCHES_KEY, JSON.stringify(batches.filter((b) => b.imported)));
+  } catch {
+    // Storage full or blocked: it stays in memory for this session.
+  }
 }
 
 // ————————————————————————— seeded batches —————————————————————————
