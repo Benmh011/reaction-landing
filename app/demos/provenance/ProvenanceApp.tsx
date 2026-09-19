@@ -1,7 +1,9 @@
 "use client";
 
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { DOCUMENTS, TRAINING, PEOPLE, PRODUCTION_LOG, QUESTIONNAIRES, dateStatus, dueLabel, daysUntil, type Status } from "./data";
+import { DOCUMENTS, TRAINING, PEOPLE, QUESTIONNAIRES, dateStatus, dueLabel, daysUntil, type Status } from "./data";
+import ProductionDesk from "./ProductionDesk";
+import { SEED_BATCHES, productionExceptions, batchStates } from "./production";
 import {
   documentRegisterBlob,
   documentRegisterFilename,
@@ -144,6 +146,13 @@ type Item = { severe: boolean; text: string; goto: SectionId };
 function buildPicture(movements: Movement[], readings: Reading[], runs: Run[]): Item[] {
   const items: Item[] = [];
 
+  for (const e of productionExceptions(SEED_BATCHES)) {
+    items.push({
+      severe: e.severe,
+      text: `${e.product} (${e.batchId}) — ${e.reason}`,
+      goto: "production",
+    });
+  }
   for (const d of DOCUMENTS) {
     const st = dateStatus(d.next);
     if (st === "overdue") items.push({ severe: true, text: `${d.name} review is overdue — was due ${d.next}, ${dueLabel(d.next)}.`, goto: "documents" });
@@ -280,8 +289,12 @@ function Overview({ items, onGo }: { items: Item[]; onGo: (id: SectionId) => voi
         </p>
       )}
       <p style={{ fontSize: 13, color: MUTED, marginTop: 18, lineHeight: 1.55 }}>
-        {PRODUCTION_LOG.length} production records captured today. Last CCP check passed{" "}
-        {PRODUCTION_LOG.filter((r) => r.kind === "ccp").slice(-1)[0]?.time ?? "—"}. Next audit window opens March 2027.
+        {(() => {
+          const all = batchStates(SEED_BATCHES);
+          const held = all.filter((b) => b.status === "overdue" && !b.batch.stopped).length;
+          const units = all.filter((b) => !b.batch.stopped).reduce((a, b) => a + b.batch.unitsMade, 0);
+          return `${all.length} batches this week, ${units.toLocaleString("en-GB")} units packed, ${held === 0 ? "all releasable" : `${held} not releasable`}.`;
+        })()}
       </p>
     </>
   );
@@ -807,51 +820,6 @@ function Detail({ k, v }: { k: string; v: string }) {
   );
 }
 
-function ProductionLog() {
-  const kindColor: Record<string, string> = { ccp: VERM, batch: BLUE, clean: BRASS, check: GREEN };
-  return (
-    <>
-      <SectionTitle
-        title="Production records"
-        sub="Checks spoken aloud at the line — wet hands, gloves, cold room — land here as structured, timestamped records. No clipboard, no keying-in later."
-      />
-      <div style={{ display: "grid", gap: 0 }}>
-        {PRODUCTION_LOG.map((r, i) => (
-          <div
-            key={i}
-            style={{
-              display: "grid",
-              gridTemplateColumns: "52px 10px 1fr",
-              gap: 14,
-              alignItems: "start",
-              padding: "13px 0",
-              borderBottom: "1px solid var(--rule)",
-            }}
-          >
-            <span style={{ ...mono, fontSize: 12.5, color: MUTED, paddingTop: 2 }}>{r.time}</span>
-            <span
-              aria-hidden
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: 99,
-                marginTop: 6,
-                background: kindColor[r.kind] ?? MUTED,
-              }}
-            />
-            <div>
-              <p style={{ fontSize: 14 }}>{r.entry}</p>
-              <p style={{ fontSize: 12.5, color: MUTED, marginTop: 3 }}>
-                {r.who}, {r.via === "voice" ? "voice capture" : "instrument feed"}
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </>
-  );
-}
-
 // ————————————————————————— shell —————————————————————————
 
 // The one moving part in the sidebar. A single gold bar that measures the
@@ -1009,7 +977,7 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
             {active === "trace" && <RecallDesk movements={movements} onMovements={setMovements} operator={operator} />}
             {active === "stock" && <StockDesk operator={operator} movements={movements} onMovements={setMovements} />}
             {active === "coldchain" && <MonitorDesk />}
-            {active === "production" && <ProductionLog />}
+            {active === "production" && <ProductionDesk operator={operator} />}
             {active === "checks" && <CheckDesk operator={operator} readings={readings} onReadings={setReadings} />}
             {active === "procedures" && <SopDesk operator={operator} runs={runs} onRuns={setRuns} />}
           </div>

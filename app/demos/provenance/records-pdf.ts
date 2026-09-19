@@ -37,6 +37,15 @@ import {
 } from "./stock";
 import type { GoodsIn, GoodsLine } from "./goodsin";
 import { dateStatus, daysUntil, dueLabel, type ControlledDoc } from "./data";
+import {
+  judgeBatch,
+  judgeFill,
+  tne,
+  batchDate,
+  METAL_LIMITS,
+  PASTEURISATION,
+  type Batch,
+} from "./production";
 
 const NAVY: [number, number, number] = [20, 33, 58];
 const MUTED: [number, number, number] = [111, 116, 130];
@@ -1372,6 +1381,186 @@ export async function buildTrainingMatrixPdf(rows: TrainRow[], operator: string)
 
 export async function trainingMatrixBlob(rows: TrainRow[], operator: string): Promise<Blob> {
   const doc = await buildTrainingMatrixPdf(rows, operator);
+  return doc.output("blob");
+}
+
+// ————————————————————————— batch record —————————————————————————
+//
+// The document a dairy is asked for first after a complaint, and the one
+// that has to exist by law: what was made, and the evidence that the
+// heat treatment, the detector and the fill weights all held.
+
+export function batchRecordFilename(b: Batch): string {
+  return `batch-${slug(b.id)}-${stamp()}.pdf`;
+}
+
+export async function buildBatchRecordPdf(b: Batch, operator: string): Promise<jsPDF> {
+  const st = judgeBatch(b);
+  const d = await open("Production record", b.product);
+  const h = makeHelpers(d, b.id);
+  const colourOf = (x: string): [number, number, number] =>
+    x === "ok" ? GREEN : x === "due" ? AMBER : RED;
+
+  h.kv("Batch", b.id, NAVY, true);
+  h.kv("Made", `${batchDate(b)}, started ${b.startedAt}`);
+  h.kv("Line", b.line === "ice cream" ? "Ice cream" : "Chocolate");
+  h.kv("Volume", `${b.volume.toLocaleString("en-GB")} ${b.volumeUnit}`);
+  h.kv("Packed", b.stopped ? "Nothing packed" : `${b.unitsMade.toLocaleString("en-GB")} \u00d7 ${b.packSize}`);
+  h.kv("Run by", b.by);
+  h.kv("Produced by", operator || "\u2014");
+  d.y += 3;
+  provenance(h, "production record", `batch ${b.id} and every control recorded against it`);
+  d.y += 5;
+
+  // The answer to the only question anybody is asking, first.
+  h.ensure(20);
+  d.doc.setFillColor(...colourOf(st.status));
+  d.doc.rect(M - 4, d.y - 4, 1.2, 12, "F");
+  d.doc.setFont("helvetica", "bold");
+  d.doc.setFontSize(11.5);
+  d.doc.setTextColor(...colourOf(st.status));
+  d.doc.text(
+    b.stopped ? "Stopped and diverted" : st.status === "ok" ? "Releasable" : st.status === "due" ? "Releasable, with a note" : "Not releasable",
+    M,
+    d.y,
+  );
+  d.y += 6;
+  h.line(st.release, 10, NAVY);
+  d.y += 6;
+
+  // ── heat treatment ──
+  h.head("Pasteurisation");
+  h.line(st.pasteurisation.reason, 9.5, colourOf(st.pasteurisation.status));
+  if (b.pasteurisation) {
+    d.y += 2;
+    h.kv("Peak temperature", `${b.pasteurisation.peakC}\u00b0C`);
+    h.kv("Hold", `${b.pasteurisation.holdSeconds}s`);
+    h.kv("Critical limit", `${PASTEURISATION.criticalC}\u00b0C for ${PASTEURISATION.holdSeconds}s`);
+    h.kv("Process set to", `${PASTEURISATION.targetC}\u00b0C`);
+    h.kv("Chart reference", b.pasteurisation.chartRef);
+    h.kv(
+      "Divert valve tested",
+      b.pasteurisation.divertTested ? `Yes \u00b7 ${b.pasteurisation.divertTestedBy ?? ""}`.trim() : "No",
+      b.pasteurisation.divertTested ? NAVY : AMBER,
+      !b.pasteurisation.divertTested,
+    );
+    h.kv("Recorded", `${b.pasteurisation.at} \u00b7 ${b.pasteurisation.by}`);
+  }
+  d.y += 5;
+
+  // ── metal detection ──
+  h.head(`Metal detection (${b.metal.length})`);
+  h.line(st.metal.reason, 9.5, colourOf(st.metal.status));
+  if (b.metal.length) {
+    d.y += 3;
+    d.doc.setFontSize(8);
+    d.doc.setTextColor(...MUTED);
+    d.doc.text("When", M, d.y);
+    d.doc.text("At", M + 42, d.y);
+    d.doc.text("By", M + 62, d.y);
+    d.doc.text("Fe", M + 108, d.y);
+    d.doc.text("Non-Fe", M + 128, d.y);
+    d.doc.text("Stainless", W - M, d.y, { align: "right" });
+    d.y += 2;
+    h.rule(d.y, 0.15);
+    d.y += 5;
+    for (const m of b.metal) {
+      h.ensure(9);
+      const pass = m.fe && m.nonFe && m.stainless;
+      if (!pass) {
+        d.doc.setFillColor(...RED);
+        d.doc.rect(M - 4, d.y - 3.2, 1.2, 7.6, "F");
+      }
+      d.doc.setFont("helvetica", "normal");
+      d.doc.setFontSize(9.5);
+      d.doc.setTextColor(...NAVY);
+      d.doc.text(fit(d.doc, m.when, 40), M, d.y);
+      d.doc.setFontSize(8.5);
+      d.doc.setTextColor(...MUTED);
+      d.doc.text(m.at, M + 42, d.y);
+      d.doc.text(fit(d.doc, m.by, 44), M + 62, d.y);
+      d.doc.setFont("helvetica", "bold");
+      d.doc.setFontSize(8.5);
+      d.doc.setTextColor(...(m.fe ? GREEN : RED));
+      d.doc.text(m.fe ? "pass" : "MISS", M + 108, d.y);
+      d.doc.setTextColor(...(m.nonFe ? GREEN : RED));
+      d.doc.text(m.nonFe ? "pass" : "MISS", M + 128, d.y);
+      d.doc.setTextColor(...(m.stainless ? GREEN : RED));
+      d.doc.text(m.stainless ? "pass" : "MISS", W - M, d.y, { align: "right" });
+      d.y += 4.6;
+      if (m.note) {
+        d.doc.setFont("helvetica", "normal");
+        d.doc.setFontSize(8);
+        d.doc.setTextColor(...AMBER);
+        const nl = d.doc.splitTextToSize(m.note, W - M * 2 - 4);
+        h.ensure(nl.length * 3.8 + 2);
+        d.doc.text(nl, M, d.y);
+        d.y += nl.length * 3.8 + 1;
+      }
+      h.rule(d.y - 1.6, 0.1);
+      d.y += 1.5;
+    }
+    d.y += 2;
+    h.line(
+      `Challenge pieces: Fe ${METAL_LIMITS.fe}mm, non-Fe ${METAL_LIMITS.nonFe}mm, stainless ${METAL_LIMITS.stainless}mm.`,
+      8.5,
+      MUTED,
+    );
+  }
+  d.y += 5;
+
+  // ── fill weights ──
+  h.head(`Fill weights (${b.fill.length})`);
+  h.line(st.fill.reason, 9.5, colourOf(st.fill.status));
+  for (const f of b.fill) {
+    const r = judgeFill(f);
+    const t1 = tne(f.nominal);
+    d.y += 3;
+    h.kv("Declared quantity", `${f.nominal}${f.unit}`);
+    h.kv("Tolerance", `${t1.toFixed(1)}${f.unit} below declared`);
+    h.kv("Sample", `${f.samples.length} packs at ${f.at}, ${f.by}`);
+    h.kv("Mean", `${r.mean.toFixed(1)}${f.unit}`, r.mean < f.nominal ? RED : NAVY, r.mean < f.nominal);
+    h.kv("Range", `${r.min}${f.unit} to ${r.max}${f.unit}`);
+    h.kv(
+      "Below tolerance",
+      `${r.belowTne} of ${f.samples.length}`,
+      r.belowTne ? AMBER : GREEN,
+      r.belowTne > 0,
+    );
+    d.y += 2;
+    h.ensure(10);
+    d.doc.setFont("helvetica", "normal");
+    d.doc.setFontSize(8.5);
+    let x = M;
+    for (const v of f.samples) {
+      const under = v < f.nominal - t1;
+      const wayUnder = v < f.nominal - t1 * 2;
+      d.doc.setTextColor(...(wayUnder ? RED : under ? AMBER : MUTED));
+      const label = String(v);
+      const w = d.doc.getTextWidth(label) + 6;
+      if (x + w > W - M) {
+        x = M;
+        d.y += 5;
+        h.ensure(8);
+      }
+      d.doc.text(label, x, d.y);
+      x += w;
+    }
+    d.y += 6;
+  }
+
+  if (b.stopped) {
+    d.y += 4;
+    h.head("Why it was stopped");
+    h.line(b.stopped, 10, AMBER);
+  }
+
+  h.footer();
+  return d.doc;
+}
+
+export async function batchRecordBlob(b: Batch, operator: string): Promise<Blob> {
+  const doc = await buildBatchRecordPdf(b, operator);
   return doc.output("blob");
 }
 
