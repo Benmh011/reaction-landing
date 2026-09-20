@@ -20,6 +20,7 @@ import {
   loadBatches,
   saveBatches,
   judgePasteurisation,
+  MIN_SAMPLE,
   batchStates,
   batchDate,
   batchDayLabel,
@@ -486,9 +487,9 @@ function MetalForm({ operator, onSave, onCancel }: { operator: string; onSave: (
 
   return (
     <FormPanel
-      title="Record a detector challenge"
+      title="Record a detector test"
       onCancel={onCancel}
-      saveLabel="Record challenge"
+      saveLabel="Record test"
       note={
         failing
           ? "A missed piece stops the run. Everything packed since the last passing challenge is suspect, and the note is where that decision gets recorded."
@@ -533,14 +534,14 @@ function FillForm({ operator, onSave, onCancel }: { operator: string; onSave: (f
 
   return (
     <FormPanel
-      title="Record a fill weight check"
+      title="Record a weight check"
       onCancel={onCancel}
       saveLabel="Record check"
       disabled={!ok}
       note={
         preview
           ? `${samples.length} packs, mean ${preview.mean.toFixed(1)}${unit}, tolerance ${tne(nom).toFixed(1)}${unit} below declared. ${preview.verdict.reason}`
-          : "Enter the declared quantity and at least two weights. The verdict is calculated, not chosen."
+          : `Enter the declared quantity and the weights. Below ${MIN_SAMPLE} packs the average cannot be judged, only whether any single pack is under the absolute limit. The verdict is calculated, not chosen.`
       }
       onSave={() => onSave({ at: at.trim() || nowClock(), by: operator || "\u2014", nominal: nom, unit, samples })}
     >
@@ -553,7 +554,7 @@ function FillForm({ operator, onSave, onCancel }: { operator: string; onSave: (f
         onChange={setRaw}
         width={380}
         placeholder="504 498 507 501 495 503"
-        hint="Spaces or commas. Ten packs is the usual sample."
+        hint={`Spaces or commas. ${MIN_SAMPLE} is the minimum for judging the average, ten is the usual.`}
       />
     </FormPanel>
   );
@@ -913,7 +914,7 @@ function BatchRow({
               onClick={() => setAdding("metal")}
               style={{ font: "inherit", fontSize: 12.5, padding: "6px 12px", border: "1px solid var(--rule-strong)", background: "transparent", color: "inherit", borderRadius: 999, cursor: "pointer" }}
             >
-              Record a detector challenge
+              Record a test
             </button>
               </div>
             )}
@@ -973,7 +974,7 @@ function BatchRow({
               onClick={() => setAdding("fill")}
               style={{ font: "inherit", fontSize: 12.5, padding: "6px 12px", border: "1px solid var(--rule-strong)", background: "transparent", color: "inherit", borderRadius: 999, cursor: "pointer" }}
             >
-              Record a fill weight check
+              Record a weight check
             </button>
               </div>
             )}

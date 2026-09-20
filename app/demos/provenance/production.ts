@@ -184,6 +184,12 @@ export function judgeMetal(checks: MetalCheck[], stopped?: string): Verdict {
 // quantity, and only a small number of packs may fall below the
 // tolerable negative error. Well short of the full legal method, and
 // close enough to catch a line drifting light.
+//
+// The average is only meaningful on a reasonable sample. Below this,
+// three packs that happen to come out heavy would clear a line that is
+// running light, so the mean is not judged at all — only the absolute
+// rule, which applies to every pack however few were weighed.
+export const MIN_SAMPLE = 5;
 export function tne(nominal: number): number {
   if (nominal <= 50) return nominal * 0.09;
   if (nominal <= 100) return 4.5;
@@ -214,9 +220,16 @@ export function judgeFill(f: FillCheck): FillResult {
 
   let verdict: Verdict;
   if (belowTwiceTne > 0) {
+    // Scoped the way the detector is: the exposure runs back to the last
+    // check that passed, not across everything made that day.
     verdict = {
       status: "overdue",
-      reason: `${belowTwiceTne} pack${belowTwiceTne === 1 ? "" : "s"} more than ${t2.toFixed(1)}${f.unit} under the declared ${f.nominal}${f.unit}. No pack may be this light \u2014 quarantine and re-weigh the run.`,
+      reason: `${belowTwiceTne} pack${belowTwiceTne === 1 ? "" : "s"} more than ${t2.toFixed(1)}${f.unit} under the declared ${f.nominal}${f.unit}. No pack may be this light. Everything packed since the last passing weight check is suspect \u2014 hold that and re-weigh.`,
+    };
+  } else if (n < MIN_SAMPLE) {
+    verdict = {
+      status: "due",
+      reason: `Only ${n} pack${n === 1 ? "" : "s"} weighed. No pack is under the absolute limit, but the average cannot be judged on a sample this small \u2014 ${MIN_SAMPLE} is the minimum and ten is the usual.`,
     };
   } else if (mean < f.nominal) {
     verdict = {
