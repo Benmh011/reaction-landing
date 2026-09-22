@@ -160,7 +160,7 @@ export default function ProductionDesk({ operator = "" }: { operator?: string })
   const [line, setLine] = useState("");
   const [only, setOnly] = useState("");
   const [starting, setStarting] = useState(false);
-  const [justSaved, setJustSaved] = useState<string | null>(null);
+  const [justSaved, setJustSaved] = useState<{ id: string; existed: boolean } | null>(null);
 
   // Seeded batches regenerate; imported ones are read back after mount so
   // server and client render the same thing first.
@@ -219,20 +219,50 @@ export default function ProductionDesk({ operator = "" }: { operator?: string })
           operator={operator}
           onCancel={() => setStarting(false)}
           onSave={(b) => {
-            setBatches((prev) => [b, ...prev.filter((x) => x.id !== b.id)]);
+            // Starting a batch on a code that already exists is almost
+            // always a typo. Keep whatever was recorded against it
+            // rather than quietly replacing the lot.
+            const found = batches.find((x) => x.id === b.id);
+            const next: Batch = found
+              ? { ...found, ...b, pasteurisation: found.pasteurisation, metal: found.metal, fill: found.fill }
+              : b;
+            setBatches((prev) => [next, ...prev.filter((x) => x.id !== b.id)]);
             setStarting(false);
             setOpen(b.id);
-            setJustSaved(b.id);
+            setJustSaved({ id: b.id, existed: !!found });
           }}
         />
       ) : (
         <ChartImport
           operator={operator}
+          existing={batches}
           onByHand={() => setStarting(true)}
-          onSaved={(b) => {
-            setBatches((prev) => [b, ...prev.filter((x) => x.id !== b.id)]);
-            setOpen(b.id);
-            setJustSaved(b.id);
+          onSaved={(read) => {
+            const id = read.batchCode ?? `IMP-${Date.now()}`;
+            const found = batches.find((x) => x.id === id);
+            const pas = toPasteurisation(read, operator);
+            const next: Batch = found
+              ? { ...found, pasteurisation: pas, madeOn: found.madeOn ?? read.date, imported: true }
+              : {
+                  id,
+                  product: read.product ?? id,
+                  line: "ice cream",
+                  volume: 0,
+                  volumeUnit: "L",
+                  unitsMade: 0,
+                  packSize: "\u2014",
+                  startedAt: read.analysis.firstAt,
+                  daysAgo: 0,
+                  by: operator || "\u2014",
+                  madeOn: read.date,
+                  pasteurisation: pas,
+                  metal: [],
+                  fill: [],
+                  imported: true,
+                };
+            setBatches((prev) => [next, ...prev.filter((x) => x.id !== id)]);
+            setOpen(id);
+            setJustSaved({ id, existed: !!found });
           }}
         />
       )}
@@ -241,7 +271,7 @@ export default function ProductionDesk({ operator = "" }: { operator?: string })
           not obvious from up here. Say where it went and what it still
           needs. */}
       {justSaved && (() => {
-        const st = all.find((x) => x.batch.id === justSaved);
+        const st = all.find((x) => x.batch.id === justSaved.id);
         if (!st) return null;
         const missing = [
           st.batch.metal.length === 0 ? "a detector challenge" : null,
@@ -251,7 +281,10 @@ export default function ProductionDesk({ operator = "" }: { operator?: string })
         return (
           <div style={{ ...card, marginBottom: 22, borderLeft: `2px solid ${STATUS_COLOR[st.status]}` }}>
             <p style={{ fontSize: 13.5, lineHeight: 1.55 }}>
-              Batch <strong style={{ fontWeight: 500 }}>{st.batch.id}</strong> saved and opened below.
+              Batch <strong style={{ fontWeight: 500 }}>{st.batch.id}</strong>{" "}
+              {justSaved.existed
+                ? "already existed — its heat treatment record has been replaced with this chart, and everything else recorded against it was kept. Opened below."
+                : "saved and opened below."}
               {missing.length
                 ? ` It still needs ${missing.join(" and ")} — record those inside the batch.`
                 : " Every control is evidenced."}
@@ -618,11 +651,13 @@ function PasteurisationForm({ operator, onSave, onCancel }: { operator: string; 
 
 function ChartImport({
   operator,
+  existing,
   onSaved,
   onByHand,
 }: {
   operator: string;
-  onSaved: (b: Batch) => void;
+  existing: Batch[];
+  onSaved: (read: ChartRead) => void;
   onByHand: () => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -649,18 +684,47 @@ function ChartImport({
     const p = toPasteurisation(read, operator);
     const v = judgePasteurisation(p, "ice cream");
     const a = read.analysis;
+    // Whether this chart belongs to a batch already on the board. Saying
+    // so before the button is pressed is the difference between an
+    // update and a surprise.
+    const already = read.batchCode ? existing.find((x) => x.id === read.batchCode) : undefined;
+    const kept = already
+      ? [
+          already.metal.length ? `${already.metal.length} detector test${already.metal.length === 1 ? "" : "s"}` : null,
+          already.fill.length ? `${already.fill.length} weight check${already.fill.length === 1 ? "" : "s"}` : null,
+        ].filter(Boolean) as string[]
+      : [];
     return (
       <div style={{ ...card, marginBottom: 22, borderLeft: `2px solid ${STATUS_COLOR[v.status]}` }}>
         <p style={{ ...mono, fontSize: 10, letterSpacing: "0.16em", color: MUTED, marginBottom: 10 }}>
           READ FROM {read.fileName.toUpperCase()}
         </p>
         <p style={{ fontSize: 14.5, marginBottom: 4 }}>{read.product ?? "Product not stated on the chart"}</p>
-        <p style={{ ...mono, fontSize: 11.5, color: MUTED, marginBottom: 14 }}>
+        <p style={{ ...mono, fontSize: 11.5, color: MUTED, marginBottom: already ? 10 : 14 }}>
           {read.batchCode ?? "no batch code on the chart"}
           {read.instrument ? ` \u00b7 ${read.instrument}` : ""}
           {read.date ? ` \u00b7 ${read.date}` : ""}
           {` \u00b7 ${read.samples.length} readings`}
         </p>
+
+        {already && (
+          <div
+            style={{
+              border: "1px solid var(--rule-strong)",
+              borderRadius: 10,
+              padding: "11px 14px",
+              marginBottom: 14,
+            }}
+          >
+            <p style={{ fontSize: 13, lineHeight: 1.55 }}>
+              <strong style={{ fontWeight: 500 }}>Batch {already.id} is already on the board.</strong>{" "}
+              {already.pasteurisation
+                ? `It has a heat treatment record from ${already.pasteurisation.chartRef}. Saving replaces that with this chart.`
+                : "It has no heat treatment record yet. Saving adds this one."}
+              {kept.length ? ` Its ${kept.join(" and ")} stay as they are.` : ""}
+            </p>
+          </div>
+        )}
 
         <Line status={v.status} text={v.reason} />
 
@@ -684,37 +748,26 @@ function ChartImport({
         ))}
 
         <p style={{ fontSize: 12.5, color: MUTED, marginTop: 16, marginBottom: 10, lineHeight: 1.5 }}>
-          {read.batchCode
-            ? `Saving this creates batch ${read.batchCode} with its heat treatment evidenced by this chart. Detector challenges and fill weights are recorded separately, so it reads as not yet releasable until they are.`
-            : "The chart carries no batch code, so this will be saved under a new one. Detector challenges and fill weights are recorded separately."}
+          {already
+            ? "Only the heat treatment record changes. Nothing else recorded against this batch is touched."
+            : read.batchCode
+              ? `Saving this creates batch ${read.batchCode} with its heat treatment evidenced by this chart. Detector tests and weight checks are recorded separately, so it reads as not yet releasable until they are.`
+              : "The chart carries no batch code, so this will be saved under a new one. Detector tests and weight checks are recorded separately."}
         </p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button
             onClick={() => {
-              const id = read.batchCode ?? `IMP-${Date.now()}`;
-              onSaved({
-                id,
-                product: read.product ?? id,
-                line: "ice cream",
-                volume: 0,
-                volumeUnit: "L",
-                unitsMade: 0,
-                packSize: "\u2014",
-                startedAt: a.firstAt,
-                daysAgo: 0,
-                by: operator || "\u2014",
-                madeOn: read.date,
-                pasteurisation: toPasteurisation(read, operator),
-                metal: [],
-                fill: [],
-                imported: true,
-              });
+              onSaved(read);
               setRead(null);
             }}
             className="btn btn-primary"
             style={{ fontSize: 13, padding: "7px 14px" }}
           >
-            {read.batchCode ? `Save as batch ${read.batchCode}` : "Save as a new batch"}
+            {already
+              ? `Update batch ${already.id}`
+              : read.batchCode
+                ? `Save as batch ${read.batchCode}`
+                : "Save as a new batch"}
           </button>
           <button
             onClick={() => setRead(null)}
