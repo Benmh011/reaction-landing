@@ -9,7 +9,7 @@
 // ————————————————————————————————————————————————————————————————
 
 import type { jsPDF } from "jspdf";
-import { fmtQty } from "./stock";
+import { fmtQty, locationLabel } from "./stock";
 import { type Exercise, durationLabel, metTarget, fmtExerciseDate, TARGET_LABEL, TARGET_SOURCE, TARGET_NOTE } from "./recall";
 
 const NAVY: [number, number, number] = [20, 33, 58];
@@ -140,7 +140,7 @@ export async function buildTracePack(ex: Exercise): Promise<jsPDF> {
     ensure(6);
     const c = ex.counts[`${b.materialCode}|${b.lot}|${b.locationId}`];
     doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(...NAVY);
-    doc.text(fit(doc, b.location?.name ?? b.locationId, 56), M, y);
+    doc.text(fit(doc, locationLabel(b.location, b.locationId), 56), M, y);
     doc.setTextColor(...MUTED); doc.setFontSize(8.5);
     doc.text(fit(doc, `${b.material?.name ?? b.materialCode} · ${b.lot}${b.location?.holding ? " · on hold" : ""}`, 74), M + 58, y);
     doc.setTextColor(...NAVY); doc.setFontSize(10);

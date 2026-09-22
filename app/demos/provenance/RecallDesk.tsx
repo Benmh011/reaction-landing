@@ -13,7 +13,7 @@
 // ————————————————————————————————————————————————————————————————
 
 import { useEffect, useMemo, useState } from "react";
-import { fmtQty, type Movement } from "./stock";
+import { fmtQty, locationLabel, type Movement } from "./stock";
 import {
   trace,
   pickableLots,
@@ -313,11 +313,16 @@ function LiveExercise({
           const k = countKey(b);
           const c = ex.counts[k];
           const diff = c === undefined ? null : c - b.qty;
-          const held = ex.holds.some((h) => h.lot.lot === b.lot && h.location === (b.location?.name ?? b.locationId));
+          const held = ex.holds.some(
+            (h) =>
+              h.lot.lot === b.lot &&
+              (h.location === locationLabel(b.location, b.locationId) ||
+                h.location === (b.location?.name ?? b.locationId)),
+          );
           return (
             <div key={k} style={{ ...card, display: "grid", gridTemplateColumns: "1fr auto auto auto", gap: 14, alignItems: "center", padding: "11px 15px", borderLeft: diff === null ? undefined : `2px solid ${diff === 0 ? GREEN : VERM}` }}>
               <div>
-                <p style={{ fontSize: 14 }}>{b.location?.name ?? b.locationId}{b.location?.holding ? " · on hold" : ""}</p>
+                <p style={{ fontSize: 14 }}>{locationLabel(b.location, b.locationId)}{b.location?.holding ? " · on hold" : ""}</p>
                 <p style={{ ...mono, fontSize: 11, color: MUTED, marginTop: 2 }}>{b.material?.name ?? b.materialCode} · {b.lot}</p>
                 <p style={{ ...mono, fontSize: 11.5, marginTop: 3 }}>should be {fmtQty(b.qty, b.unit)}</p>
               </div>
@@ -355,7 +360,7 @@ function LiveExercise({
               </span>
               {!b.location?.holding && !held ? (
                 <button
-                  onClick={() => onHold(holdMovements(b, ex.by, ex.id), { lot: { materialCode: b.materialCode, lot: b.lot }, location: b.location?.name ?? b.locationId, qty: b.qty, unit: b.unit }, k)}
+                  onClick={() => onHold(holdMovements(b, ex.by, ex.id), { lot: { materialCode: b.materialCode, lot: b.lot }, location: locationLabel(b.location, b.locationId), qty: b.qty, unit: b.unit }, k)}
                   style={{ font: "inherit", fontSize: 12.5, padding: "6px 12px", border: `1px solid ${VERM}`, color: VERM, background: "transparent", borderRadius: 999, cursor: "pointer" }}
                 >
                   Place on hold
