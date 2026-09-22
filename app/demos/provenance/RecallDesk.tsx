@@ -28,6 +28,7 @@ import {
   metTarget,
   fmtExerciseDate,
   TARGET_MINS,
+  TARGET_SCHEME_NOTE,
   type Exercise,
   type LotRef,
   type Trace,
@@ -200,7 +201,8 @@ export default function RecallDesk({
           </button>
         </div>
         <p style={{ fontSize: 12.5, color: MUTED, marginTop: 10, lineHeight: 1.5 }}>
-          The clock starts when you press the button. The target is a full trace, reconciled to 100%, inside {TARGET_MINS / 60} hours.
+          The clock starts when you press the button. Salcombe Dairy&rsquo;s traceability procedure sets the target at a
+          full trace, reconciled to 100%, within {TARGET_MINS / 60} hours. {TARGET_SCHEME_NOTE}
         </p>
       </div>
 

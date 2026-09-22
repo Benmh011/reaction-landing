@@ -10,7 +10,7 @@
 
 import type { jsPDF } from "jspdf";
 import { fmtQty } from "./stock";
-import { type Exercise, durationLabel, metTarget, fmtExerciseDate, TARGET_MINS } from "./recall";
+import { type Exercise, durationLabel, metTarget, fmtExerciseDate, TARGET_LABEL, TARGET_SOURCE, TARGET_NOTE } from "./recall";
 
 const NAVY: [number, number, number] = [20, 33, 58];
 const MUTED: [number, number, number] = [111, 116, 130];
@@ -20,6 +20,14 @@ const AMBER: [number, number, number] = [163, 119, 42];
 const GREEN: [number, number, number] = [22, 122, 91];
 
 const W = 210, H = 297, M = 18;
+
+// Trim to fit a column, measured rather than guessed.
+function fit(doc: jsPDF, text: string, maxMm: number): string {
+  if (doc.getTextWidth(text) <= maxMm) return text;
+  let out = text;
+  while (out.length > 1 && doc.getTextWidth(out + "\u2026") > maxMm) out = out.slice(0, -1);
+  return out.trimEnd() + "\u2026";
+}
 
 export function tracePackFilename(ex: Exercise): string {
   const when = new Date(ex.startedTs).toISOString().slice(0, 10);
@@ -80,8 +88,10 @@ export async function buildTracePack(ex: Exercise): Promise<jsPDF> {
   kv("Run by", ex.by);
   kv("Started", fmtExerciseDate(ex));
   kv("Duration", durationLabel(ex) + (ex.completedTs ? "" : " (in progress)"));
-  kv("Target", `Full trace within ${TARGET_MINS / 60} hours, reconciled to 100%`);
+  kv("Target", `${TARGET_LABEL} · site-defined, ${TARGET_SOURCE}`);
   kv("Result", met ? "Target met" : "Target not met", met ? GREEN : RED, true);
+  y += 3;
+  line(TARGET_NOTE, 8.5, MUTED);
   y += 4;
 
   if (!t) {
@@ -112,11 +122,11 @@ export async function buildTracePack(ex: Exercise): Promise<jsPDF> {
   for (const d of t.dispatches) {
     ensure(6);
     doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(...NAVY);
-    doc.text(d.customer, M, y);
-    doc.setTextColor(...MUTED); doc.setFontSize(9);
-    doc.text(`${d.material?.name ?? d.lot.materialCode} · ${d.lot.lot}${d.ref ? ` · ${d.ref}` : ""}`, M + 62, y);
+    doc.text(fit(doc, d.customer, 56), M, y);
+    doc.setTextColor(...MUTED); doc.setFontSize(8.5);
+    doc.text(fit(doc, `${d.material?.name ?? d.lot.materialCode} · ${d.lot.lot}${d.ref ? ` · ${d.ref}` : ""}`, 86), M + 58, y);
     doc.setTextColor(...NAVY); doc.setFontSize(10);
-    doc.text(fmtQty(d.qty, d.unit), W - M - 24, y, { align: "right" });
+    doc.text(fmtQty(d.qty, d.unit), W - M - 26, y, { align: "right" });
     doc.setTextColor(...MUTED); doc.setFontSize(9);
     doc.text(d.at, W - M, y, { align: "right" });
     y += 5.5;
@@ -130,11 +140,11 @@ export async function buildTracePack(ex: Exercise): Promise<jsPDF> {
     ensure(6);
     const c = ex.counts[`${b.materialCode}|${b.lot}|${b.locationId}`];
     doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(...NAVY);
-    doc.text(b.location?.name ?? b.locationId, M, y);
-    doc.setTextColor(...MUTED); doc.setFontSize(9);
-    doc.text(`${b.material?.name ?? b.materialCode} · ${b.lot}${b.location?.holding ? " · on hold" : ""}`, M + 62, y);
+    doc.text(fit(doc, b.location?.name ?? b.locationId, 56), M, y);
+    doc.setTextColor(...MUTED); doc.setFontSize(8.5);
+    doc.text(fit(doc, `${b.material?.name ?? b.materialCode} · ${b.lot}${b.location?.holding ? " · on hold" : ""}`, 74), M + 58, y);
     doc.setTextColor(...NAVY); doc.setFontSize(10);
-    doc.text(`book ${fmtQty(b.qty, b.unit)}`, W - M - 30, y, { align: "right" });
+    doc.text(`book ${fmtQty(b.qty, b.unit)}`, W - M - 32, y, { align: "right" });
     if (c === undefined) { doc.setTextColor(...AMBER); doc.text("not counted", W - M, y, { align: "right" }); }
     else if (c !== b.qty) { doc.setTextColor(...RED); doc.setFont("helvetica", "bold"); doc.text(`counted ${fmtQty(c, b.unit)}`, W - M, y, { align: "right" }); }
     else { doc.setTextColor(...GREEN); doc.text(`counted ${fmtQty(c, b.unit)}`, W - M, y, { align: "right" }); }
@@ -144,7 +154,7 @@ export async function buildTracePack(ex: Exercise): Promise<jsPDF> {
 
   // ── reconciliation ──
   head("Reconciliation");
-  const cols = [M, M + 46, M + 66, M + 86, M + 106, M + 124, M + 142, W - M - 14, W - M];
+  const cols = [M, 60, 78, 94, 112, 128, 144, 162, W - M];
   const heads = ["Lot", "In", "Counted", "On hold", "Dispatched", "Sold", "Used", "Waste", "Result"];
   ensure(10);
   doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...MUTED);
@@ -153,12 +163,12 @@ export async function buildTracePack(ex: Exercise): Promise<jsPDF> {
   for (const r of t.reconciliation) {
     ensure(7);
     doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...NAVY);
-    doc.text(r.lot.lot, cols[0], y);
+    doc.text(fit(doc, r.lot.lot, 40), cols[0], y);
     const vals = [r.in, r.counted, r.onHold, r.dispatched, r.sold, r.consumed, r.waste].map((v) => String(Math.round(v * 10) / 10));
     vals.forEach((v, i) => doc.text(v, cols[i + 1], y, { align: "right" }));
     const ok = r.pct >= 100 && r.uncounted === 0;
     doc.setFont("helvetica", "bold"); doc.setTextColor(...(ok ? GREEN : r.uncounted ? AMBER : RED));
-    doc.text(`${r.pct}%`, cols[8], y, { align: "right" });
+    doc.text(r.uncounted ? "not reconciled" : `${r.pct}%`, cols[8], y, { align: "right" });
     y += 5.5;
     if (r.gap !== 0 || r.uncounted) {
       doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(...(r.uncounted ? AMBER : RED));

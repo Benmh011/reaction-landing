@@ -341,15 +341,32 @@ export function durationLabel(ex: Exercise): string {
   return m ? `${h}h ${m}m` : `${h}h`;
 }
 
-// The claim already made in the answer bank — a trace to 100% within
-// four hours — so the record states plainly whether this one met it.
+// Salcombe Dairy's own target, set by their traceability procedure.
+//
+// Worth being exact about, because the software said otherwise and a
+// technical manager would have noticed: the certification scheme
+// requires a site to define a timescale and test against it at least
+// annually. It does not name a number. Four hours is the site's, and
+// this is the one line to change when their real procedure says
+// something else.
 export const TARGET_MINS = 4 * 60;
+export const TARGET_SOURCE = "QMS-07";
+export const TARGET_LABEL = `Full trace within ${TARGET_MINS / 60} hours, reconciled to 100%`;
+export const TARGET_OWNER_NOTE =
+  "This target is Salcombe Dairy's own, set by its traceability procedure.";
+export const TARGET_SCHEME_NOTE =
+  "The certification scheme requires a timescale to be defined and tested at least annually; it does not specify one.";
+export const TARGET_NOTE = `${TARGET_OWNER_NOTE} ${TARGET_SCHEME_NOTE}`;
 
 export function metTarget(ex: Exercise): boolean {
   if (!ex.completedTs || !ex.snapshot) return false;
   const within = ex.completedTs - ex.startedTs <= TARGET_MINS * 60_000;
+  // Every location counted, not just every lot adding up. Without this a
+  // trace where nothing was counted reconciles to 100% on book quantity
+  // and reports the target as met.
+  const counted = ex.snapshot.reconciliation.every((r) => r.uncounted === 0);
   const full = ex.snapshot.reconciliation.every((r) => r.pct >= 100);
-  return within && full;
+  return within && counted && full;
 }
 
 export function fmtExerciseDate(ex: Exercise): string {
