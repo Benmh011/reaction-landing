@@ -897,7 +897,9 @@ function BatchRow({
         <span style={{ flex: "1 1 210px", minWidth: 0 }}>
           <span style={{ display: "block", fontSize: 14.5 }}>{b.product}</span>
           <span style={{ ...mono, display: "block", fontSize: 11.5, color: MUTED, marginTop: 3 }}>
-            {b.id} · {batchDayLabel(b)} · {b.by}
+            <span style={{ whiteSpace: "nowrap" }}>{b.id}</span> ·{" "}
+            <span style={{ whiteSpace: "nowrap" }}>{batchDayLabel(b)}</span> ·{" "}
+            <span style={{ whiteSpace: "nowrap" }}>{b.by}</span>
           </span>
         </span>
         <span style={{ ...mono, fontSize: 12, color: MUTED, ...col(90) }}>

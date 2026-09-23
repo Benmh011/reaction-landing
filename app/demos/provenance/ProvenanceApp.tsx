@@ -647,7 +647,8 @@ function Personnel() {
                 <span style={{ flex: "1 1 200px", minWidth: 0 }}>
                   <span style={{ display: "block", fontSize: 15 }}>{p.name}</span>
                   <span style={{ display: "block", fontSize: 12, color: MUTED, marginTop: 2 }}>
-                    {p.role} · {p.site}
+                    <span style={{ whiteSpace: "nowrap" }}>{p.role}</span> ·{" "}
+                    <span style={{ whiteSpace: "nowrap" }}>{p.site}</span>
                   </span>
                 </span>
                 <span style={{ fontSize: 12.5, color: STATUS_COLOR[p.worst], whiteSpace: "nowrap" }}>{summary}</span>
