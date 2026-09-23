@@ -202,14 +202,26 @@ export default function ProductionDesk({ operator = "" }: { operator?: string })
 
   return (
     <>
-      <h1 style={{ ...serif, fontSize: 30, lineHeight: 1.08, color: "var(--text)", marginBottom: 10 }}>
-        Production
-      </h1>
-      <p style={{ fontSize: 14, color: MUTED, lineHeight: 1.6, maxWidth: 660, marginBottom: 26 }}>
-        Every batch made, and the evidence that made it safe. The heat treatment, the detector challenges and the fill
-        weights are not three logs that mention the same code — they are one record, and a batch is releasable only when
-        all three hold.
-      </p>
+      <header style={{ marginBottom: 24 }}>
+        <h2
+          style={{
+            ...serif,
+            fontWeight: 500,
+            fontSize: 30,
+            lineHeight: 1.08,
+            letterSpacing: "-0.01em",
+            color: "var(--text)",
+            marginBottom: 8,
+          }}
+        >
+          Production
+        </h2>
+        <p style={{ fontSize: 14.5, color: MUTED, maxWidth: 580, lineHeight: 1.55 }}>
+          Every batch made, and the evidence that made it safe. The heat treatment, the detector challenges and the
+          fill weights are not three logs that mention the same code — they are one record, and a batch is releasable
+          only when all three hold.
+        </p>
+      </header>
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 22, alignItems: "center" }}>
         <Tally n={counts.batches} label="batches this week" />

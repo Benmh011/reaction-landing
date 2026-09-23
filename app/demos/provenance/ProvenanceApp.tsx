@@ -1211,7 +1211,7 @@ function ThemeStyles() {
           .prov-wordmark { margin: 0; flex-shrink: 0; font-size: 19px; }
           .prov-nav { display: flex; gap: 4px; }
           .prov-marker { display: none; }
-          .prov-navitem { white-space: nowrap; border-bottom: 2px solid transparent; border-radius: 0; padding: 8px 10px; flex-shrink: 0; }
+          .prov-navitem { width: auto; white-space: nowrap; border-bottom: 2px solid transparent; border-radius: 0; padding: 8px 10px; flex-shrink: 0; }
           .prov-navitem[aria-current="page"] { border-bottom-color: var(--gold); background: transparent; }
           .prov-sidefoot { display: none; }
           .prov-chain { grid-template-columns: 1fr; }
