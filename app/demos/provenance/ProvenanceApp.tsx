@@ -250,41 +250,104 @@ function Overview({ items, onGo }: { items: Item[]; onGo: (id: SectionId) => voi
   useEffect(() => setToday(todayLabel()), []);
   const label = (id: SectionId) => SECTIONS.find((s) => s.id === id)?.label ?? id;
 
-  const grouped = AREAS.map((a) => ({
-    ...a,
-    items: items.filter((e) => a.sections.includes(e.goto)),
-  }));
+  const grouped = AREAS.map((a) => {
+    const own = items.filter((e) => a.sections.includes(e.goto));
+    return { ...a, items: own, severe: own.filter((e) => e.severe).length };
+  });
   const busy = grouped.filter((g) => g.items.length > 0);
   const quiet = grouped.filter((g) => g.items.length === 0);
 
+  // Every group starts closed. Opening the ones with something severe in
+  // them sounds better than it is: with real data every group has
+  // something severe, so it would open all four and leave the same
+  // fifty-odd item list. Closed makes the page a summary you can read in
+  // one screen, each heading carrying its total and how many of those
+  // are serious, and opening one is a tap.
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const isOpen = (g: (typeof grouped)[number]) => !!open[g.key];
+
   return (
     <>
-      <SectionTitle title="This morning's picture" sub={today ? `Island Street, ${today}. Everything that needs a decision, drawn from every register. Quiet lines are working lines.` : undefined} />
-      {busy.map((g) => (
-        <div key={g.key} style={{ marginBottom: 26 }}>
-          <p style={{ ...mono, fontSize: 10.5, letterSpacing: "0.16em", color: MUTED, marginBottom: 10 }}>
-            {g.title.toUpperCase()} ({g.items.length})
-          </p>
-          <div style={{ display: "grid", gap: 10 }}>
-            {g.items.map((e, i) => (
-              <button key={i} onClick={() => onGo(e.goto)} className="prov-item">
-                <span className="prov-item-bar" style={{ background: e.severe ? VERM : BRASS }} />
-                <span className="prov-item-text">{e.text}</span>
-                <span className="prov-item-goto">{label(e.goto)}</span>
-              </button>
-            ))}
+      <SectionTitle
+        title="What needs a decision"
+        sub={
+          today
+            ? `${today}. Read from every register across the factory, three shops and two vans. Quiet lines are working lines.`
+            : undefined
+        }
+      />
+      {busy.length > 0 && (
+        <p style={{ fontSize: 13.5, color: MUTED, marginBottom: 18, lineHeight: 1.55 }}>
+          {items.length} outstanding
+          {items.filter((e) => e.severe).length > 0 && (
+            <>
+              , <span style={{ color: VERM }}>{items.filter((e) => e.severe).length} serious</span>
+            </>
+          )}
+          . Open a heading to see them.
+        </p>
+      )}
+      {busy.map((g) => {
+        const shown = isOpen(g);
+        return (
+          <div key={g.key} style={{ marginBottom: 18 }}>
+            <button
+              onClick={() => setOpen((prev) => ({ ...prev, [g.key]: !shown }))}
+              aria-expanded={shown}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "10px 0",
+                background: "none",
+                border: "none",
+                borderBottom: "1px solid var(--rule)",
+                font: "inherit",
+                color: "inherit",
+                cursor: "pointer",
+                textAlign: "left",
+                marginBottom: shown ? 12 : 0,
+              }}
+            >
+              <span aria-hidden style={{ ...mono, fontSize: 12, color: MUTED, width: 12 }}>
+                {shown ? "\u2212" : "+"}
+              </span>
+              <span style={{ ...mono, flex: 1, minWidth: 0, fontSize: 10.5, letterSpacing: "0.16em", color: MUTED }}>
+                {g.title.toUpperCase()}
+              </span>
+              {g.severe > 0 && (
+                <span style={{ ...mono, fontSize: 11.5, color: VERM, whiteSpace: "nowrap" }}>
+                  {g.severe} severe
+                </span>
+              )}
+              <span style={{ ...mono, fontSize: 11.5, color: MUTED, whiteSpace: "nowrap" }}>
+                {g.items.length}
+              </span>
+            </button>
+            {shown && (
+              <div style={{ display: "grid", gap: 10 }}>
+                {g.items.map((e, i) => (
+                  <button key={i} onClick={() => onGo(e.goto)} className="prov-item">
+                    <span className="prov-item-bar" style={{ background: e.severe ? VERM : BRASS }} />
+                    <span className="prov-item-text">{e.text}</span>
+                    <span className="prov-item-goto">{label(e.goto)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        </div>
-      ))}
+        );
+      })}
 
       {busy.length === 0 && (
         <div style={{ display: "grid", gap: 10 }}>
-          <p style={{ fontSize: 14, color: GREEN }}>Nothing needs a decision this morning.</p>
+          <p style={{ fontSize: 14, color: GREEN }}>Nothing needs a decision today.</p>
         </div>
       )}
 
       {quiet.length > 0 && busy.length > 0 && (
-        <p style={{ fontSize: 13, color: MUTED, marginBottom: 6, lineHeight: 1.55 }}>
+        <p style={{ fontSize: 13, color: MUTED, marginTop: 20, marginBottom: 6, lineHeight: 1.55 }}>
           Nothing outstanding in {quiet.map((g) => g.title.toLowerCase()).join(", ")}.
         </p>
       )}
