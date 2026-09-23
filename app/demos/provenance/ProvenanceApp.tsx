@@ -290,7 +290,16 @@ function Overview({ items, onGo }: { items: Item[]; onGo: (id: SectionId) => voi
       {busy.map((g) => {
         const shown = isOpen(g);
         return (
-          <div key={g.key} style={{ marginBottom: 18 }}>
+          <div
+            key={g.key}
+            style={{
+              border: "1px solid var(--rule)",
+              borderRadius: 12,
+              background: "var(--bg-elevated)",
+              marginBottom: 10,
+              overflow: "hidden",
+            }}
+          >
             <button
               onClick={() => setOpen((prev) => ({ ...prev, [g.key]: !shown }))}
               aria-expanded={shown}
@@ -298,35 +307,34 @@ function Overview({ items, onGo }: { items: Item[]; onGo: (id: SectionId) => voi
                 width: "100%",
                 display: "flex",
                 alignItems: "center",
-                gap: 10,
-                padding: "10px 0",
+                flexWrap: "wrap",
+                rowGap: 6,
+                gap: 12,
+                padding: "15px 18px",
                 background: "none",
                 border: "none",
-                borderBottom: "1px solid var(--rule)",
+                borderLeft: `3px solid ${g.severe > 0 ? VERM : BRASS}`,
                 font: "inherit",
                 color: "inherit",
                 cursor: "pointer",
                 textAlign: "left",
-                marginBottom: shown ? 12 : 0,
               }}
             >
               <span aria-hidden style={{ ...mono, fontSize: 12, color: MUTED, width: 12 }}>
                 {shown ? "\u2212" : "+"}
               </span>
-              <span style={{ ...mono, flex: 1, minWidth: 0, fontSize: 10.5, letterSpacing: "0.16em", color: MUTED }}>
-                {g.title.toUpperCase()}
-              </span>
+              <span style={{ flex: "1 1 180px", minWidth: 0, fontSize: 14.5 }}>{g.title}</span>
               {g.severe > 0 && (
                 <span style={{ ...mono, fontSize: 11.5, color: VERM, whiteSpace: "nowrap" }}>
-                  {g.severe} severe
+                  {g.severe} serious
                 </span>
               )}
               <span style={{ ...mono, fontSize: 11.5, color: MUTED, whiteSpace: "nowrap" }}>
-                {g.items.length}
+                total {g.items.length}
               </span>
             </button>
             {shown && (
-              <div style={{ display: "grid", gap: 10 }}>
+              <div style={{ display: "grid", gap: 10, padding: "4px 18px 18px", borderTop: "1px solid var(--rule)" }}>
                 {g.items.map((e, i) => (
                   <button key={i} onClick={() => onGo(e.goto)} className="prov-item">
                     <span className="prov-item-bar" style={{ background: e.severe ? VERM : BRASS }} />
@@ -426,7 +434,7 @@ function Person({
       : "all current";
 
   return (
-    <div style={{ border: "1px solid var(--rule)", borderRadius: 12, marginBottom: 8, overflow: "hidden" }}>
+    <div style={{ border: "1px solid var(--rule)", borderRadius: 12, background: "var(--bg-elevated)", marginBottom: 8, overflow: "hidden" }}>
       <button
         onClick={() => setOpen((v) => !v)}
         style={{
@@ -696,7 +704,7 @@ function Personnel() {
               ? `${p.soon.length} due soon`
               : "all current";
           return (
-            <div key={p.name} style={{ border: "1px solid var(--rule)", borderRadius: 12, marginBottom: 8, overflow: "hidden" }}>
+            <div key={p.name} style={{ border: "1px solid var(--rule)", borderRadius: 12, background: "var(--bg-elevated)", marginBottom: 8, overflow: "hidden" }}>
               <button
                 onClick={() => setOpen(isOpen ? null : p.name)}
                 style={{
