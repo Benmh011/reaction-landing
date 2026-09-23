@@ -552,7 +552,16 @@ function RecordForm({
         </button>
         <button
           onClick={onCancel}
-          style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 13 }}
+          style={{
+            font: "inherit",
+            fontSize: 13,
+            padding: "7px 16px",
+            border: "1px solid var(--rule-strong)",
+            background: "transparent",
+            color: "inherit",
+            borderRadius: 999,
+            cursor: "pointer",
+          }}
         >
           Cancel
         </button>
@@ -629,6 +638,7 @@ function Overlay({ children, onClose }: { children: React.ReactNode; onClose: ()
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
+          position: "relative",
           background: "var(--bg)",
           border: "1px solid var(--rule)",
           borderRadius: 16,
@@ -639,6 +649,28 @@ function Overlay({ children, onClose }: { children: React.ReactNode; onClose: ()
           overflowY: "auto",
         }}
       >
+        {/* Tapping outside works, but nothing said so — on a phone the
+            panel fills the screen and there is barely an outside to tap. */}
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          style={{
+            position: "absolute",
+            top: 10,
+            right: 12,
+            width: 34,
+            height: 34,
+            borderRadius: 999,
+            border: "1px solid var(--rule)",
+            background: "var(--bg-elevated)",
+            color: "inherit",
+            fontSize: 19,
+            lineHeight: 1,
+            cursor: "pointer",
+          }}
+        >
+          &#215;
+        </button>
         {children}
       </div>
     </div>

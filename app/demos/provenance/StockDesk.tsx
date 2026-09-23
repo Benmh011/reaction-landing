@@ -724,7 +724,7 @@ function LineRow({
                   >
                     Confirm
                   </button>
-                  <button style={{ ...fixBtn, border: "none", color: MUTED }} onClick={() => { setOpen(null); setDraft(""); }}>
+                  <button style={{ ...fixBtn, borderColor: "var(--rule-strong)", color: "inherit" }} onClick={() => { setOpen(null); setDraft(""); }}>
                     Cancel
                   </button>
                 </div>
@@ -1322,6 +1322,7 @@ function LotTrace({
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
+          position: "relative",
           background: "var(--bg)",
           border: "1px solid var(--rule)",
           borderRadius: 16,
@@ -1332,7 +1333,29 @@ function LotTrace({
           overflowY: "auto",
         }}
       >
-        <p style={{ ...mono, fontSize: 10.5, letterSpacing: "0.16em", color: MUTED, marginBottom: 6 }}>
+        {/* Tapping outside works, but nothing said so — on a phone the
+            panel fills the screen and there is barely an outside to tap. */}
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          style={{
+            position: "absolute",
+            top: 10,
+            right: 12,
+            width: 34,
+            height: 34,
+            borderRadius: 999,
+            border: "1px solid var(--rule)",
+            background: "var(--bg-elevated)",
+            color: "inherit",
+            fontSize: 19,
+            lineHeight: 1,
+            cursor: "pointer",
+          }}
+        >
+          &#215;
+        </button>
+        <p style={{ ...mono, fontSize: 10.5, letterSpacing: "0.16em", color: MUTED, marginBottom: 6, paddingRight: 34 }}>
           LOT {lot.toUpperCase()}
         </p>
         <h2 style={{ ...serifItal, fontSize: 25, marginBottom: 16 }}>{material?.name ?? code}</h2>

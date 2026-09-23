@@ -959,7 +959,14 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
         </button>
         <span className="prov-topbar-title">{activeLabel}</span>
         {openFlags > 0 && (
-          <span className={`pv-flag${severeOpen ? " pv-flag-severe" : ""}`}>{openFlags}</span>
+          <button
+            className="prov-topbar-open"
+            onClick={() => setView("overview")}
+            aria-label={`${openFlags} things need a decision. Go to the overview.`}
+          >
+            <span className={`pv-flag${severeOpen ? " pv-flag-severe" : ""}`}>{openFlags}</span>
+            <span className="prov-topbar-open-label">to decide</span>
+          </button>
         )}
       </header>
 
@@ -1206,6 +1213,7 @@ function ThemeStyles() {
 
         /* ————— mobile header and drawer ————— */
         .prov-topbar { display: none; }
+        .prov-topbar-open { display: none; }
         .prov-scrim { display: none; }
         .prov-sidehead { display: contents; }
         .prov-drawerclose { display: none; }
@@ -1298,6 +1306,22 @@ function ThemeStyles() {
             line-height: 1.2;
             overflow: hidden;
             text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+          .prov-topbar-open {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            background: none;
+            border: none;
+            padding: 4px 2px;
+            cursor: pointer;
+            flex-shrink: 0;
+          }
+          .prov-topbar-open-label {
+            font-size: 11.5px;
+            color: var(--on-navy);
+            opacity: 0.8;
             white-space: nowrap;
           }
           .prov-burger {
