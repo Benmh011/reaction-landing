@@ -240,7 +240,8 @@ function todayLabel(): string {
 const AREAS: { key: string; title: string; sections: SectionId[] }[] = [
   { key: "stock", title: "Stock and traceability", sections: ["stock", "trace"] },
   { key: "monitoring", title: "Monitoring", sections: ["checks", "coldchain"] },
-  { key: "making", title: "Making and procedures", sections: ["procedures", "production"] },
+  { key: "production", title: "Production", sections: ["production"] },
+  { key: "procedures", title: "Procedures", sections: ["procedures"] },
   { key: "audit", title: "Documents and audit", sections: ["documents", "questionnaires"] },
   { key: "people", title: "People", sections: ["personnel"] },
 ];
@@ -338,7 +339,14 @@ function Overview({ items, onGo }: { items: Item[]; onGo: (id: SectionId) => voi
                 {g.items.map((e, i) => (
                   <button key={i} onClick={() => onGo(e.goto)} className="prov-item">
                     <span className="prov-item-bar" style={{ background: e.severe ? VERM : BRASS }} />
-                    <span className="prov-item-text">{e.text}</span>
+                    <span className="prov-item-text">
+                      {e.severe && (
+                        <span className="prov-urgent" aria-label="Serious">
+                          !
+                        </span>
+                      )}
+                      {e.text}
+                    </span>
                     <span className="prov-item-goto">{label(e.goto)}</span>
                   </button>
                 ))}
@@ -554,7 +562,7 @@ function Documents() {
                   <td style={{ ...td, ...mono, fontSize: 12.5 }}>{d.reviewed}</td>
                   <td style={{ ...td, ...mono, fontSize: 12.5, whiteSpace: "nowrap" }}>
                     {d.next}
-                    <span style={{ display: "block", fontSize: 11, color: STATUS_COLOR[st] }}>{dueLabel(d.next)}</span>
+                    <span style={{ display: "block", fontSize: 11, fontWeight: 500, color: STATUS_COLOR[st] }}>{dueLabel(d.next)}</span>
                   </td>
                   <td style={{ ...td, whiteSpace: "nowrap" }}>
                     <DocStatusPill status={st} />
@@ -751,7 +759,7 @@ function Personnel() {
                           <div key={c.cert} style={rowStyle}>
                             <span style={{ flex: 1, minWidth: 0, fontSize: 13.5 }}>{c.cert}</span>
                             <span style={{ ...mono, fontSize: 12, color: MUTED, ...col(110) }}>{c.expires}</span>
-                            <span style={{ ...mono, fontSize: 12, color: STATUS_COLOR[st], ...col(150) }}>
+                            <span style={{ ...mono, fontSize: 12, fontWeight: 500, color: STATUS_COLOR[st], ...col(150) }}>
                               {st === "overdue" ? `expired ${dueLabel(c.expires)}` : dueLabel(c.expires)}
                             </span>
                           </div>
@@ -1307,6 +1315,22 @@ function ThemeStyles() {
         .prov-item:hover { border-color: var(--rule-strong); }
         .prov-item-bar { width: 3px; align-self: stretch; border-radius: 2px; }
         .prov-item-text { font-size: 14px; line-height: 1.45; }
+        .prov-urgent {
+          display: inline-grid;
+          place-items: center;
+          width: 17px;
+          height: 17px;
+          margin-right: 8px;
+          vertical-align: -3px;
+          border-radius: 999px;
+          background: #c22f4e;
+          color: #fff;
+          font-family: var(--font-sans);
+          font-size: 12px;
+          font-weight: 700;
+          line-height: 1;
+          flex-shrink: 0;
+        }
         .prov-item-goto { font-size: 12.5px; color: var(--text-muted); white-space: nowrap; }
         @media (max-width: 600px) {
           .prov-item { grid-template-columns: 3px 1fr; }

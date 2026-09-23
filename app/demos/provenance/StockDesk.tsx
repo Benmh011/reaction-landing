@@ -1126,7 +1126,7 @@ function ShelfLifeTab({ movements, operator = "" }: { movements: Movement[]; ope
               <p style={{ ...mono, fontSize: 13, color: FRESH_COLOR[r.state], fontWeight: 500 }}>
                 {r.balance.bestBefore ?? "—"}
               </p>
-              <p style={{ ...mono, fontSize: 10.5, color: MUTED, marginTop: 2 }}>
+              <p style={{ ...mono, fontSize: 10.5, fontWeight: 500, color: MUTED, marginTop: 2 }}>
                 {r.days === null
                   ? FRESHNESS_LABEL[r.state]
                   : r.days < 0
