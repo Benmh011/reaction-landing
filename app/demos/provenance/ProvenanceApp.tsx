@@ -866,6 +866,16 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
     setViewRaw(prev);
     setPrev(null);
   };
+  const [drawer, setDrawer] = useState(false);
+  // A drawer that leaves the page scrolling behind it feels broken.
+  useEffect(() => {
+    if (!drawer) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [drawer]);
   // The name that goes on records. A person's name where the account has
   // one, the email where it does not — never a blank, never a text box a
   // second person could type someone else's name into.
@@ -912,6 +922,11 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
 
   const picture = useMemo(() => buildPicture(movements, readings, runs), [movements, readings, runs]);
   const counts = useMemo(() => countsFor(picture), [picture]);
+  const openFlags = useMemo(
+    () => Object.values(counts).reduce((a, c) => a + c.n, 0),
+    [counts],
+  );
+  const severeOpen = useMemo(() => Object.values(counts).some((c) => c.severe), [counts]);
   const { refs, box } = useMarker(view === "start" ? "overview" : view);
 
   if (view === "start") {
@@ -923,18 +938,60 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
     );
   }
   const active = view;
+  // The welcome screen returns earlier, so by here there is always a
+  // section to name.
+  const activeLabel = SECTIONS.find((x) => x.id === active)?.label ?? "Salcombe Dairy";
 
   return (
     <div className="pv-root">
+      {/* The mobile header. Hidden on desktop, where the sidebar is
+          always there and a bar would be one more thing to look at. */}
+      <header className="prov-topbar">
+        <button
+          className="prov-burger"
+          onClick={() => setDrawer(true)}
+          aria-label="Open sections"
+          aria-expanded={drawer}
+        >
+          <span aria-hidden />
+          <span aria-hidden />
+          <span aria-hidden />
+        </button>
+        <span className="prov-topbar-title">{activeLabel}</span>
+        {openFlags > 0 && (
+          <span className={`pv-flag${severeOpen ? " pv-flag-severe" : ""}`}>{openFlags}</span>
+        )}
+      </header>
+
+      {drawer && (
+        <div
+          className="prov-scrim"
+          onClick={() => setDrawer(false)}
+          aria-hidden
+        />
+      )}
+
       <div className="prov-shell">
-        <aside className="prov-side">
-          <button
-            onClick={() => setView("start")}
-            className="prov-wordmark"
-            aria-label="Back to start"
-          >
-            Salcombe Dairy
-          </button>
+        <aside className={`prov-side${drawer ? " prov-side-open" : ""}`}>
+          <div className="prov-sidehead">
+            <button
+              onClick={() => {
+                setView("start");
+                setDrawer(false);
+              }}
+              className="prov-wordmark"
+              aria-label="Back to start"
+            >
+              Salcombe Dairy
+            </button>
+            <button
+              className="prov-drawerclose"
+              onClick={() => setDrawer(false)}
+              aria-label="Close sections"
+            >
+              &#215;
+            </button>
+          </div>
 
           <nav aria-label="Sections" className="prov-nav">
             {box && <span className="prov-marker" style={{ top: box.top, height: box.height }} aria-hidden />}
@@ -947,7 +1004,10 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
                   ref={(el) => {
                     refs.current[s.id] = el;
                   }}
-                  onClick={() => setView(s.id)}
+                  onClick={() => {
+                    setView(s.id);
+                    setDrawer(false);
+                  }}
                   className="prov-navitem"
                   aria-current={on ? "page" : undefined}
                 >
@@ -1144,6 +1204,12 @@ function ThemeStyles() {
            own box rather than taking the page with it. */
         .prov-main table { max-width: 100%; }
 
+        /* ————— mobile header and drawer ————— */
+        .prov-topbar { display: none; }
+        .prov-scrim { display: none; }
+        .prov-sidehead { display: contents; }
+        .prov-drawerclose { display: none; }
+
         .prov-item {
           display: grid;
           grid-template-columns: 3px 1fr auto;
@@ -1172,6 +1238,14 @@ function ThemeStyles() {
         /* The content settles into place: a short fade up from a few
            pixels below. It arrives; it does not perform. */
         .prov-view { animation: provsettle 240ms cubic-bezier(.2,.7,.2,1); }
+        @keyframes provfade {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes provslide {
+          from { transform: translateX(-100%); }
+          to { transform: translateX(0); }
+        }
         @keyframes provsettle {
           from { opacity: 0; transform: translateY(6px); }
           to { opacity: 1; transform: none; }
@@ -1179,6 +1253,8 @@ function ThemeStyles() {
         @media (prefers-reduced-motion: reduce) {
           .prov-view { animation: none; }
           .prov-marker { transition: none; }
+          .prov-side { transition: none; }
+          .prov-scrim { animation: none; }
         }
 
         .prov-chain {
@@ -1199,22 +1275,107 @@ function ThemeStyles() {
           flex-shrink: 0;
         }
         @media (max-width: 860px) {
-          .prov-shell { grid-template-columns: 1fr; }
-          .prov-side {
-            position: static;
-            height: auto;
-            flex-direction: row;
+          /* The bar is fixed so navigation is one tap from anywhere on a
+             long page, and its top padding clears the status bar — which
+             is what was letting the clock sit on the filter pills. */
+          .prov-topbar {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 60;
+            display: flex;
             align-items: center;
-            gap: 14px;
-            overflow-x: auto;
-            padding: 14px 16px;
+            gap: 12px;
+            padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 10px;
+            background: var(--navy);
+            color: var(--on-navy);
+            box-shadow: 0 1px 0 rgba(255,255,255,0.07);
           }
-          .prov-wordmark { margin: 0; flex-shrink: 0; font-size: 19px; }
-          .prov-nav { display: flex; gap: 4px; }
-          .prov-marker { display: none; }
-          .prov-navitem { width: auto; white-space: nowrap; border-bottom: 2px solid transparent; border-radius: 0; padding: 8px 10px; flex-shrink: 0; }
-          .prov-navitem[aria-current="page"] { border-bottom-color: var(--gold); background: transparent; }
-          .prov-sidefoot { display: none; }
+          .prov-topbar-title {
+            flex: 1;
+            min-width: 0;
+            font-family: var(--font-serif);
+            font-size: 17px;
+            line-height: 1.2;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+          .prov-burger {
+            display: grid;
+            gap: 4px;
+            width: 34px;
+            padding: 6px 4px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            flex-shrink: 0;
+          }
+          .prov-burger span {
+            display: block;
+            height: 2px;
+            border-radius: 2px;
+            background: var(--on-navy);
+          }
+
+          .prov-scrim {
+            display: block;
+            position: fixed;
+            inset: 0;
+            z-index: 70;
+            background: rgba(10, 18, 32, 0.5);
+            animation: provfade 160ms ease;
+          }
+
+          .prov-shell { grid-template-columns: 1fr; }
+          .prov-main { padding-top: calc(env(safe-area-inset-top, 0px) + 68px); }
+
+          .prov-sidehead {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+          }
+          .prov-drawerclose {
+            display: block;
+            background: none;
+            border: none;
+            color: var(--on-navy);
+            font-size: 26px;
+            line-height: 1;
+            padding: 0 4px;
+            cursor: pointer;
+            opacity: 0.75;
+          }
+          /* Off-screen until the burger asks for it. Not display:none —
+             the marker measures the active item on mount, and an element
+             with no layout measures as nothing. */
+          .prov-side {
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            width: min(82vw, 300px);
+            z-index: 80;
+            height: 100dvh;
+            overflow-y: auto;
+            padding: calc(env(safe-area-inset-top, 0px) + 18px) 18px
+                     calc(env(safe-area-inset-bottom, 0px) + 18px);
+            transform: translateX(-100%);
+            transition: transform 220ms cubic-bezier(.2,.7,.2,1);
+            box-shadow: none;
+          }
+          .prov-side-open {
+            transform: translateX(0);
+            box-shadow: 0 0 40px rgba(10, 18, 32, 0.35);
+          }
+          .prov-wordmark { margin: 0; font-size: 20px; }
+          /* The drawer is the sidebar again: vertical, so the gold marker
+             does the job it was designed for rather than showing slivers
+             at the corners of a horizontal strip. */
+          .prov-nav { display: grid; gap: 2px; }
+          .prov-marker { display: block; }
+          .prov-navitem { width: 100%; border-radius: 8px; padding: 10px 12px; }
+          .prov-sidefoot { display: block; }
           .prov-chain { grid-template-columns: 1fr; }
           .prov-node { transform: rotate(90deg); width: 120px; margin: 0 auto; }
         }
