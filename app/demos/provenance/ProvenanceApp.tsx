@@ -367,7 +367,7 @@ function Person({
       <button
         onClick={() => setOpen((v) => !v)}
         style={{
-          width: "100%", display: "flex", alignItems: "center", gap: 14,
+          width: "100%", display: "flex", alignItems: "center", flexWrap: "wrap", rowGap: 6, gap: 14,
           padding: "13px 16px", background: "none", border: "none",
           borderLeft: `3px solid ${STATUS_COLOR[worst]}`,
           font: "inherit", color: "inherit", cursor: "pointer", textAlign: "left",
@@ -376,7 +376,7 @@ function Person({
         <span aria-hidden style={{ ...mono, fontSize: 12, color: MUTED, width: 12 }}>
           {open ? "\u2212" : "+"}
         </span>
-        <span style={{ flex: 1 }}>
+        <span style={{ flex: "1 1 200px", minWidth: 0 }}>
           <span style={{ display: "block", fontSize: 14.5 }}>{name}</span>
           <span style={{ display: "block", fontSize: 12, color: MUTED, marginTop: 2 }}>{role}</span>
         </span>
@@ -637,14 +637,14 @@ function Personnel() {
               <button
                 onClick={() => setOpen(isOpen ? null : p.name)}
                 style={{
-                  width: "100%", display: "flex", alignItems: "center", gap: 14,
+                  width: "100%", display: "flex", alignItems: "center", flexWrap: "wrap", rowGap: 6, gap: 14,
                   padding: "14px 16px", background: "none", border: "none",
                   borderLeft: `3px solid ${STATUS_COLOR[p.worst]}`,
                   font: "inherit", color: "inherit", cursor: "pointer", textAlign: "left",
                 }}
               >
                 <span aria-hidden style={{ ...mono, fontSize: 12, color: MUTED, width: 12 }}>{isOpen ? "\u2212" : "+"}</span>
-                <span style={{ flex: 1 }}>
+                <span style={{ flex: "1 1 200px", minWidth: 0 }}>
                   <span style={{ display: "block", fontSize: 15 }}>{p.name}</span>
                   <span style={{ display: "block", fontSize: 12, color: MUTED, marginTop: 2 }}>
                     {p.role} · {p.site}

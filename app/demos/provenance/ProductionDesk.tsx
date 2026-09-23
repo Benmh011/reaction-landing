@@ -873,6 +873,8 @@ function BatchRow({
           width: "100%",
           display: "flex",
           alignItems: "center",
+          flexWrap: "wrap",
+          rowGap: 6,
           gap: 14,
           padding: "14px 16px",
           background: "none",
@@ -887,7 +889,12 @@ function BatchRow({
         <span aria-hidden style={{ ...mono, fontSize: 12, color: MUTED, width: 12 }}>
           {open ? "\u2212" : "+"}
         </span>
-        <span style={{ flex: 1, minWidth: 0 }}>
+        {/* flex: 1 means "start at zero and grow into what is left".
+            With two fixed columns taking 260px of a 390px screen, what
+            was left could not hold a product name, so it wrapped a word
+            at a time. A real basis lets the row break onto a second line
+            instead, and changes nothing on a wide screen. */}
+        <span style={{ flex: "1 1 210px", minWidth: 0 }}>
           <span style={{ display: "block", fontSize: 14.5 }}>{b.product}</span>
           <span style={{ ...mono, display: "block", fontSize: 11.5, color: MUTED, marginTop: 3 }}>
             {b.id} · {batchDayLabel(b)} · {b.by}
