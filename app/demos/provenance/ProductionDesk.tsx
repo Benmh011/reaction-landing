@@ -53,8 +53,11 @@ const card: React.CSSProperties = {
   background: "var(--bg-elevated)",
 };
 
+// Holds its width where there is room, gives it up where there is not.
+// Refusing to shrink kept desktop alignment honest and pushed the whole
+// page sideways on a phone.
 function col(width: number): React.CSSProperties {
-  return { width, flexShrink: 0, textAlign: "right" };
+  return { width, flexShrink: 1, minWidth: 0, textAlign: "right" };
 }
 
 const row: React.CSSProperties = {

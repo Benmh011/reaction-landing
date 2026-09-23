@@ -163,7 +163,7 @@ export default function StockDesk({
         sub="Every lot, from the delivery note it arrived on to the shop or vehicle it ends up in. Drop in a supplier's note and the desk reads it, checks it against the material register, and books in what it understood — holding anything it did not, rather than guessing."
       />
 
-      <div style={{ display: "flex", gap: 4, marginBottom: 22, borderBottom: "1px solid var(--rule)" }}>
+      <div style={{ display: "flex", gap: 4, marginBottom: 22, borderBottom: "1px solid var(--rule)", overflowX: "auto", maxWidth: "100%" }}>
         {(
           [
             ["goodsin", "Goods in"],
@@ -187,6 +187,8 @@ export default function StockDesk({
               padding: "8px 14px",
               cursor: "pointer",
               marginBottom: -1,
+              whiteSpace: "nowrap",
+              flexShrink: 0,
             }}
           >
             {label}
@@ -688,7 +690,7 @@ function LineRow({
               {open === issue.code && (
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                   {issue.code === "unknown-material" ? (
-                    <select value={draft} onChange={(e) => setDraft(e.target.value)} style={{ ...inputStyle, minWidth: 220 }}>
+                    <select value={draft} onChange={(e) => setDraft(e.target.value)} style={{ ...inputStyle, minWidth: 0, maxWidth: "100%" }}>
                       <option value="">Choose a material…</option>
                       {MATERIALS.map((m) => (
                         <option key={m.code} value={m.code}>

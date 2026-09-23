@@ -188,7 +188,7 @@ export default function RecallDesk({
             placeholder="Filter by material or lot code"
             style={{ ...input, width: 240 }}
           />
-          <select value={pick} onChange={(e) => setPick(e.target.value)} style={{ ...input, minWidth: 320 }}>
+          <select value={pick} onChange={(e) => setPick(e.target.value)} style={{ ...input, minWidth: 0, maxWidth: "100%" }}>
             <option value="">Choose a lot…</option>
             {shown.map((l) => (
               <option key={`${l.materialCode}|${l.lot}`} value={`${l.materialCode}|${l.lot}`}>
@@ -355,7 +355,7 @@ function LiveExercise({
                   )}
                 </div>
               )}
-              <span style={{ ...mono, fontSize: 12.5, color: diff === null ? MUTED : diff === 0 ? GREEN : VERM, minWidth: 64, textAlign: "right" }}>
+              <span style={{ ...mono, fontSize: 12.5, color: diff === null ? MUTED : diff === 0 ? GREEN : VERM, width: 64, flexShrink: 1, minWidth: 0, textAlign: "right" }}>
                 {diff === null ? "—" : diff === 0 ? "matches" : diff > 0 ? `+${diff}` : `${diff}`}
               </span>
               {!b.location?.holding && !held ? (
@@ -366,7 +366,7 @@ function LiveExercise({
                   Place on hold
                 </button>
               ) : (
-                <span style={{ fontSize: 12, color: MUTED, minWidth: 96, textAlign: "right" }}>{held ? "held" : ""}</span>
+                <span style={{ fontSize: 12, color: MUTED, width: 96, flexShrink: 1, minWidth: 0, textAlign: "right" }}>{held ? "held" : ""}</span>
               )}
             </div>
           );

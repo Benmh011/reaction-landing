@@ -393,7 +393,8 @@ export default function QuestionnaireDesk() {
               placeholder="e.g. Harbourline — new listing 2026"
               style={{
                 flex: "1 1 260px",
-                minWidth: 220,
+                minWidth: 0,
+                maxWidth: "100%",
                 padding: "9px 12px",
                 fontSize: 14,
                 border: "1px solid var(--rule-strong)",

@@ -402,7 +402,7 @@ function Person({
                 >
                   <span style={{ flex: 1, fontSize: 13.5 }}>{c.cert}</span>
                   <span style={{ ...mono, fontSize: 12, color: MUTED }}>{c.expires}</span>
-                  <span style={{ ...mono, fontSize: 12, color: STATUS_COLOR[st], minWidth: 92, textAlign: "right" }}>
+                  <span style={{ ...mono, fontSize: 12, color: STATUS_COLOR[st], ...col(92) }}>
                     {st === "overdue" ? `expired ${dueLabel(c.expires)}` : dueLabel(c.expires)}
                   </span>
                 </div>
@@ -515,11 +515,11 @@ function Documents() {
                             paddingLeft: 12,
                           }}
                         >
-                          <span style={{ ...mono, fontSize: 12.5, width: 46, flexShrink: 0, fontWeight: i === 0 ? 500 : 400 }}>
+                          <span style={{ ...mono, fontSize: 12.5, width: 46, flexShrink: 1, minWidth: 0, fontWeight: i === 0 ? 500 : 400 }}>
                             {v.version}
                           </span>
-                          <span style={{ ...mono, fontSize: 12, color: MUTED, width: 86, flexShrink: 0 }}>{v.issued}</span>
-                          <span style={{ fontSize: 12, color: MUTED, width: 150, flexShrink: 0 }}>{v.by}</span>
+                          <span style={{ ...mono, fontSize: 12, color: MUTED, width: 86, flexShrink: 1, minWidth: 0 }}>{v.issued}</span>
+                          <span style={{ fontSize: 12, color: MUTED, width: 150, flexShrink: 1, minWidth: 0 }}>{v.by}</span>
                           <span style={{ flex: 1, minWidth: 0, fontSize: 13 }}>{v.change}</span>
                         </div>
                       ))}
@@ -796,8 +796,13 @@ const rowStyle: React.CSSProperties = {
 // A fixed-width column has to be told not to shrink: the default lets a
 // long value squeeze its own cell and drag the next one out from under
 // its heading, which is exactly what made the dates drift row to row.
+// A column that holds its width where there is room and gives it up
+// where there is not. Refusing to shrink kept desktop alignment honest
+// and pushed the whole page sideways on a phone; shrinking from a width
+// basis only takes effect once space actually runs short, so a wide
+// screen is unchanged and a narrow one compresses instead of overflowing.
 function col(width: number, extra: React.CSSProperties = {}): React.CSSProperties {
-  return { width, flexShrink: 0, textAlign: "right", ...extra };
+  return { width, flexShrink: 1, minWidth: 0, textAlign: "right", ...extra };
 }
 
 function PersonBlock({ title, children }: { title: string; children: React.ReactNode }) {
@@ -1064,6 +1069,7 @@ function ThemeStyles() {
           min-height: 100vh;
           background: var(--bg);
         }
+        .prov-shell > * { min-width: 0; }
         .prov-side {
           display: flex;
           flex-direction: column;
@@ -1130,7 +1136,12 @@ function ThemeStyles() {
         .prov-main {
           padding: 36px clamp(20px, 4.5vw, 56px) 64px;
           max-width: 980px;
+          min-width: 0;
         }
+        .prov-view { min-width: 0; }
+        /* Anything genuinely too wide for the screen scrolls inside its
+           own box rather than taking the page with it. */
+        .prov-main table { max-width: 100%; }
 
         .prov-item {
           display: grid;
@@ -1200,7 +1211,7 @@ function ThemeStyles() {
           .prov-wordmark { margin: 0; flex-shrink: 0; font-size: 19px; }
           .prov-nav { display: flex; gap: 4px; }
           .prov-marker { display: none; }
-          .prov-navitem { white-space: nowrap; border-bottom: 2px solid transparent; border-radius: 8px; padding: 8px 10px; }
+          .prov-navitem { white-space: nowrap; border-bottom: 2px solid transparent; border-radius: 0; padding: 8px 10px; flex-shrink: 0; }
           .prov-navitem[aria-current="page"] { border-bottom-color: var(--gold); background: transparent; }
           .prov-sidefoot { display: none; }
           .prov-chain { grid-template-columns: 1fr; }
