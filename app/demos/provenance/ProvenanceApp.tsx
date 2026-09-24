@@ -247,9 +247,14 @@ const AREAS: { key: string; title: string; sections: SectionId[] }[] = [
 ];
 
 function Legend() {
+  // Severity, not time. A freezer at minus eleven is not "due in a
+  // fortnight", it is failing now — and the thresholds that are
+  // time-based differ by register anyway: seven and thirty days on shelf
+  // life, sixty on a document review. Those numbers belong on the pages
+  // that use them, where they are real.
   const keys: { colour: string; word: string; means: string }[] = [
-    { colour: VERM, word: "Serious", means: "act today" },
-    { colour: BRASS, word: "Watch", means: "due, or inside tolerance" },
+    { colour: VERM, word: "Act now", means: "failed, expired, or cannot go out" },
+    { colour: BRASS, word: "Near limit", means: "approaching a limit or a date, or not yet finished" },
     { colour: GREEN, word: "In spec", means: "nothing to do" },
   ];
   return (
