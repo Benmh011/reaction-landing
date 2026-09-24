@@ -135,6 +135,8 @@ const SECTIONS = [
 
 type SectionId = (typeof SECTIONS)[number]["id"];
 
+const TABS_KEY = "salcombe-dairy.open-tabs";
+
 // ————————————————————————— the picture —————————————————————————
 //
 // Everything that needs a decision, read from the same engines the
@@ -992,12 +994,69 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
       setPrev(current === next ? null : current);
       return next;
     });
+    if (next !== "start") {
+      setOpenTabs((prevTabs) => (prevTabs.includes(next) ? prevTabs : [...prevTabs, next]));
+      // The fade used to come from the screen being rebuilt. It is not
+      // rebuilt any more, so it is asked for explicitly and only on a
+      // real switch.
+      setSettleId(next);
+      if (settleTimer.current) clearTimeout(settleTimer.current);
+      settleTimer.current = setTimeout(() => {
+        settleTimer.current = null;
+        setSettleId(null);
+      }, 240);
+    }
   };
   const back = () => {
     if (!prev) return;
     setViewRaw(prev);
     setPrev(null);
   };
+  // Open sections stay open. The point is not the strip at the top, it is
+  // that leaving a section and coming back no longer throws away what you
+  // were doing: the filters you set, the batch you expanded, how far down
+  // you had scrolled. Every open tab stays mounted and the ones you are
+  // not looking at are simply hidden.
+  //
+  // Only what you open is mounted, so this costs the memory of the pages
+  // you actually use and nothing else. The welcome scene is not a tab.
+  const [openTabs, setOpenTabs] = useState<SectionId[]>(["overview"]);
+  const [splitWith, setSplitWith] = useState<SectionId | null>(null);
+  const [settleId, setSettleId] = useState<SectionId | null>(null);
+  const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(TABS_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as string[];
+      const valid = saved.filter((x): x is SectionId => SECTIONS.some((sx) => sx.id === x));
+      if (valid.length) setOpenTabs(valid);
+    } catch {
+      // No tabs remembered: the default one is already there.
+    }
+  }, []);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(TABS_KEY, JSON.stringify(openTabs));
+    } catch {
+      // Storage blocked: tabs last for this session.
+    }
+  }, [openTabs]);
+
+  const closeTab = (id: SectionId) => {
+    setOpenTabs((prevTabs) => {
+      const next = prevTabs.filter((t) => t !== id);
+      if (next.length === 0) return ["overview"];
+      return next;
+    });
+    if (splitWith === id) setSplitWith(null);
+    if (view === id) {
+      const rest = openTabs.filter((t) => t !== id);
+      setViewRaw(rest[rest.length - 1] ?? "overview");
+    }
+  };
+
   const [drawer, setDrawer] = useState(false);
   // A drawer that leaves the page scrolling behind it feels broken.
   useEffect(() => {
@@ -1072,6 +1131,33 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
   const active = view;
   // The welcome screen returns earlier, so by here there is always a
   // section to name.
+  function renderSection(id: SectionId) {
+    switch (id) {
+      case "overview":
+        return <Overview items={picture} onGo={setView} />;
+      case "questionnaires":
+        return <Questionnaires />;
+      case "documents":
+        return <Documents />;
+      case "personnel":
+        return <Personnel />;
+      case "trace":
+        return <RecallDesk movements={movements} onMovements={setMovements} operator={operator} />;
+      case "stock":
+        return <StockDesk operator={operator} movements={movements} onMovements={setMovements} />;
+      case "coldchain":
+        return <MonitorDesk />;
+      case "production":
+        return <ProductionDesk operator={operator} />;
+      case "checks":
+        return <CheckDesk operator={operator} readings={readings} onReadings={setReadings} />;
+      case "procedures":
+        return <SopDesk operator={operator} runs={runs} onRuns={setRuns} />;
+      default:
+        return null;
+    }
+  }
+
   const activeLabel = SECTIONS.find((x) => x.id === active)?.label ?? "Salcombe Dairy";
 
   return (
@@ -1168,23 +1254,75 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
         </aside>
 
         <main className="prov-main">
-          <div key={active} className="prov-view">
+          {openTabs.length > 1 && (
+            <div className="prov-tabs" role="tablist">
+              {openTabs.map((id) => {
+                const sec = SECTIONS.find((x) => x.id === id);
+                const isActive = id === active;
+                const inSplit = id === splitWith;
+                return (
+                  <div
+                    key={id}
+                    className={`prov-tab${isActive ? " prov-tab-on" : ""}${inSplit ? " prov-tab-split" : ""}`}
+                  >
+                    <button onClick={() => setView(id)} role="tab" aria-selected={isActive}>
+                      {sec?.label}
+                    </button>
+                    {!isActive && (
+                      <button
+                        className="prov-tab-beside"
+                        onClick={() => setSplitWith(inSplit ? null : id)}
+                        aria-label={inSplit ? `Stop showing ${sec?.label} beside` : `Show ${sec?.label} beside`}
+                        title={inSplit ? "Stop showing this beside" : "Show this beside"}
+                      >
+                        &#9707;
+                      </button>
+                    )}
+                    <button
+                      className="prov-tab-close"
+                      onClick={() => closeTab(id)}
+                      aria-label={`Close ${sec?.label}`}
+                    >
+                      &#215;
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <div className="prov-view">
             {prev && prev !== active && (
               <button onClick={back} className="prov-back">
                 <span aria-hidden className="prov-back-arrow">&#8592;</span>
                 Back to {prev === "start" ? "the welcome page" : SECTIONS.find((x) => x.id === prev)?.label}
               </button>
             )}
-            {active === "overview" && <Overview items={picture} onGo={setView} />}
-            {active === "questionnaires" && <Questionnaires />}
-            {active === "documents" && <Documents />}
-            {active === "personnel" && <Personnel />}
-            {active === "trace" && <RecallDesk movements={movements} onMovements={setMovements} operator={operator} />}
-            {active === "stock" && <StockDesk operator={operator} movements={movements} onMovements={setMovements} />}
-            {active === "coldchain" && <MonitorDesk />}
-            {active === "production" && <ProductionDesk operator={operator} />}
-            {active === "checks" && <CheckDesk operator={operator} readings={readings} onReadings={setReadings} />}
-            {active === "procedures" && <SopDesk operator={operator} runs={runs} onRuns={setRuns} />}
+            <div className={`prov-panes${splitWith ? " prov-panes-split" : ""}`}>
+              {openTabs.map((id) => {
+                const shown = id === active || id === splitWith;
+                return (
+                  <section
+                    key={id}
+                    className={`prov-screen${settleId === id ? " prov-settle" : ""}`}
+                    style={{ display: shown ? undefined : "none" }}
+                    aria-hidden={!shown}
+                  >
+                    {splitWith && (
+                      <header className="prov-panehead">
+                        <span>{SECTIONS.find((x) => x.id === id)?.label}</span>
+                        <button
+                          onClick={() => setSplitWith(null)}
+                          aria-label="Close the split"
+                        >
+                          &#215;
+                        </button>
+                      </header>
+                    )}
+                    {renderSection(id)}
+                  </section>
+                );
+              })}
+            </div>
           </div>
         </main>
       </div>
@@ -1343,6 +1481,89 @@ function ThemeStyles() {
            own box rather than taking the page with it. */
         .prov-main table { max-width: 100%; }
 
+        /* ————— tabs ————— */
+        .prov-tabs {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-bottom: 20px;
+          padding-bottom: 12px;
+          border-bottom: 1px solid var(--rule);
+        }
+        .prov-tab {
+          display: inline-flex;
+          align-items: center;
+          border: 1px solid var(--rule);
+          border-radius: 999px;
+          background: transparent;
+          padding-right: 4px;
+          transition: background 140ms ease, border-color 140ms ease;
+        }
+        .prov-tab > button {
+          font: inherit;
+          font-size: 13px;
+          padding: 6px 4px 6px 14px;
+          background: none;
+          border: none;
+          color: var(--text-muted);
+          cursor: pointer;
+          white-space: nowrap;
+        }
+        .prov-tab-on { border-color: var(--text); background: var(--bg-elevated); }
+        .prov-tab-on > button { color: var(--text); font-weight: 500; }
+        .prov-tab-split { border-color: var(--gold); }
+        .prov-tab-beside, .prov-tab-close {
+          font-size: 13px;
+          line-height: 1;
+          padding: 5px 7px !important;
+          opacity: 0.45;
+          border-radius: 999px;
+        }
+        .prov-tab-beside:hover, .prov-tab-close:hover { opacity: 1; }
+        .prov-tab-close { font-size: 16px; }
+
+        /* ————— panes ————— */
+        .prov-panes { display: flex; gap: 0; min-width: 0; }
+        .prov-panes > .prov-screen { flex: 1 1 0; min-width: 0; }
+        .prov-panes-split { gap: 24px; }
+        .prov-panes-split > .prov-screen {
+          border: 1px solid var(--rule);
+          border-radius: 12px;
+          padding: 4px 18px 18px;
+          max-height: calc(100vh - 220px);
+          overflow-y: auto;
+        }
+        .prov-panehead {
+          position: sticky;
+          top: 0;
+          z-index: 2;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          margin: 0 -18px 12px;
+          padding: 10px 18px;
+          background: var(--bg);
+          border-bottom: 1px solid var(--rule);
+          font-family: var(--font-mono);
+          font-size: 10.5px;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          color: var(--text-muted);
+        }
+        .prov-panehead button {
+          font: inherit;
+          font-size: 17px;
+          line-height: 1;
+          background: none;
+          border: none;
+          color: inherit;
+          cursor: pointer;
+          opacity: 0.6;
+        }
+        .prov-panehead button:hover { opacity: 1; }
+        .prov-settle { animation: provsettle 240ms cubic-bezier(.2,.7,.2,1); }
+
         /* ————— mobile header and drawer ————— */
         .prov-topbar { display: none; }
         .prov-topbar-open { display: none; }
@@ -1393,7 +1614,7 @@ function ThemeStyles() {
 
         /* The content settles into place: a short fade up from a few
            pixels below. It arrives; it does not perform. */
-        .prov-view { animation: provsettle 240ms cubic-bezier(.2,.7,.2,1); }
+
         @keyframes provfade {
           from { opacity: 0; }
           to { opacity: 1; }
@@ -1407,7 +1628,7 @@ function ThemeStyles() {
           to { opacity: 1; transform: none; }
         }
         @media (prefers-reduced-motion: reduce) {
-          .prov-view { animation: none; }
+          .prov-settle { animation: none; }
           .prov-marker { transition: none; }
           .prov-side { transition: none; }
           .prov-scrim { animation: none; }
@@ -1500,6 +1721,16 @@ function ThemeStyles() {
 
           .prov-shell { grid-template-columns: 1fr; }
           .prov-main { padding-top: calc(env(safe-area-inset-top, 0px) + 68px); }
+          .prov-tabs { display: none; }
+          .prov-panes-split { display: block; }
+          .prov-panes-split > .prov-screen {
+            border: none;
+            border-radius: 0;
+            padding: 0;
+            max-height: none;
+            overflow: visible;
+          }
+          .prov-panehead { display: none; }
 
           .prov-sidehead {
             display: flex;
