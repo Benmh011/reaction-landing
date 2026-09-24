@@ -1254,8 +1254,7 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
         </aside>
 
         <main className="prov-main">
-          {openTabs.length > 1 && (
-            <div className="prov-tabs" role="tablist">
+          <div className="prov-tabs" role="tablist">
               {openTabs.map((id) => {
                 const sec = SECTIONS.find((x) => x.id === id);
                 const isActive = id === active;
@@ -1273,9 +1272,9 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
                         className="prov-tab-beside"
                         onClick={() => setSplitWith(inSplit ? null : id)}
                         aria-label={inSplit ? `Stop showing ${sec?.label} beside` : `Show ${sec?.label} beside`}
-                        title={inSplit ? "Stop showing this beside" : "Show this beside"}
+                        title={inSplit ? "Show on its own again" : "Show this beside the page you are on"}
                       >
-                        &#9707;
+                        {inSplit ? "Unsplit" : "Split"}
                       </button>
                     )}
                     <button
@@ -1288,8 +1287,7 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
                   </div>
                 );
               })}
-            </div>
-          )}
+          </div>
           <div className="prov-view">
             {prev && prev !== active && (
               <button onClick={back} className="prov-back">
@@ -1304,7 +1302,7 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
                   <section
                     key={id}
                     className={`prov-screen${settleId === id ? " prov-settle" : ""}`}
-                    style={{ display: shown ? undefined : "none" }}
+                    style={{ display: shown ? undefined : "none", order: id === active ? 0 : 1 }}
                     aria-hidden={!shown}
                   >
                     {splitWith && (
@@ -1520,6 +1518,15 @@ function ThemeStyles() {
           border-radius: 999px;
         }
         .prov-tab-beside:hover, .prov-tab-close:hover { opacity: 1; }
+        .prov-tab-beside {
+          font-size: 11.5px !important;
+          letter-spacing: 0.02em;
+          border-left: 1px solid var(--rule) !important;
+          margin-left: 4px;
+          border-radius: 0 !important;
+          padding: 4px 8px !important;
+        }
+        .prov-tab-split .prov-tab-beside { opacity: 1; color: var(--text); }
         .prov-tab-close { font-size: 16px; }
 
         /* ————— panes ————— */
