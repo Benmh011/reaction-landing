@@ -246,6 +246,46 @@ const AREAS: { key: string; title: string; sections: SectionId[] }[] = [
   { key: "people", title: "People", sections: ["personnel"] },
 ];
 
+function Legend() {
+  const keys: { colour: string; word: string; means: string }[] = [
+    { colour: VERM, word: "Serious", means: "act today" },
+    { colour: BRASS, word: "Watch", means: "due, or inside tolerance" },
+    { colour: GREEN, word: "In spec", means: "nothing to do" },
+  ];
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: "8px 20px",
+        alignItems: "center",
+        padding: "11px 16px",
+        marginBottom: 18,
+        border: "1px solid var(--rule)",
+        borderRadius: 12,
+        background: "var(--bg-elevated)",
+      }}
+    >
+      {keys.map((k) => (
+        <span key={k.word} style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12.5 }}>
+          <span
+            aria-hidden
+            style={{ width: 12, height: 12, borderRadius: 3, background: k.colour, flexShrink: 0 }}
+          />
+          <span style={{ color: k.colour, fontWeight: 500 }}>{k.word}</span>
+          <span style={{ color: MUTED }}>{k.means}</span>
+        </span>
+      ))}
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12.5 }}>
+        <span className="prov-urgent" aria-hidden style={{ marginRight: 0 }}>
+          !
+        </span>
+        <span style={{ color: MUTED }}>marks the serious ones, so it is not colour alone</span>
+      </span>
+    </div>
+  );
+}
+
 function Overview({ items, onGo }: { items: Item[]; onGo: (id: SectionId) => void }) {
   const [today, setToday] = useState("");
   useEffect(() => setToday(todayLabel()), []);
@@ -277,6 +317,7 @@ function Overview({ items, onGo }: { items: Item[]; onGo: (id: SectionId) => voi
             : undefined
         }
       />
+      <Legend />
       {busy.length > 0 && (
         <p style={{ fontSize: 13.5, color: MUTED, marginBottom: 18, lineHeight: 1.55 }}>
           {items.length} outstanding
@@ -295,6 +336,7 @@ function Overview({ items, onGo }: { items: Item[]; onGo: (id: SectionId) => voi
             key={g.key}
             style={{
               border: "1px solid var(--rule)",
+              borderLeft: `3px solid ${g.severe > 0 ? VERM : BRASS}`,
               borderRadius: 12,
               background: "var(--bg-elevated)",
               marginBottom: 10,
@@ -314,7 +356,6 @@ function Overview({ items, onGo }: { items: Item[]; onGo: (id: SectionId) => voi
                 padding: "15px 18px",
                 background: "none",
                 border: "none",
-                borderLeft: `3px solid ${g.severe > 0 ? VERM : BRASS}`,
                 font: "inherit",
                 color: "inherit",
                 cursor: "pointer",
@@ -442,13 +483,12 @@ function Person({
       : "all current";
 
   return (
-    <div style={{ border: "1px solid var(--rule)", borderRadius: 12, background: "var(--bg-elevated)", marginBottom: 8, overflow: "hidden" }}>
+    <div style={{ border: "1px solid var(--rule)", borderLeft: `3px solid ${STATUS_COLOR[worst]}`, borderRadius: 12, background: "var(--bg-elevated)", marginBottom: 8, overflow: "hidden" }}>
       <button
         onClick={() => setOpen((v) => !v)}
         style={{
           width: "100%", display: "flex", alignItems: "center", flexWrap: "wrap", rowGap: 6, gap: 14,
           padding: "13px 16px", background: "none", border: "none",
-          borderLeft: `3px solid ${STATUS_COLOR[worst]}`,
           font: "inherit", color: "inherit", cursor: "pointer", textAlign: "left",
         }}
       >
@@ -526,7 +566,16 @@ function Documents() {
         Soonest review first. Superseded versions are kept — if an incident happened in March, an auditor asks what
         the procedure said in March, not what it says now.
       </p>
-      <div style={{ overflowX: "auto", marginBottom: 34 }}>
+      <div
+        style={{
+          overflowX: "auto",
+          marginBottom: 34,
+          border: "1px solid var(--rule)",
+          borderRadius: 12,
+          background: "var(--bg-elevated)",
+          padding: "4px 16px 8px",
+        }}
+      >
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 660 }}>
           <thead>
             <tr>
@@ -712,13 +761,12 @@ function Personnel() {
               ? `${p.soon.length} due soon`
               : "all current";
           return (
-            <div key={p.name} style={{ border: "1px solid var(--rule)", borderRadius: 12, background: "var(--bg-elevated)", marginBottom: 8, overflow: "hidden" }}>
+            <div key={p.name} style={{ border: "1px solid var(--rule)", borderLeft: `3px solid ${STATUS_COLOR[p.worst]}`, borderRadius: 12, background: "var(--bg-elevated)", marginBottom: 8, overflow: "hidden" }}>
               <button
                 onClick={() => setOpen(isOpen ? null : p.name)}
                 style={{
                   width: "100%", display: "flex", alignItems: "center", flexWrap: "wrap", rowGap: 6, gap: 14,
                   padding: "14px 16px", background: "none", border: "none",
-                  borderLeft: `3px solid ${STATUS_COLOR[p.worst]}`,
                   font: "inherit", color: "inherit", cursor: "pointer", textAlign: "left",
                 }}
               >

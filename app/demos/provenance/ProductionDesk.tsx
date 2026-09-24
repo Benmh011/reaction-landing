@@ -866,7 +866,7 @@ function BatchRow({
   const b = state.batch;
   const [adding, setAdding] = useState<"metal" | "fill" | "pasteurisation" | null>(null);
   return (
-    <div style={{ border: "1px solid var(--rule)", borderRadius: 12, background: "var(--bg-elevated)", marginBottom: 8, overflow: "hidden" }}>
+    <div style={{ border: "1px solid var(--rule)", borderLeft: `3px solid ${STATUS_COLOR[state.status]}`, borderRadius: 12, background: "var(--bg-elevated)", marginBottom: 8, overflow: "hidden" }}>
       <button
         onClick={onToggle}
         style={{
@@ -879,7 +879,6 @@ function BatchRow({
           padding: "14px 16px",
           background: "none",
           border: "none",
-          borderLeft: `3px solid ${STATUS_COLOR[state.status]}`,
           font: "inherit",
           color: "inherit",
           cursor: "pointer",
