@@ -137,6 +137,26 @@ type SectionId = (typeof SECTIONS)[number]["id"];
 
 const TABS_KEY = "salcombe-dairy.open-tabs";
 
+// How many sections stay warm. Not a memory limit forced by the browser —
+// ten mounted sections would be fine — but a tidy one. The least recently
+// used goes quietly when a sixth opens, and coming back to it simply
+// rebuilds it the way every section used to. Nobody is told, because a
+// rule you have to explain is a rule that is showing.
+const MAX_WARM = 5;
+
+// The list is kept in order of use, most recent last. Opening a section
+// moves it to the end; if that pushes past the limit, the oldest goes —
+// but never the page you are on or the one beside it.
+function keepRecent(tabs: SectionId[], next: SectionId, beside: SectionId | null): SectionId[] {
+  const ordered = [...tabs.filter((t) => t !== next), next];
+  while (ordered.length > MAX_WARM) {
+    const drop = ordered.findIndex((t) => t !== next && t !== beside);
+    if (drop < 0) break;
+    ordered.splice(drop, 1);
+  }
+  return ordered;
+}
+
 // ————————————————————————— the picture —————————————————————————
 //
 // Everything that needs a decision, read from the same engines the
@@ -247,6 +267,18 @@ const AREAS: { key: string; title: string; sections: SectionId[] }[] = [
   { key: "audit", title: "Documents and audit", sections: ["documents", "questionnaires"] },
   { key: "people", title: "People", sections: ["personnel"] },
 ];
+
+// Two panes side by side. Drawn, so it looks the same everywhere and does
+// not depend on a character a font may not have.
+function SplitIcon({ on }: { on: boolean }) {
+  return (
+    <svg width="15" height="13" viewBox="0 0 15 13" aria-hidden focusable="false">
+      <rect x="0.75" y="0.75" width="13.5" height="11.5" rx="2" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <line x1="7.5" y1="1" x2="7.5" y2="12" stroke="currentColor" strokeWidth="1.3" />
+      {on && <rect x="8.2" y="1.5" width="5.3" height="10" rx="1" fill="currentColor" />}
+    </svg>
+  );
+}
 
 function Legend() {
   // Severity, not time. A freezer at minus eleven is not "due in a
@@ -966,7 +998,7 @@ function Detail({ k, v }: { k: string; v: string }) {
 // active item and glides to it, so the navigation reads as one thing
 // rather than seven buttons taking turns.
 function useMarker(active: SectionId) {
-  const refs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const refs = useRef<Record<string, HTMLElement | null>>({});
   const [box, setBox] = useState<{ top: number; height: number } | null>(null);
 
   useLayoutEffect(() => {
@@ -995,7 +1027,7 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
       return next;
     });
     if (next !== "start") {
-      setOpenTabs((prevTabs) => (prevTabs.includes(next) ? prevTabs : [...prevTabs, next]));
+      setOpenTabs((prevTabs) => keepRecent(prevTabs, next, splitWith));
       // The fade used to come from the screen being rebuilt. It is not
       // rebuilt any more, so it is asked for explicitly and only on a
       // real switch.
@@ -1043,6 +1075,15 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
       // Storage blocked: tabs last for this session.
     }
   }, [openTabs]);
+
+  const openBeside = (id: SectionId) => {
+    if (id === splitWith) {
+      setSplitWith(null);
+      return;
+    }
+    setSplitWith(id);
+    setOpenTabs((prevTabs) => keepRecent(prevTabs, id, id));
+  };
 
   const closeTab = (id: SectionId) => {
     setOpenTabs((prevTabs) => {
@@ -1223,22 +1264,51 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
             {SECTIONS.map((s) => {
               const on = s.id === active;
               const c = counts[s.id];
+              const warm = openTabs.includes(s.id);
+              const beside = s.id === splitWith;
+              // Controls sit beside the label rather than inside it: a
+              // button inside a button is invalid, and a click on the
+              // split control would otherwise also navigate.
               return (
-                <button
+                <div
                   key={s.id}
                   ref={(el) => {
                     refs.current[s.id] = el;
                   }}
-                  onClick={() => {
-                    setView(s.id);
-                    setDrawer(false);
-                  }}
-                  className="prov-navitem"
-                  aria-current={on ? "page" : undefined}
+                  className={`prov-navrow${on ? " prov-navrow-on" : ""}${beside ? " prov-navrow-beside" : ""}`}
                 >
-                  <span style={{ flex: 1 }}>{s.label}</span>
-                  {c.n > 0 && <span className={`pv-flag${c.severe ? " pv-flag-severe" : ""}`}>{c.n}</span>}
-                </button>
+                  <button
+                    onClick={() => {
+                      setView(s.id);
+                      setDrawer(false);
+                    }}
+                    className="prov-navitem"
+                    aria-current={on ? "page" : undefined}
+                  >
+                    <span style={{ flex: 1, minWidth: 0 }}>{s.label}</span>
+                    {c.n > 0 && <span className={`pv-flag${c.severe ? " pv-flag-severe" : ""}`}>{c.n}</span>}
+                  </button>
+                  {!on && (
+                    <button
+                      className="prov-navctl prov-navsplit"
+                      onClick={() => openBeside(s.id)}
+                      aria-label={beside ? `Stop showing ${s.label} beside` : `Show ${s.label} beside the page you are on`}
+                      title={beside ? "Show on its own again" : "Show beside the page you are on"}
+                    >
+                      <SplitIcon on={beside} />
+                    </button>
+                  )}
+                  {warm && !on && (
+                    <button
+                      className="prov-navctl prov-navclose"
+                      onClick={() => closeTab(s.id)}
+                      aria-label={`Close ${s.label}`}
+                      title="Close"
+                    >
+                      &#215;
+                    </button>
+                  )}
+                </div>
               );
             })}
           </nav>
@@ -1254,40 +1324,6 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
         </aside>
 
         <main className="prov-main">
-          <div className="prov-tabs" role="tablist">
-              {openTabs.map((id) => {
-                const sec = SECTIONS.find((x) => x.id === id);
-                const isActive = id === active;
-                const inSplit = id === splitWith;
-                return (
-                  <div
-                    key={id}
-                    className={`prov-tab${isActive ? " prov-tab-on" : ""}${inSplit ? " prov-tab-split" : ""}`}
-                  >
-                    <button onClick={() => setView(id)} role="tab" aria-selected={isActive}>
-                      {sec?.label}
-                    </button>
-                    {!isActive && (
-                      <button
-                        className="prov-tab-beside"
-                        onClick={() => setSplitWith(inSplit ? null : id)}
-                        aria-label={inSplit ? `Stop showing ${sec?.label} beside` : `Show ${sec?.label} beside`}
-                        title={inSplit ? "Show on its own again" : "Show this beside the page you are on"}
-                      >
-                        {inSplit ? "Unsplit" : "Split"}
-                      </button>
-                    )}
-                    <button
-                      className="prov-tab-close"
-                      onClick={() => closeTab(id)}
-                      aria-label={`Close ${sec?.label}`}
-                    >
-                      &#215;
-                    </button>
-                  </div>
-                );
-              })}
-          </div>
           <div className="prov-view">
             {prev && prev !== active && (
               <button onClick={back} className="prov-back">
@@ -1479,55 +1515,36 @@ function ThemeStyles() {
            own box rather than taking the page with it. */
         .prov-main table { max-width: 100%; }
 
-        /* ————— tabs ————— */
-        .prov-tabs {
+        /* ————— sidebar rows ————— */
+        .prov-navrow {
+          position: relative;
           display: flex;
-          flex-wrap: wrap;
-          gap: 6px;
-          margin-bottom: 20px;
-          padding-bottom: 12px;
-          border-bottom: 1px solid var(--rule);
-        }
-        .prov-tab {
-          display: inline-flex;
           align-items: center;
-          border: 1px solid var(--rule);
-          border-radius: 999px;
-          background: transparent;
-          padding-right: 4px;
-          transition: background 140ms ease, border-color 140ms ease;
+          gap: 2px;
+          border-radius: 8px;
         }
-        .prov-tab > button {
-          font: inherit;
-          font-size: 13px;
-          padding: 6px 4px 6px 14px;
-          background: none;
+        .prov-navrow > .prov-navitem { flex: 1; min-width: 0; width: auto; }
+        .prov-navctl {
+          flex-shrink: 0;
+          display: inline-grid;
+          place-items: center;
+          width: 26px;
+          height: 26px;
+          padding: 0;
           border: none;
-          color: var(--text-muted);
+          border-radius: 6px;
+          background: transparent;
+          color: var(--on-navy);
+          opacity: 0.5;
           cursor: pointer;
-          white-space: nowrap;
+          transition: opacity 120ms ease, background 120ms ease;
         }
-        .prov-tab-on { border-color: var(--text); background: var(--bg-elevated); }
-        .prov-tab-on > button { color: var(--text); font-weight: 500; }
-        .prov-tab-split { border-color: var(--gold); }
-        .prov-tab-beside, .prov-tab-close {
-          font-size: 13px;
-          line-height: 1;
-          padding: 5px 7px !important;
-          opacity: 0.45;
-          border-radius: 999px;
+        .prov-navctl:hover, .prov-navctl:focus-visible {
+          opacity: 1;
+          background: rgba(255, 255, 255, 0.08);
         }
-        .prov-tab-beside:hover, .prov-tab-close:hover { opacity: 1; }
-        .prov-tab-beside {
-          font-size: 11.5px !important;
-          letter-spacing: 0.02em;
-          border-left: 1px solid var(--rule) !important;
-          margin-left: 4px;
-          border-radius: 0 !important;
-          padding: 4px 8px !important;
-        }
-        .prov-tab-split .prov-tab-beside { opacity: 1; color: var(--text); }
-        .prov-tab-close { font-size: 16px; }
+        .prov-navclose { font-size: 16px; line-height: 1; }
+        .prov-navrow-beside .prov-navsplit { opacity: 1; color: var(--gold); }
 
         /* ————— panes ————— */
         .prov-panes { display: flex; gap: 0; min-width: 0; }
@@ -1728,7 +1745,7 @@ function ThemeStyles() {
 
           .prov-shell { grid-template-columns: 1fr; }
           .prov-main { padding-top: calc(env(safe-area-inset-top, 0px) + 68px); }
-          .prov-tabs { display: none; }
+          .prov-navsplit { display: none; }
           .prov-panes-split { display: block; }
           .prov-panes-split > .prov-screen {
             border: none;
