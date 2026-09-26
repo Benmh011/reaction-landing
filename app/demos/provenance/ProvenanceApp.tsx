@@ -1282,7 +1282,7 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
                     className="prov-navctl prov-navsplit"
                     onClick={() => openBeside(s.id)}
                     aria-label={beside ? `Stop showing ${s.label} beside` : `Show ${s.label} beside the page you are on`}
-                    title={beside ? "Show on its own again" : "Show beside the page you are on"}
+                    title={beside ? "Stop showing this beside" : "Show beside the page you are on"}
                     tabIndex={on ? -1 : 0}
                     aria-hidden={on}
                     disabled={on}
