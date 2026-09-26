@@ -1085,19 +1085,6 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
     setOpenTabs((prevTabs) => keepRecent(prevTabs, id, id));
   };
 
-  const closeTab = (id: SectionId) => {
-    setOpenTabs((prevTabs) => {
-      const next = prevTabs.filter((t) => t !== id);
-      if (next.length === 0) return ["overview"];
-      return next;
-    });
-    if (splitWith === id) setSplitWith(null);
-    if (view === id) {
-      const rest = openTabs.filter((t) => t !== id);
-      setViewRaw(rest[rest.length - 1] ?? "overview");
-    }
-  };
-
   const [drawer, setDrawer] = useState(false);
   // A drawer that leaves the page scrolling behind it feels broken.
   useEffect(() => {
@@ -1264,7 +1251,6 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
             {SECTIONS.map((s) => {
               const on = s.id === active;
               const c = counts[s.id];
-              const warm = openTabs.includes(s.id);
               const beside = s.id === splitWith;
               // Controls sit beside the label rather than inside it: a
               // button inside a button is invalid, and a click on the
@@ -1288,26 +1274,22 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
                     <span style={{ flex: 1, minWidth: 0 }}>{s.label}</span>
                     {c.n > 0 && <span className={`pv-flag${c.severe ? " pv-flag-severe" : ""}`}>{c.n}</span>}
                   </button>
-                  {!on && (
-                    <button
-                      className="prov-navctl prov-navsplit"
-                      onClick={() => openBeside(s.id)}
-                      aria-label={beside ? `Stop showing ${s.label} beside` : `Show ${s.label} beside the page you are on`}
-                      title={beside ? "Show on its own again" : "Show beside the page you are on"}
-                    >
-                      <SplitIcon on={beside} />
-                    </button>
-                  )}
-                  {warm && !on && (
-                    <button
-                      className="prov-navctl prov-navclose"
-                      onClick={() => closeTab(s.id)}
-                      aria-label={`Close ${s.label}`}
-                      title="Close"
-                    >
-                      &#215;
-                    </button>
-                  )}
+                  {/* The split control keeps its space on every row, and is
+                      only hidden — not removed — on the page you are on.
+                      Removing it made it hop from row to row as you moved,
+                      nudging the labels each time. */}
+                  <button
+                    className="prov-navctl prov-navsplit"
+                    onClick={() => openBeside(s.id)}
+                    aria-label={beside ? `Stop showing ${s.label} beside` : `Show ${s.label} beside the page you are on`}
+                    title={beside ? "Show on its own again" : "Show beside the page you are on"}
+                    tabIndex={on ? -1 : 0}
+                    aria-hidden={on}
+                    disabled={on}
+                    style={{ visibility: on ? "hidden" : "visible" }}
+                  >
+                    <SplitIcon on={beside} />
+                  </button>
                 </div>
               );
             })}
@@ -1543,7 +1525,6 @@ function ThemeStyles() {
           opacity: 1;
           background: rgba(255, 255, 255, 0.08);
         }
-        .prov-navclose { font-size: 16px; line-height: 1; }
         .prov-navrow-beside .prov-navsplit { opacity: 1; color: var(--gold); }
 
         /* ————— panes ————— */
