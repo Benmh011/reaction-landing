@@ -721,7 +721,37 @@ function gridFromPositions(items: Positioned[]): (string | null)[][] {
   });
 }
 
+// pdf.js 6 calls Promise.withResolvers throughout, and unlike the three
+// dozen other newer features it uses, its "legacy" build ships no
+// fallback for this one. Safari only gained it in 17.4, so on any iPhone
+// from 15.4 to 17.3 — which runs the rest of the app perfectly well —
+// the first call throws "undefined is not a function" the moment a PDF
+// is dropped. Excel and CSV never load pdf.js, which is why only PDFs
+// broke.
+//
+// This supplies it when it is missing and does nothing when it is not,
+// so current phones and every desktop are untouched. It has to run
+// before pdf.js is imported, because the library reaches for it as soon
+// as it starts working.
+function ensurePromiseWithResolvers(): void {
+  const P = Promise as unknown as {
+    withResolvers?: () => unknown;
+  };
+  if (typeof P.withResolvers === "function") return;
+  P.withResolvers = function withResolvers<T>(this: PromiseConstructor) {
+    let resolve!: (value: T | PromiseLike<T>) => void;
+    let reject!: (reason?: unknown) => void;
+    const promise = new this<T>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  };
+}
+
 async function gridsFromPdf(buf: ArrayBuffer): Promise<(string | null)[][][]> {
+  ensurePromiseWithResolvers();
+
   // Both halves of the library are imported: the API, and the worker
   // module itself.
   //
