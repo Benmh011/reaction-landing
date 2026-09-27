@@ -137,6 +137,17 @@ type SectionId = (typeof SECTIONS)[number]["id"];
 
 const TABS_KEY = "salcombe-dairy.open-tabs";
 
+// Where you were, for the life of the browser session. On a phone,
+// exporting a PDF navigates the window to it — iOS ignores the download
+// hint — and coming back reloads the app. Without this it reopens on the
+// welcome scene every time.
+//
+// Session rather than permanent on purpose: a PDF round trip lands you
+// back in place, but opening the demo fresh another day still starts on
+// the estuary, which is the first impression it is there to make.
+const VIEW_KEY = "salcombe-dairy.view";
+const SPLIT_KEY = "salcombe-dairy.split";
+
 // How many sections stay warm. Not a memory limit forced by the browser —
 // ten mounted sections would be fine — but a tidy one. The least recently
 // used goes quietly when a sixth opens, and coming back to it simply
@@ -1076,6 +1087,35 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
     }
   }, [openTabs]);
 
+  // Read back after mount, so the server and the first client render
+  // agree; until then nothing is drawn (see the gate below), which stops
+  // the welcome scene flashing up — and three.js starting — only to be
+  // replaced a frame later.
+  const [restored, setRestored] = useState(false);
+  useEffect(() => {
+    try {
+      const v = window.sessionStorage.getItem(VIEW_KEY);
+      if (v && (v === "start" || SECTIONS.some((x) => x.id === v))) {
+        setViewRaw(v as "start" | SectionId);
+      }
+      const sp = window.sessionStorage.getItem(SPLIT_KEY);
+      if (sp && SECTIONS.some((x) => x.id === sp)) setSplitWith(sp as SectionId);
+    } catch {
+      // Storage blocked: start on the welcome scene as before.
+    }
+    setRestored(true);
+  }, []);
+  useEffect(() => {
+    if (!restored) return;
+    try {
+      window.sessionStorage.setItem(VIEW_KEY, view);
+      if (splitWith) window.sessionStorage.setItem(SPLIT_KEY, splitWith);
+      else window.sessionStorage.removeItem(SPLIT_KEY);
+    } catch {
+      // Storage blocked: nothing to remember this session.
+    }
+  }, [view, splitWith, restored]);
+
   const openBeside = (id: SectionId) => {
     if (id === splitWith) {
       setSplitWith(null);
@@ -1147,6 +1187,14 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
   );
   const severeOpen = useMemo(() => Object.values(counts).some((c) => c.severe), [counts]);
   const { refs, box } = useMarker(view === "start" ? "overview" : view);
+
+  if (!restored) {
+    return (
+      <div className="pv-root">
+        <ThemeStyles />
+      </div>
+    );
+  }
 
   if (view === "start") {
     return (
@@ -1314,7 +1362,7 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
               </button>
             )}
             <div className={`prov-panes${splitWith ? " prov-panes-split" : ""}`}>
-              {openTabs.map((id) => {
+              {Array.from(new Set<SectionId>([...openTabs, active, ...(splitWith ? [splitWith] : [])])).map((id) => {
                 const shown = id === active || id === splitWith;
                 return (
                   <section
