@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { DOCUMENTS, TRAINING, PEOPLE, QUESTIONNAIRES, dateStatus, dueLabel, daysUntil, type Status } from "./data";
 import ProductionDesk from "./ProductionDesk";
+import { useSessionState, isStringOrNull, isRecordOfBooleans } from "./session-state";
 import { SEED_BATCHES, productionExceptions, batchStates } from "./production";
 import {
   documentRegisterBlob,
@@ -354,7 +355,7 @@ function Overview({ items, onGo }: { items: Item[]; onGo: (id: SectionId) => voi
   // fifty-odd item list. Closed makes the page a summary you can read in
   // one screen, each heading carrying its total and how many of those
   // are serious, and opening one is a tap.
-  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [open, setOpen] = useSessionState<Record<string, boolean>>("overview.open", {}, isRecordOfBooleans);
   const isOpen = (g: (typeof grouped)[number]) => !!open[g.key];
 
   return (
@@ -584,7 +585,7 @@ function Person({
 }
 
 function Documents() {
-  const [openDoc, setOpenDoc] = useState<string | null>(null);
+  const [openDoc, setOpenDoc] = useSessionState<string | null>("documents.open", null, isStringOrNull);
   const docs = [...DOCUMENTS].sort(
     (a, b) => (daysUntil(a.next) ?? 0) - (daysUntil(b.next) ?? 0),
   );
@@ -757,7 +758,10 @@ function Tally({ n, label, color = "var(--text)" }: { n: number; label: string; 
 // was completed before the person handled food.
 
 function Personnel() {
-  const [open, setOpen] = useState<string | null>(null);
+  const [open, setOpen] = useSessionState<string | null>("personnel.open", null, isStringOrNull);
+  // Not remembered, on purpose. Restoring this after a reload would show
+  // somebody's reasons for absence without anyone confirming their role
+  // again, which is the one thing the attestation exists to prevent.
   const [showReasons, setShowReasons] = useState(false);
   const [confirming, setConfirming] = useState(false);
 

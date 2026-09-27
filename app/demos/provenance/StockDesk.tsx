@@ -14,6 +14,7 @@
 // ————————————————————————————————————————————————————————————————
 
 import { useMemo, useRef, useState } from "react";
+import { useSessionState, isOneOf } from "./session-state";
 import {
   LOCATIONS,
   MATERIALS,
@@ -146,7 +147,11 @@ export default function StockDesk({
   movements?: Movement[];
   onMovements?: (next: Movement[]) => void;
 }) {
-  const [tab, setTab] = useState<Tab>("goodsin");
+  const [tab, setTab] = useSessionState<Tab>(
+    "stock.tab",
+    "goodsin",
+    isOneOf("goodsin", "onhand", "shelf", "allergens", "holds", "log"),
+  );
   const [local, setLocal] = useState<Movement[]>(SEED_MOVEMENTS);
   const movements = controlled ?? local;
   const setMovements = (fn: (prev: Movement[]) => Movement[]) => {
@@ -1028,7 +1033,19 @@ function ExportButton({ label, build }: { label: string; build: () => Promise<vo
 // ————————————————————————— shelf life —————————————————————————
 
 function ShelfLifeTab({ movements, operator = "" }: { movements: Movement[]; operator?: string }) {
-  const [filter, setFilter] = useState<StockFilter>({ site: null, line: null, sort: "date" });
+  const [filter, setFilter] = useSessionState<StockFilter>(
+    "stock.shelf.filter",
+    { site: null, line: null, sort: "date" },
+    (v) => {
+      if (typeof v !== "object" || v === null) return false;
+      const f = v as Record<string, unknown>;
+      return (
+        (f.site === null || f.site === undefined || typeof f.site === "string") &&
+        (f.line === null || f.line === undefined || typeof f.line === "string") &&
+        (f.sort === undefined || f.sort === "date" || f.sort === "material" || f.sort === "location")
+      );
+    },
+  );
   const rows = useMemo(() => applyStockFilter(shelfLife(movements), filter), [movements, filter]);
   const pressing = rows.filter((r) => r.state === "expired" || r.state === "urgent" || r.state === "soon");
 
@@ -1408,9 +1425,9 @@ function LotTrace({
 // ————————————————————————— movement log —————————————————————————
 
 function LogTab({ movements }: { movements: Movement[] }) {
-  const [dir, setDir] = useState("");
-  const [site, setSite] = useState("");
-  const [span, setSpan] = useState("day");
+  const [dir, setDir] = useSessionState("stock.log.dir", "", isOneOf("", "in", "out"));
+  const [site, setSite] = useSessionState("stock.log.site", "", (v) => typeof v === "string");
+  const [span, setSpan] = useSessionState("stock.log.span", "day", isOneOf("day", "week"));
 
   // Chronological is what makes a log evidence, so the order never
   // changes. Filters narrow what is shown; they do not reorder it.

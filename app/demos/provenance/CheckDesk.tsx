@@ -14,6 +14,7 @@
 // ————————————————————————————————————————————————————————————————
 
 import { useMemo, useState } from "react";
+import { useSessionState } from "./session-state";
 import type { Status } from "./data";
 import {
   checkLogBlob,
@@ -149,7 +150,19 @@ export default function CheckDesk({
   const [openAsset, setOpenAsset] = useState<string | null>(null);
   const [recording, setRecording] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
-  const [filter, setFilter] = useState<CheckFilter>({ site: null, attentionOnly: false, sort: "status" });
+  const [filter, setFilter] = useSessionState<CheckFilter>(
+    "checks.filter",
+    { site: null, attentionOnly: false, sort: "status" },
+    (v) => {
+      if (typeof v !== "object" || v === null) return false;
+      const f = v as Record<string, unknown>;
+      return (
+        (f.site === null || f.site === undefined || typeof f.site === "string") &&
+        (f.attentionOnly === undefined || typeof f.attentionOnly === "boolean") &&
+        (f.sort === undefined || f.sort === "status" || f.sort === "site" || f.sort === "name")
+      );
+    },
+  );
 
   // The board the desk shows and the board the document reports come from
   // the same derivation applied to the same filter.

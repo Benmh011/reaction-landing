@@ -14,6 +14,7 @@
 // ————————————————————————————————————————————————————————————————
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useSessionState, isOneOf, isStringOrNull } from "./session-state";
 import { readChart, toPasteurisation, type ChartRead } from "./chart";
 import {
   SEED_BATCHES,
@@ -159,9 +160,9 @@ function Pills<T extends string>({
 }
 
 export default function ProductionDesk({ operator = "" }: { operator?: string }) {
-  const [open, setOpen] = useState<string | null>(null);
-  const [line, setLine] = useState("");
-  const [only, setOnly] = useState("");
+  const [open, setOpen] = useSessionState<string | null>("production.open", null, isStringOrNull);
+  const [line, setLine] = useSessionState("production.line", "", isOneOf("", "ice cream", "chocolate"));
+  const [only, setOnly] = useSessionState("production.only", "", isOneOf("", "attention"));
   const [starting, setStarting] = useState(false);
   const [justSaved, setJustSaved] = useState<{ id: string; existed: boolean } | null>(null);
 
