@@ -666,7 +666,7 @@ export function fmtQty(qty: number, unit: Unit): string {
 // shops. Lot codes follow the convention already used elsewhere in the
 // demo (supplier initials, then date).
 
-export const SEED_MOVEMENTS: Movement[] = [
+export const SEED_MOVEMENTS: Movement[] = oneDatePerLot([
   mv("m01", "RM-MILK", "HF-260901", "WH-CHILL", 1850, "L", "goods-in", 1, "M. Reeve", "HF-DN-4471"),
   mv("m02", "RM-CREAM", "HF-260901-C", "WH-CHILL", 380, "L", "goods-in", 2, "M. Reeve", "HF-DN-4471"),
   // A delivery that failed its intake temperature and was booked into
@@ -748,7 +748,7 @@ export const SEED_MOVEMENTS: Movement[] = [
   mv("m30", "RM-MILK", "HF-260901", "WH-CHILL", -780, "L", "production-consume", 1, "M. Reeve", "IC-2607-14"),
   mv("m31", "RM-SUGAR", "BS-9911-K", "WH-DRY", -94, "kg", "production-consume", 62, "M. Reeve", "IC-2607-14"),
   mv("m32", "PK-TUB2", "PKG-2606-A", "WH-DRY", -412, "units", "production-consume", 62, "M. Reeve", "IC-2607-14"),
-];
+]);
 
 function mv(
   id: string,
@@ -792,6 +792,44 @@ function dispatch(
   ref: string,
 ): Movement {
   return { ...mv(id, materialCode, lot, fromLocation, -Math.abs(qty), unit, "dispatch", daysAgo, by, ref), customer };
+}
+
+// A best-before belongs to a lot. It is fixed the day the lot comes into
+// being — delivered, or made — and it is the same on every shelf that lot
+// later sits on.
+//
+// The seed builder above dates each movement relative to today, and it
+// used to work the best-before out from each movement's own date. So a lot
+// picked up a new date a day or two later every time it moved: the same
+// salted caramel batch read 27 July in dispatch and 29 July in the shop,
+// and one chocolate batch carried nine different dates. On a real site
+// that is a labelling non-conformity, and it showed on the shelf-life
+// register an auditor would hold.
+//
+// This dates every movement of a lot from that lot's origin: its goods-in
+// or production yield, or failing either, its earliest movement.
+function oneDatePerLot(moves: Movement[]): Movement[] {
+  const origin = new Map<string, number>();
+  const born = (r: MovementReason) => r === "goods-in" || r === "production-yield";
+  for (const m of moves) {
+    const key = `${m.materialCode}|${m.lot}`;
+    const seen = origin.get(key);
+    const candidate = born(m.reason) ? m.ts : undefined;
+    if (candidate !== undefined && (seen === undefined || candidate < seen)) origin.set(key, candidate);
+  }
+  for (const m of moves) {
+    const key = `${m.materialCode}|${m.lot}`;
+    if (!origin.has(key)) {
+      const earliest = Math.min(...moves.filter((x) => `${x.materialCode}|${x.lot}` === key).map((x) => x.ts));
+      origin.set(key, earliest);
+    }
+  }
+  return moves.map((m) => {
+    const days = MATERIALS.find((x) => x.code === m.materialCode)?.shelfLifeDays;
+    if (!days) return m;
+    const from = new Date(origin.get(`${m.materialCode}|${m.lot}`)!);
+    return { ...m, bestBefore: fmtDate(addDays(from, days)) };
+  });
 }
 
 function addDays(d: Date, n: number): Date {
@@ -865,7 +903,13 @@ export function freshnessOf(bestBefore?: string, today = new Date()): { state: F
   const d = parseNoteDate(bestBefore);
   if (!d) return { state: "unknown", days: null };
 
-  const days = Math.round((d.getTime() - today.getTime()) / 86_400_000);
+  // Whole days, counted from the start of today. Measuring from this
+  // minute instead made a lot good until tomorrow read "0 days left" by
+  // the afternoon, and knocked a day off everything else — the documents
+  // engine already counts from midnight, and now this does too.
+  const start = new Date(today);
+  start.setHours(0, 0, 0, 0);
+  const days = Math.round((d.getTime() - start.getTime()) / 86_400_000);
   if (days < 0) return { state: "expired", days };
   if (days <= 7) return { state: "urgent", days };
   if (days <= 30) return { state: "soon", days };
@@ -882,8 +926,21 @@ export const FRESHNESS_ORDER: Record<Freshness, number> = {
 
 export type ShelfLifeRow = { balance: LotBalance; state: Freshness; days: number | null };
 
+// Packaging is not food and carries no best-before by nature, so it has no
+// place on a shelf-life register. It used to appear there as "No date
+// held" in the warning colour — six thousand lids flagged as a problem on
+// the auditor's copy. It is still stock, and Stock on hand still shows it.
+//
+// A food lot with no date is different: that is a genuine gap, and it
+// still shows here and still warns.
+function isPackaging(b: LotBalance): boolean {
+  const kind = b.material?.kind;
+  return kind === "packaging-primary" || kind === "packaging-secondary";
+}
+
 export function shelfLife(movements: Movement[], today = new Date()): ShelfLifeRow[] {
   return balances(movements)
+    .filter((balance) => !isPackaging(balance))
     .map((balance) => {
       const f = freshnessOf(balance.bestBefore, today);
       return { balance, state: f.state, days: f.days };

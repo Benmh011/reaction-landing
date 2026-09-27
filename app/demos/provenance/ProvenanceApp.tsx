@@ -1185,11 +1185,12 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
 
   const picture = useMemo(() => buildPicture(movements, readings, runs), [movements, readings, runs]);
   const counts = useMemo(() => countsFor(picture), [picture]);
-  const openFlags = useMemo(
-    () => Object.values(counts).reduce((a, c) => a + c.n, 0),
-    [counts],
-  );
-  const severeOpen = useMemo(() => Object.values(counts).some((c) => c.severe), [counts]);
+  // The overview row already holds the grand total — every item is added
+  // to its own section and to Overview, so the sidebar can show both.
+  // Summing every section here counted each item twice, and the header
+  // read 60 where the overview itself said 30.
+  const openFlags = counts.overview.n;
+  const severeOpen = counts.overview.severe;
   const { refs, box } = useMarker(view === "start" ? "overview" : view);
 
   if (!restored) {

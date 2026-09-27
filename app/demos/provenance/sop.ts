@@ -12,6 +12,13 @@
 // afterwards — completing the procedure is the paperwork.
 // ————————————————————————————————————————————————————————————————
 
+// The pasteuriser's limits are read from production, not restated here.
+// This procedure once said 85°C was the line while the batch records said
+// 79.4°C, so the same run could be stopped at start-up and released at
+// the end. Both now read the same figures, and changing the critical
+// limit is one edit in production.ts.
+import { PASTEURISATION } from "./production";
+
 export type StepKind = "confirm" | "reading" | "choice" | "note";
 
 // Where a step sends the run next. A step id, or one of two terminals:
@@ -155,34 +162,34 @@ export const SOPS: Sop[] = [
       {
         id: "temp",
         prompt: "Holding tube temperature",
-        guidance: "Must be at or above 85°C. Read it from the indicating thermometer, not the recorder.",
+        guidance: `Set to run at ${PASTEURISATION.targetC}°C. It must not be below ${PASTEURISATION.criticalC}°C, the critical limit — below that, nothing is pasteurised. Between the two it is safe but short of where it is set to run, so find out why. Read it from the indicating thermometer, not the recorder.`,
         kind: "reading",
         unit: "°C",
-        min: 85,
-        onFail: { next: "stop", action: "Below the pasteurisation temperature. Do not run product. Let the unit come up to temperature and read again." },
+        min: PASTEURISATION.criticalC,
+        onFail: { next: "stop", action: `Below the ${PASTEURISATION.criticalC}°C critical limit. Do not run product. Let the unit come up to temperature and read again.` },
         next: "hold",
       },
       {
         id: "hold",
         prompt: "Hold time at temperature",
-        guidance: "15 seconds minimum through the holding tube.",
+        guidance: `${PASTEURISATION.holdSeconds} seconds minimum through the holding tube.`,
         kind: "reading",
         unit: "s",
-        min: 15,
-        onFail: { next: "stop", action: "Hold time is below 15 seconds. Check the flow rate and the holding tube before running product." },
+        min: PASTEURISATION.holdSeconds,
+        onFail: { next: "stop", action: `Hold time is below ${PASTEURISATION.holdSeconds} seconds. Check the flow rate and the holding tube before running product.` },
         next: "divert",
       },
       {
         id: "divert",
         prompt: "Divert valve test — does it divert when the set-point is dropped?",
-        guidance: "Drop the set-point below 85°C and watch the valve. It must divert before any product could pass.",
+        guidance: `Drop the set-point below the ${PASTEURISATION.criticalC}°C critical limit and watch the valve. It must divert before any product under that temperature could pass.`,
         kind: "confirm",
         onFail: { next: "stop", action: "The divert valve did not operate. The pasteuriser is not safe to run. Tag it out and call the engineer." },
         next: "restore",
       },
       {
         id: "restore",
-        prompt: "Set-point restored to 85°C and valve returned to forward flow?",
+        prompt: `Set-point restored to ${PASTEURISATION.targetC}°C and valve returned to forward flow?`,
         kind: "confirm",
         onFail: { next: "stop", action: "Restore the set-point and confirm forward flow before running product." },
         next: "end",

@@ -503,9 +503,9 @@ export function shelfLifeFilename(f: StockFilter = {}): string {
 }
 
 function stockScope(f: StockFilter): string {
-  const what = f.line ? `every ${f.line} lot held` : "every lot held";
+  const what = f.line ? `every ${f.line} food lot held` : "every food lot held";
   const where = f.site ? `at ${f.site} only` : "at every location";
-  return `${what}, ${where}`;
+  return `${what}, ${where}. Packaging carries no best-before and is not listed`;
 }
 
 // A material marked "both" belongs to either line, so filtering to ice
@@ -551,7 +551,7 @@ export async function buildShelfLifePdf(
 
   h.kv("Produced by", operator || "—");
   h.kv("Produced at", fmtNow());
-  h.kv("Lots held", String(rows.length));
+  h.kv("Food lots held", String(rows.length));
   h.kv("Past date", String(expired.length), expired.length ? RED : GREEN, expired.length > 0);
   h.kv("Use this week", String(urgent.length), urgent.length ? AMBER : GREEN, urgent.length > 0);
   h.kv("No date held", String(unknown.length), unknown.length ? AMBER : GREEN, unknown.length > 0);
@@ -1290,22 +1290,24 @@ export async function buildTrainingMatrixPdf(rows: TrainRow[], operator: string)
     };
   });
   const lapsed = people.filter((p) => p.certs.some((c) => dateStatus(c.expires) === "overdue"));
-  const soon = people.filter(
-    (p) => !p.certs.some((c) => dateStatus(c.expires) === "overdue") && p.certs.some((c) => dateStatus(c.expires) === "due"),
-  );
+  // The figures count certificates, because the list under them lists
+  // certificates. They used to count people while their labels said
+  // certificates, so the header read two above a list of three.
+  const lapsedCerts = rows.filter((r) => dateStatus(r.expires) === "overdue").length;
+  const dueCerts = rows.filter((r) => dateStatus(r.expires) === "due").length;
 
   h.kv("Produced by", operator || "\u2014");
   h.kv("Produced at", fmtNow());
   h.kv("People", String(people.length));
   h.kv("Certificates held", String(rows.length));
-  h.kv("Lapsed certificates", String(lapsed.length), lapsed.length ? RED : GREEN, lapsed.length > 0);
-  h.kv("Due within 60 days", String(soon.length), soon.length ? AMBER : GREEN, soon.length > 0);
+  h.kv("Lapsed certificates", String(lapsedCerts), lapsedCerts ? RED : GREEN, lapsedCerts > 0);
+  h.kv("Due within 60 days", String(dueCerts), dueCerts ? AMBER : GREEN, dueCerts > 0);
   d.y += 3;
   provenance(h, "training register", "every person and every certificate held");
   d.y += 4;
 
   if (lapsed.length) {
-    h.head(`Lapsed (${lapsed.length})`);
+    h.head(`Lapsed (${lapsedCerts})`);
     h.line("Working now on a certificate that has expired. This is the first thing an auditor looks for.", 9.5, RED);
     d.y += 2;
     for (const p of lapsed) {
