@@ -749,6 +749,56 @@ function ensurePromiseWithResolvers(): void {
   };
 }
 
+// ————————————————————————— reading a PDF: what went wrong, and where —————————————————————————
+//
+// A PDF that failed on an iPhone reported only "undefined", while the
+// same file read perfectly in Chrome. The word on its own says almost
+// nothing, and it turns out that is pdf.js's doing. It does its reading
+// in a separate half, and when something fails in there it re-throws on
+// this side as its own "unknown error" type — whose message becomes the
+// literal word "undefined" when the original carried none. The original
+// is kept, in a separate `details` field, which the page was discarding.
+//
+// So each step now says which step it was, and a failure carries the
+// detail pdf.js set aside. The stage alone narrows a failure to a single
+// call even when the rest is noise.
+
+type PdfStage = "loading the PDF reader" | "opening the document" | "reading a page" | "pulling its text";
+
+function describeFailure(e: unknown): string {
+  if (e === undefined) return "no error object at all";
+  if (e === null) return "null";
+  if (typeof e !== "object") return String(e);
+  const x = e as { name?: unknown; message?: unknown; details?: unknown; stack?: unknown };
+  const parts: string[] = [];
+  const name = typeof x.name === "string" ? x.name : "Error";
+  const message = x.message === undefined ? "(no message)" : String(x.message);
+  parts.push(`${name}: ${message}`);
+  // The field pdf.js uses to keep the real cause.
+  if (x.details !== undefined && String(x.details) !== message) parts.push(`detail: ${String(x.details)}`);
+  // Safari's stack reads "function@file:line:column". The first few frames
+  // are the useful ones; the rest is the framework.
+  if (typeof x.stack === "string" && x.stack.trim()) {
+    const frames = x.stack
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .slice(0, 4);
+    if (frames.length) parts.push(`at: ${frames.join("  |  ")}`);
+  }
+  return parts.join("\n");
+}
+
+async function stage<T>(label: PdfStage, run: () => Promise<T> | T): Promise<T> {
+  try {
+    return await run();
+  } catch (e) {
+    const wrapped = new Error(`Failed while ${label}.\n${describeFailure(e)}`);
+    (wrapped as { cause?: unknown }).cause = e;
+    throw wrapped;
+  }
+}
+
 async function gridsFromPdf(buf: ArrayBuffer): Promise<(string | null)[][][]> {
   ensurePromiseWithResolvers();
 
@@ -764,22 +814,26 @@ async function gridsFromPdf(buf: ArrayBuffer): Promise<(string | null)[][][]> {
   //
   // A goods-in note is a page or two, so the main-thread cost is
   // irrelevant and this trades nothing away.
-  const [pdfjs, worker] = await Promise.all([
-    import("pdfjs-dist/legacy/build/pdf.mjs"),
-    // The worker build ships no type declarations of its own.
-    // @ts-expect-error -- untyped module, used only for its message handler
-    import("pdfjs-dist/legacy/build/pdf.worker.mjs"),
-  ]);
+  const [pdfjs, worker] = await stage("loading the PDF reader", () =>
+    Promise.all([
+      import("pdfjs-dist/legacy/build/pdf.mjs"),
+      // The worker build ships no type declarations of its own.
+      // @ts-expect-error -- untyped module, used only for its message handler
+      import("pdfjs-dist/legacy/build/pdf.worker.mjs"),
+    ]),
+  );
 
   const g = globalThis as unknown as { pdfjsWorker?: unknown };
   g.pdfjsWorker ??= worker;
 
-  const doc = await pdfjs.getDocument({ data: new Uint8Array(buf), useSystemFonts: true }).promise;
+  const doc = await stage("opening the document", () =>
+    pdfjs.getDocument({ data: new Uint8Array(buf), useSystemFonts: true }).promise,
+  );
 
   const grids: (string | null)[][][] = [];
   for (let p = 1; p <= doc.numPages; p++) {
-    const page = await doc.getPage(p);
-    const content = await page.getTextContent();
+    const page = await stage("reading a page", () => doc.getPage(p));
+    const content = await stage("pulling its text", () => page.getTextContent());
     const items: Positioned[] = [];
     for (const raw of content.items) {
       const item = raw as { str?: string; transform?: number[] };

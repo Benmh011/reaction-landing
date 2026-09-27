@@ -410,7 +410,26 @@ function GoodsInTab({ movements, onBook, operator = "" }: { movements: Movement[
 
       {error && (
         <div style={{ ...card, borderLeft: `2px solid ${VERM}`, marginBottom: 20 }}>
-          <p style={{ fontSize: 13.5, lineHeight: 1.55 }}>{error}</p>
+          {/* The first line is the plain explanation. Anything after it is
+              the detail of what failed and where, kept on its own lines and
+              in the mono face so it reads as a record rather than a sentence
+              — and so a screenshot of it is enough to diagnose. */}
+          <p style={{ fontSize: 13.5, lineHeight: 1.55 }}>{error.split("\n")[0]}</p>
+          {error.includes("\n") && (
+            <p
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 11.5,
+                lineHeight: 1.55,
+                color: MUTED,
+                marginTop: 8,
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+              }}
+            >
+              {error.split("\n").slice(1).join("\n")}
+            </p>
+          )}
         </div>
       )}
 
