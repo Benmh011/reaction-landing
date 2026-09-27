@@ -799,6 +799,41 @@ async function stage<T>(label: PdfStage, run: () => Promise<T> | T): Promise<T> 
   }
 }
 
+// Reading a page's text without pdf.js's own getTextContent.
+//
+// getTextContent collects the page's text with `for await (const value of
+// readableStream)` — looping over a stream. Chrome can do that. Safari
+// cannot, even on iOS 26: its streams read perfectly well, but they cannot
+// be looped over like that, so the loop throws "undefined is not a
+// function" before reading a single line. That was the whole of the iPhone
+// fault, found by making the failure report where it happened rather than
+// by guessing.
+//
+// So the stream is read the long way, a chunk at a time, which every
+// browser supports. It is the same stream and the same text; only the
+// loop is different. One path for every browser, so what is tested on a
+// desktop is what runs on a phone.
+//
+// pdf.js has one other loop of this kind, in its signature editor, which
+// goods-in never reaches.
+type TextChunk = { items?: unknown[] };
+type StreamablePage = { streamTextContent: (params?: object) => ReadableStream<TextChunk> };
+
+async function readPageText(page: StreamablePage): Promise<unknown[]> {
+  const reader = page.streamTextContent().getReader();
+  const items: unknown[] = [];
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      if (value?.items) items.push(...value.items);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return items;
+}
+
 async function gridsFromPdf(buf: ArrayBuffer): Promise<(string | null)[][][]> {
   ensurePromiseWithResolvers();
 
@@ -833,9 +868,9 @@ async function gridsFromPdf(buf: ArrayBuffer): Promise<(string | null)[][][]> {
   const grids: (string | null)[][][] = [];
   for (let p = 1; p <= doc.numPages; p++) {
     const page = await stage("reading a page", () => doc.getPage(p));
-    const content = await stage("pulling its text", () => page.getTextContent());
+    const textItems = await stage("pulling its text", () => readPageText(page as unknown as StreamablePage));
     const items: Positioned[] = [];
-    for (const raw of content.items) {
+    for (const raw of textItems) {
       const item = raw as { str?: string; transform?: number[] };
       const s = (item.str ?? "").trim();
       if (!s || !item.transform) continue;
