@@ -895,19 +895,21 @@ function BatchRow({
             at a time. A real basis lets the row break onto a second line
             instead, and changes nothing on a wide screen. */}
         <span style={{ flex: "1 1 210px", minWidth: 0 }}>
-          <span style={{ display: "block", fontSize: 14.5 }}>
-            {b.product}
-            {/* The name half-implies the line — nobody mistakes a dark bar
-                for ice cream — but "Honeycomb, 2L catering" does not say,
-                and somebody new should not have to work it out. Neutral
-                on purpose: colour here means severity, and a green or red
-                line label would muddy that. */}
+          <span style={{ display: "block", fontSize: 14.5 }}>{b.product}</span>
+          {/* The name half-implies the line — nobody mistakes a dark bar
+              for ice cream — but "Honeycomb, 2L catering" does not say,
+              and somebody new should not have to work it out. Neutral on
+              purpose: colour here means severity, and a green or red line
+              label would muddy that.
+
+              On its own line rather than beside the name. Beside it, a
+              short name left room and a long one pushed the tag down, so
+              the same label sat in two places down the list. */}
+          <span style={{ display: "block", marginTop: 5 }}>
             <span
               style={{
                 ...mono,
                 display: "inline-block",
-                marginLeft: 8,
-                verticalAlign: 2,
                 fontSize: 9.5,
                 letterSpacing: "0.12em",
                 padding: "2px 7px",
