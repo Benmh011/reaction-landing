@@ -895,7 +895,31 @@ function BatchRow({
             at a time. A real basis lets the row break onto a second line
             instead, and changes nothing on a wide screen. */}
         <span style={{ flex: "1 1 210px", minWidth: 0 }}>
-          <span style={{ display: "block", fontSize: 14.5 }}>{b.product}</span>
+          <span style={{ display: "block", fontSize: 14.5 }}>
+            {b.product}
+            {/* The name half-implies the line — nobody mistakes a dark bar
+                for ice cream — but "Honeycomb, 2L catering" does not say,
+                and somebody new should not have to work it out. Neutral
+                on purpose: colour here means severity, and a green or red
+                line label would muddy that. */}
+            <span
+              style={{
+                ...mono,
+                display: "inline-block",
+                marginLeft: 8,
+                verticalAlign: 2,
+                fontSize: 9.5,
+                letterSpacing: "0.12em",
+                padding: "2px 7px",
+                border: "1px solid var(--rule-strong)",
+                borderRadius: 999,
+                color: MUTED,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {b.line === "chocolate" ? "CHOCOLATE" : "ICE CREAM"}
+            </span>
+          </span>
           <span style={{ ...mono, display: "block", fontSize: 11.5, color: MUTED, marginTop: 3 }}>
             <span style={{ whiteSpace: "nowrap" }}>{b.id}</span> ·{" "}
             <span style={{ whiteSpace: "nowrap" }}>{batchDayLabel(b)}</span> ·{" "}
