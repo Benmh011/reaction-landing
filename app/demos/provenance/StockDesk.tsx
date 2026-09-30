@@ -162,9 +162,11 @@ export default function StockDesk({
     isOneOf("goodsin", "onhand", "shelf", "allergens", "holds", "log"),
   );
   const [shown, setShown] = useState<{ code: string; lot: string } | null>(null);
+  const [reveal, setReveal] = useState<{ code: string; lot: string; nonce: number } | null>(null);
   useEffect(() => {
     if (!focus) return;
     setShown({ code: focus.materialCode, lot: focus.lot });
+    setReveal({ code: focus.materialCode, lot: focus.lot, nonce: focus.nonce });
     setTab("onhand");
     onFocusUsed?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -219,7 +221,7 @@ export default function StockDesk({
       </div>
 
       {tab === "goodsin" && <GoodsInTab movements={movements} operator={operator} onBook={(ms) => setMovements((p) => [...ms, ...p])} />}
-      {tab === "onhand" && <OnHandTab movements={movements} />}
+      {tab === "onhand" && <OnHandTab movements={movements} reveal={reveal} onRevealed={() => setReveal(null)} />}
       {tab === "shelf" && <ShelfLifeTab movements={movements} operator={operator} />}
       {tab === "allergens" && <AllergenTab movements={movements} />}
       {tab === "holds" && <HoldsTab movements={movements} operator={operator} />}
@@ -853,12 +855,17 @@ function Pills<T extends string>({
 // are what make this page a slog on a phone; folding them turns each tab
 // into a short summary you open as needed. Which groups start open is
 // decided per list, and what you open is remembered for the session.
+//
+// Styled like the Overview's groups — a cream bar with a coloured edge, a
+// navy title in ordinary type and a count — so every drop-down in the app
+// looks like the same thing. The edge is navy, which is neutral, except
+// where the colour carries meaning: on shelf life it is the urgency.
 function FoldHead({
   text,
   count,
   open,
   onToggle,
-  color = MUTED,
+  color = "var(--navy)",
 }: {
   text: string;
   count: number;
@@ -873,15 +880,16 @@ function FoldHead({
       style={{
         display: "flex",
         alignItems: "center",
-        gap: 10,
+        gap: 12,
         width: "100%",
-        padding: "6px 0",
+        padding: "12px 16px",
         marginBottom: open ? 8 : 0,
-        background: "none",
-        border: "none",
-        borderBottom: open ? "none" : "1px solid var(--rule)",
+        background: "var(--bg-elevated)",
+        border: "1px solid var(--rule)",
+        borderLeft: `3px solid ${color}`,
+        borderRadius: 10,
         font: "inherit",
-        color: "inherit",
+        color: "var(--navy)",
         cursor: "pointer",
         textAlign: "left",
       }}
@@ -889,10 +897,8 @@ function FoldHead({
       <span aria-hidden style={{ ...mono, fontSize: 12, color: MUTED, width: 12 }}>
         {open ? "\u2212" : "+"}
       </span>
-      <span style={{ ...mono, flex: 1, minWidth: 0, fontSize: 10.5, letterSpacing: "0.16em", color }}>
-        {text.toUpperCase()}
-      </span>
-      <span style={{ ...mono, fontSize: 11.5, color: MUTED }}>{count}</span>
+      <span style={{ flex: 1, minWidth: 0, fontSize: 14 }}>{text}</span>
+      <span style={{ ...mono, fontSize: 11.5, color: MUTED, whiteSpace: "nowrap" }}>{count}</span>
     </button>
   );
 }
@@ -904,10 +910,22 @@ function useFolds(key: string, fallback: (group: string, index: number) => boole
   const isOpen = (group: string, index: number) => state[group] ?? fallback(group, index);
   const toggle = (group: string, index: number) =>
     setState((s) => ({ ...s, [group]: !(s[group] ?? fallback(group, index)) }));
-  return { isOpen, toggle };
+  // Open exactly these groups and fold every other one.
+  const only = (open: string[], all: string[]) =>
+    setState(Object.fromEntries(all.map((g) => [g, open.includes(g)])));
+  return { isOpen, toggle, only };
 }
 
-function OnHandTab({ movements }: { movements: Movement[] }) {
+function OnHandTab({
+  movements,
+  reveal,
+  onRevealed,
+}: {
+  movements: Movement[];
+  // A lot to bring into view — arriving from a Stock link on a trace.
+  reveal?: { code: string; lot: string; nonce: number } | null;
+  onRevealed?: () => void;
+}) {
   const folds = useFolds("stock.onhand.open", (_g, i) => i === 0);
   const [by, setBy] = useState<GroupBy>("category");
   const [query, setQuery] = useState("");
@@ -927,6 +945,38 @@ function OnHandTab({ movements }: { movements: Movement[] }) {
       .map((g) => ({ ...g, items: g.items.filter((i) => keep.has(`${i.materialCode}|${i.lot}|${i.locationId}`)) }))
       .filter((g) => g.items.length > 0);
   }, [movements, by, searching, found]);
+
+  // Arriving from a Stock link: open only the group holding that lot, fold
+  // the rest, and bring the lot into view with a brief highlight — so when
+  // its detail is closed, you are looking at the thing you came for rather
+  // than whichever group happens to sort first. A search typed earlier is
+  // cleared, since it could hide the lot. The request is then spent, so
+  // leaving the tab and coming back does not do it again.
+  const [lit, setLit] = useState<string | null>(null);
+  useEffect(() => {
+    if (!reveal) return;
+    setQuery("");
+    const all = groupBalances(movements, by);
+    const holding = all
+      .filter((g) => g.items.some((b) => b.materialCode === reveal.code && b.lot === reveal.lot))
+      .map((g) => g.key);
+    if (holding.length) folds.only(holding, all.map((g) => g.key));
+    const id = `${reveal.code}|${reveal.lot}`;
+    setLit(id);
+    onRevealed?.();
+    const scroll = window.setTimeout(() => {
+      // Matched by value rather than a selector, so no lot code ever needs
+      // escaping.
+      const el = [...document.querySelectorAll<HTMLElement>("[data-lot]")].find((e) => e.dataset.lot === id);
+      el?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+    }, 60);
+    const fade = window.setTimeout(() => setLit(null), 4000);
+    return () => {
+      window.clearTimeout(scroll);
+      window.clearTimeout(fade);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reveal?.nonce]);
 
   return (
     <>
@@ -1003,7 +1053,7 @@ function OnHandTab({ movements }: { movements: Movement[] }) {
         </div>
       )}
 
-      <div style={{ display: "grid", gap: 16 }}>
+      <div style={{ display: "grid", gap: 8 }}>
         {groups.map((g, gi) => (
           <div key={g.key}>
             <FoldHead
@@ -1018,9 +1068,12 @@ function OnHandTab({ movements }: { movements: Movement[] }) {
                 return (
                   <button
                     key={`${b.materialCode}-${b.lot}-${b.locationId}`}
+                    data-lot={`${b.materialCode}|${b.lot}`}
                     onClick={() => setLot({ code: b.materialCode, lot: b.lot })}
                     style={{
                       ...card,
+                      boxShadow: lit === `${b.materialCode}|${b.lot}` ? "0 0 0 2px var(--navy)" : undefined,
+                      transition: "box-shadow 600ms ease",
                       display: "grid",
                       gridTemplateColumns: "1fr auto",
                       gap: 14,
@@ -1200,7 +1253,7 @@ function ShelfLifeTab({ movements, operator = "" }: { movements: Movement[]; ope
         const inGroup = rows.filter((r) => r.state === group);
         if (inGroup.length === 0) return null;
         return (
-          <div key={group} style={{ marginBottom: 14 }}>
+          <div key={group} style={{ marginBottom: 8 }}>
             <FoldHead
               text={FRESHNESS_LABEL[group]}
               count={inGroup.length}
@@ -1589,7 +1642,7 @@ function LogTab({ movements }: { movements: Movement[] }) {
       )}
 
       {buckets.map(([heading, inBucket], bi) => (
-        <div key={heading} style={{ marginBottom: 14 }}>
+        <div key={heading} style={{ marginBottom: 8 }}>
           <FoldHead
             text={heading}
             count={inBucket.length}
