@@ -122,14 +122,27 @@ function LineTag({ material }: { material?: Material }) {
   );
 }
 
+// How a lot reads in the picker: the product, its line, then the lot —
+// "Salted caramel — 500ml retail · ice cream · IC-2609-30". The line is
+// searchable too, so typing "chocolate" narrows the list to chocolate.
+function lotLabel(l: { materialCode: string; lot: string; material?: Material }): string {
+  const m = l.material ?? materialByCode(l.materialCode);
+  const line = m?.line === "ice cream" || m?.line === "chocolate" ? ` · ${m.line}` : "";
+  return `${m?.name ?? l.materialCode}${line} · ${l.lot}`;
+}
+
 export default function RecallDesk({
   movements,
   onMovements,
   operator = "",
+  onOpenStock,
 }: {
   movements: Movement[];
   onMovements: (next: Movement[]) => void;
   operator?: string;
+  // Show a lot on the Stock page: where it is now and every movement it
+  // has had.
+  onOpenStock?: (ref: LotRef) => void;
 }) {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -137,6 +150,10 @@ export default function RecallDesk({
   const [viewing, setViewing] = useState<Exercise | null>(null);
   const [pick, setPick] = useState("");
   const [query, setQuery] = useState("");
+  // Looking a lot up, as opposed to testing the recall procedure. The trail
+  // is every lot visited by clicking through, so Back walks the chain in
+  // reverse. Nothing here is recorded and no clock runs.
+  const [trail, setTrail] = useState<LotRef[]>([]);
 
   useEffect(() => {
     setExercises(loadExercises(movements));
@@ -152,13 +169,19 @@ export default function RecallDesk({
   const shown = useMemo(() => {
     const q = query.toLowerCase().trim();
     if (!q) return lots;
-    return lots.filter((l) => l.label.toLowerCase().includes(q));
+    return lots.filter((l) => lotLabel(l).toLowerCase().includes(q));
   }, [lots, query]);
 
-  function begin() {
-    const chosen = lots.find((l) => `${l.materialCode}|${l.lot}` === pick);
+  function begin(ref?: LotRef) {
+    const chosen = ref ?? lots.find((l) => `${l.materialCode}|${l.lot}` === pick);
     if (!chosen) return;
+    setTrail([]);
     setLive(startExercise({ materialCode: chosen.materialCode, lot: chosen.lot }, operator || "Operator"));
+  }
+
+  function lookUp() {
+    const chosen = lots.find((l) => `${l.materialCode}|${l.lot}` === pick);
+    if (chosen) setTrail([{ materialCode: chosen.materialCode, lot: chosen.lot }]);
   }
 
   function finish(ex: Exercise, notes: string) {
@@ -188,12 +211,76 @@ export default function RecallDesk({
         }}
         onComplete={(notes) => finish(live, notes)}
         onAbandon={() => setLive(null)}
+        onOpenStock={onOpenStock}
       />
     );
   }
 
   if (viewing) {
-    return <ExerciseRecord ex={viewing} onClose={() => setViewing(null)} />;
+    return <ExerciseRecord ex={viewing} onClose={() => setViewing(null)} onOpenStock={onOpenStock} />;
+  }
+
+  if (trail.length) {
+    const ref = trail[trail.length - 1];
+    const t = trace(movements, ref);
+    const m = materialByCode(ref.materialCode);
+    const where = t.onHand.filter((b) => b.materialCode === ref.materialCode && b.lot === ref.lot);
+    return (
+      <>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
+          {trail.length > 1 && (
+            <button onClick={() => setTrail((tr) => tr.slice(0, -1))} className="btn" style={{ border: "1px solid var(--rule-strong)" }}>
+              ← Back to {materialByCode(trail[trail.length - 2].materialCode)?.name ?? trail[trail.length - 2].materialCode}
+            </button>
+          )}
+          <button onClick={() => setTrail([])} className="btn" style={{ border: "1px solid var(--rule-strong)" }}>
+            Close
+          </button>
+        </div>
+
+        <Title
+          title={m?.name ?? ref.materialCode}
+          sub={`Lot ${ref.lot}. Where this lot came from and where it went. No clock is running and nothing is recorded — this is a look, not an exercise.`}
+        />
+        <LineTag material={m} />
+
+        {trail.length > 1 && (
+          <p style={{ ...mono, fontSize: 11.5, color: MUTED, marginTop: 10, lineHeight: 1.6 }}>
+            {trail.map((r) => `${materialByCode(r.materialCode)?.name ?? r.materialCode} (${r.lot})`).join("  \u2192  ")}
+          </p>
+        )}
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "16px 0 22px" }}>
+          <button onClick={() => begin(ref)} className="btn btn-primary">
+            Start a mock recall on this lot
+          </button>
+          {onOpenStock && (
+            <button onClick={() => onOpenStock(ref)} className="btn" style={{ border: "1px solid var(--rule-strong)" }}>
+              Open in Stock
+            </button>
+          )}
+        </div>
+
+        <Head text="Where it is now" />
+        {where.length === 0 ? (
+          <p style={{ fontSize: 13.5, color: MUTED }}>None of this lot is left in stock.</p>
+        ) : (
+          <div style={{ display: "grid", gap: 6 }}>
+            {where.map((b) => (
+              <div key={b.locationId} style={{ ...card, padding: "10px 15px", display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 14 }}>
+                  {b.location ? locationLabel(b.location) : b.locationId}
+                  {b.location?.holding && <span style={{ ...mono, fontSize: 11, color: BRASS }}> · on hold</span>}
+                </span>
+                <span style={{ ...mono, fontSize: 12.5, color: MUTED }}>{fmtQty(b.qty, b.unit)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <TraceView t={t} onTrace={(r) => setTrail((tr) => [...tr, r])} onOpenStock={onOpenStock} />
+      </>
+    );
   }
 
   return (
@@ -216,16 +303,19 @@ export default function RecallDesk({
             <option value="">Choose a lot…</option>
             {shown.map((l) => (
               <option key={`${l.materialCode}|${l.lot}`} value={`${l.materialCode}|${l.lot}`}>
-                {l.label} — {l.kind === "batch" ? "batch" : "raw"}{l.onHand > 0 ? `, ${fmtQty(l.onHand, l.unit)} on hand` : ""}
+                {lotLabel(l)} — {l.kind === "batch" ? "batch" : "raw"}{l.onHand > 0 ? `, ${fmtQty(l.onHand, l.unit)} on hand` : ""}
               </option>
             ))}
           </select>
-          <button onClick={begin} disabled={!pick} className="btn btn-primary" style={{ opacity: pick ? 1 : 0.5 }}>
+          <button onClick={lookUp} disabled={!pick} className="btn" style={{ opacity: pick ? 1 : 0.5, border: "1px solid var(--rule-strong)" }}>
+            Look up
+          </button>
+          <button onClick={() => begin()} disabled={!pick} className="btn btn-primary" style={{ opacity: pick ? 1 : 0.5 }}>
             Start mock recall
           </button>
         </div>
         <p style={{ fontSize: 12.5, color: MUTED, marginTop: 10, lineHeight: 1.5 }}>
-          The clock starts when you press the button. Salcombe Dairy&rsquo;s traceability procedure sets the target at a
+          Look up shows where a lot came from and where it went, with nothing recorded. The clock only starts on a mock recall. Salcombe Dairy&rsquo;s traceability procedure sets the target at a
           full trace, reconciled to 100%, within {TARGET_MINS / 60} hours. {TARGET_SCHEME_NOTE}
         </p>
       </div>
@@ -269,6 +359,7 @@ function LiveExercise({
   onHold,
   onComplete,
   onAbandon,
+  onOpenStock,
 }: {
   ex: Exercise;
   movements: Movement[];
@@ -276,6 +367,7 @@ function LiveExercise({
   onHold: (ms: Movement[], h: Exercise["holds"][number], fromKey: string) => void;
   onComplete: (notes: string) => void;
   onAbandon: () => void;
+  onOpenStock?: (ref: LotRef) => void;
 }) {
   const t = useMemo(() => trace(movements, ex.origin, ex.counts), [movements, ex.origin, ex.counts]);
   const [notes, setNotes] = useState("");
@@ -314,7 +406,7 @@ function LiveExercise({
         </button>
       </div>
 
-      <TraceView t={t} />
+      <TraceView t={t} onOpenStock={onOpenStock} />
 
       <Head text="Count what is there" />
       <p style={{ fontSize: 13, color: MUTED, marginBottom: 12, lineHeight: 1.5, maxWidth: 620 }}>
@@ -423,7 +515,62 @@ function LiveExercise({
 
 // ————————————————————————— shared views —————————————————————————
 
-function TraceView({ t }: { t: Trace }) {
+// A product name that traces its lot when clicked, where there is somewhere
+// to go; plain text otherwise. Underlined so it reads as something to click.
+function TraceName({ label, lotRef, onTrace }: { label: string; lotRef: LotRef; onTrace?: (r: LotRef) => void }) {
+  if (!onTrace) return <>{label}</>;
+  return (
+    <button
+      onClick={() => onTrace(lotRef)}
+      style={{
+        font: "inherit",
+        color: "inherit",
+        background: "none",
+        border: "none",
+        padding: 0,
+        cursor: "pointer",
+        textAlign: "left",
+        textDecoration: "underline",
+        textDecorationColor: "var(--rule-strong)",
+        textUnderlineOffset: 3,
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+function StockLink({ lotRef, onOpenStock }: { lotRef: LotRef; onOpenStock?: (r: LotRef) => void }) {
+  if (!onOpenStock) return null;
+  return (
+    <button
+      onClick={() => onOpenStock(lotRef)}
+      style={{
+        font: "inherit",
+        fontSize: 11.5,
+        padding: "2px 9px",
+        border: "1px solid var(--rule-strong)",
+        borderRadius: 999,
+        background: "transparent",
+        color: "inherit",
+        cursor: "pointer",
+        whiteSpace: "nowrap",
+      }}
+    >
+      Stock
+    </button>
+  );
+}
+
+function TraceView({
+  t,
+  onTrace,
+  onOpenStock,
+}: {
+  t: Trace;
+  onTrace?: (r: LotRef) => void;
+  onOpenStock?: (r: LotRef) => void;
+}) {
   return (
     <>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 8 }}>
@@ -444,10 +591,13 @@ function TraceView({ t }: { t: Trace }) {
               return (
                 <div key={f.lot} style={{ ...card, padding: "10px 15px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 14 }}>
-                    {r?.material?.name ?? f.materialCode}
+                    <TraceName label={r?.material?.name ?? f.materialCode} lotRef={{ materialCode: f.materialCode, lot: f.lot }} onTrace={onTrace} />
                     <LineTag material={r?.material ?? materialByCode(f.materialCode)} />
                   </span>
-                  <span style={{ ...mono, fontSize: 12.5, color: MUTED }}>batch {f.lot} · {r ? fmtQty(r.in, r.unit) : ""} made</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <span style={{ ...mono, fontSize: 12.5, color: MUTED }}>batch {f.lot} · {r ? fmtQty(r.in, r.unit) : ""} made</span>
+                    <StockLink lotRef={{ materialCode: f.materialCode, lot: f.lot }} onOpenStock={onOpenStock} />
+                  </span>
                 </div>
               );
             })}
@@ -457,8 +607,13 @@ function TraceView({ t }: { t: Trace }) {
         <div style={{ display: "grid", gap: 6 }}>
           {t.back.map((b) => (
             <div key={`${b.materialCode}-${b.lot}`} style={{ ...card, padding: "10px 15px", display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 14 }}>{materialByCode(b.materialCode)?.name ?? b.materialCode}</span>
-              <span style={{ ...mono, fontSize: 12.5, color: MUTED }}>lot {b.lot}</span>
+              <span style={{ fontSize: 14 }}>
+                <TraceName label={materialByCode(b.materialCode)?.name ?? b.materialCode} lotRef={{ materialCode: b.materialCode, lot: b.lot }} onTrace={onTrace} />
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <span style={{ ...mono, fontSize: 12.5, color: MUTED }}>lot {b.lot}</span>
+                <StockLink lotRef={{ materialCode: b.materialCode, lot: b.lot }} onOpenStock={onOpenStock} />
+              </span>
             </div>
           ))}
         </div>
@@ -564,7 +719,7 @@ function Reconciliation({ t, collapsible = false }: { t: Trace; collapsible?: bo
   );
 }
 
-function ExerciseRecord({ ex, onClose }: { ex: Exercise; onClose: () => void }) {
+function ExerciseRecord({ ex, onClose, onOpenStock }: { ex: Exercise; onClose: () => void; onOpenStock?: (ref: LotRef) => void }) {
   const t = ex.snapshot;
   const met = metTarget(ex);
   return (
@@ -588,7 +743,7 @@ function ExerciseRecord({ ex, onClose }: { ex: Exercise; onClose: () => void }) 
           </button>
         </div>
       </div>
-      {t && <TraceView t={t} />}
+      {t && <TraceView t={t} onOpenStock={onOpenStock} />}
       {t && <Reconciliation t={t} />}
       {ex.holds.length > 0 && (
         <>

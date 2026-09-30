@@ -1148,6 +1148,9 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
   // one, and so it survives moving between sections. Loaded from the
   // browser after mount, saved whenever it changes.
   const [movements, setMovements] = useState<Movement[]>(SEED_MOVEMENTS);
+  // A lot one section has asked Stock to show — "open in Stock" from a
+  // trace. The nonce lets the same lot be asked for twice.
+  const [stockFocus, setStockFocus] = useState<{ materialCode: string; lot: string; nonce: number } | null>(null);
   const [stockLoaded, setStockLoaded] = useState(false);
   useEffect(() => {
     setMovements(loadMovements());
@@ -1223,9 +1226,27 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
       case "personnel":
         return <Personnel />;
       case "trace":
-        return <RecallDesk movements={movements} onMovements={setMovements} operator={operator} />;
+        return (
+          <RecallDesk
+            movements={movements}
+            onMovements={setMovements}
+            operator={operator}
+            onOpenStock={(r) => {
+              setStockFocus({ ...r, nonce: Date.now() });
+              setView("stock");
+            }}
+          />
+        );
       case "stock":
-        return <StockDesk operator={operator} movements={movements} onMovements={setMovements} />;
+        return (
+          <StockDesk
+            operator={operator}
+            movements={movements}
+            onMovements={setMovements}
+            focus={stockFocus}
+            onFocusUsed={() => setStockFocus(null)}
+          />
+        );
       case "coldchain":
         return <MonitorDesk />;
       case "production":

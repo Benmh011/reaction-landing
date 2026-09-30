@@ -13,8 +13,8 @@
 // nobody understood.
 // ————————————————————————————————————————————————————————————————
 
-import { useMemo, useRef, useState } from "react";
-import { useSessionState, isOneOf } from "./session-state";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSessionState, isOneOf, isRecordOfBooleans } from "./session-state";
 import {
   LOCATIONS,
   MATERIALS,
@@ -139,6 +139,8 @@ export default function StockDesk({
   operator = "",
   movements: controlled,
   onMovements,
+  focus,
+  onFocusUsed,
 }: {
   operator?: string;
   // The shell owns the log so that a hold placed in a recall exercise and
@@ -146,12 +148,27 @@ export default function StockDesk({
   // keeps its own — which is how it behaved before.
   movements?: Movement[];
   onMovements?: (next: Movement[]) => void;
+  // A lot another section wants shown here — "open in Stock" from a
+  // trace. The nonce makes asking for the same lot twice still count.
+  focus?: { materialCode: string; lot: string; nonce: number } | null;
+  // Called once the lot is shown, so the request is spent. Otherwise, when
+  // this page is dropped from the warm set and rebuilt later, the detail
+  // would reopen on its own long after it was closed.
+  onFocusUsed?: () => void;
 }) {
   const [tab, setTab] = useSessionState<Tab>(
     "stock.tab",
     "goodsin",
     isOneOf("goodsin", "onhand", "shelf", "allergens", "holds", "log"),
   );
+  const [shown, setShown] = useState<{ code: string; lot: string } | null>(null);
+  useEffect(() => {
+    if (!focus) return;
+    setShown({ code: focus.materialCode, lot: focus.lot });
+    setTab("onhand");
+    onFocusUsed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus?.nonce]);
   const [local, setLocal] = useState<Movement[]>(SEED_MOVEMENTS);
   const movements = controlled ?? local;
   const setMovements = (fn: (prev: Movement[]) => Movement[]) => {
@@ -207,6 +224,7 @@ export default function StockDesk({
       {tab === "allergens" && <AllergenTab movements={movements} />}
       {tab === "holds" && <HoldsTab movements={movements} operator={operator} />}
       {tab === "log" && <LogTab movements={movements} />}
+      {shown && <LotTrace movements={movements} code={shown.code} lot={shown.lot} onClose={() => setShown(null)} />}
     </>
   );
 }
@@ -831,15 +849,66 @@ function Pills<T extends string>({
   );
 }
 
-function GroupHead({ text }: { text: string }) {
+// A group heading that opens and closes the group under it. Long lists
+// are what make this page a slog on a phone; folding them turns each tab
+// into a short summary you open as needed. Which groups start open is
+// decided per list, and what you open is remembered for the session.
+function FoldHead({
+  text,
+  count,
+  open,
+  onToggle,
+  color = MUTED,
+}: {
+  text: string;
+  count: number;
+  open: boolean;
+  onToggle: () => void;
+  color?: string;
+}) {
   return (
-    <p style={{ ...mono, fontSize: 10.5, letterSpacing: "0.16em", color: MUTED, marginBottom: 8 }}>
-      {text.toUpperCase()}
-    </p>
+    <button
+      onClick={onToggle}
+      aria-expanded={open}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        width: "100%",
+        padding: "6px 0",
+        marginBottom: open ? 8 : 0,
+        background: "none",
+        border: "none",
+        borderBottom: open ? "none" : "1px solid var(--rule)",
+        font: "inherit",
+        color: "inherit",
+        cursor: "pointer",
+        textAlign: "left",
+      }}
+    >
+      <span aria-hidden style={{ ...mono, fontSize: 12, color: MUTED, width: 12 }}>
+        {open ? "\u2212" : "+"}
+      </span>
+      <span style={{ ...mono, flex: 1, minWidth: 0, fontSize: 10.5, letterSpacing: "0.16em", color }}>
+        {text.toUpperCase()}
+      </span>
+      <span style={{ ...mono, fontSize: 11.5, color: MUTED }}>{count}</span>
+    </button>
   );
 }
 
+// Open state for one tab's groups, with a default for groups not yet
+// touched, remembered for the session.
+function useFolds(key: string, fallback: (group: string, index: number) => boolean) {
+  const [state, setState] = useSessionState<Record<string, boolean>>(key, {}, isRecordOfBooleans);
+  const isOpen = (group: string, index: number) => state[group] ?? fallback(group, index);
+  const toggle = (group: string, index: number) =>
+    setState((s) => ({ ...s, [group]: !(s[group] ?? fallback(group, index)) }));
+  return { isOpen, toggle };
+}
+
 function OnHandTab({ movements }: { movements: Movement[] }) {
+  const folds = useFolds("stock.onhand.open", (_g, i) => i === 0);
   const [by, setBy] = useState<GroupBy>("category");
   const [query, setQuery] = useState("");
   const wrong = useMemo(() => misplaced(movements), [movements]);
@@ -935,10 +1004,15 @@ function OnHandTab({ movements }: { movements: Movement[] }) {
       )}
 
       <div style={{ display: "grid", gap: 16 }}>
-        {groups.map((g) => (
+        {groups.map((g, gi) => (
           <div key={g.key}>
-            <GroupHead text={g.label} />
-            <div style={{ display: "grid", gap: 6 }}>
+            <FoldHead
+              text={g.label}
+              count={g.items.length}
+              open={folds.isOpen(g.key, gi)}
+              onToggle={() => folds.toggle(g.key, gi)}
+            />
+            <div style={{ display: folds.isOpen(g.key, gi) ? "grid" : "none", gap: 6 }}>
               {g.items.map((b) => {
                 const f = freshnessOf(b.bestBefore);
                 return (
@@ -1052,6 +1126,9 @@ function ExportButton({ label, build }: { label: string; build: () => Promise<vo
 // ————————————————————————— shelf life —————————————————————————
 
 function ShelfLifeTab({ movements, operator = "" }: { movements: Movement[]; operator?: string }) {
+  // Anything that needs doing stays open; lots that are simply in date
+  // fold away. The urgent ones are never hidden behind a click.
+  const folds = useFolds("stock.shelf.open", (g) => g !== "fresh" && g !== "unknown");
   const [filter, setFilter] = useSessionState<StockFilter>(
     "stock.shelf.filter",
     { site: null, line: null, sort: "date" },
@@ -1123,19 +1200,15 @@ function ShelfLifeTab({ movements, operator = "" }: { movements: Movement[]; ope
         const inGroup = rows.filter((r) => r.state === group);
         if (inGroup.length === 0) return null;
         return (
-          <div key={group} style={{ marginBottom: 22 }}>
-            <p
-              style={{
-                ...mono,
-                fontSize: 10.5,
-                letterSpacing: "0.16em",
-                color: FRESH_COLOR[group],
-                marginBottom: 8,
-              }}
-            >
-              {FRESHNESS_LABEL[group].toUpperCase()} ({inGroup.length})
-            </p>
-            <div style={{ display: "grid", gap: 6 }}>
+          <div key={group} style={{ marginBottom: 14 }}>
+            <FoldHead
+              text={FRESHNESS_LABEL[group]}
+              count={inGroup.length}
+              color={FRESH_COLOR[group]}
+              open={folds.isOpen(group, 0)}
+              onToggle={() => folds.toggle(group, 0)}
+            />
+            <div style={{ display: folds.isOpen(group, 0) ? "grid" : "none", gap: 6 }}>
               {inGroup.map((r) => (
           <div
             key={`${r.balance.materialCode}-${r.balance.lot}-${r.balance.locationId}`}
@@ -1444,6 +1517,7 @@ function LotTrace({
 // ————————————————————————— movement log —————————————————————————
 
 function LogTab({ movements }: { movements: Movement[] }) {
+  const folds = useFolds("stock.log.open", (_g, i) => i === 0);
   const [dir, setDir] = useSessionState("stock.log.dir", "", isOneOf("", "in", "out"));
   const [site, setSite] = useSessionState("stock.log.site", "", (v) => typeof v === "string");
   const [span, setSpan] = useSessionState("stock.log.span", "day", isOneOf("day", "week"));
@@ -1514,12 +1588,15 @@ function LogTab({ movements }: { movements: Movement[] }) {
         </div>
       )}
 
-      {buckets.map(([heading, inBucket]) => (
-        <div key={heading} style={{ marginBottom: 22 }}>
-          <p style={{ ...mono, fontSize: 10.5, letterSpacing: "0.16em", color: MUTED, marginBottom: 8 }}>
-            {heading.toUpperCase()} ({inBucket.length})
-          </p>
-      <div style={{ display: "grid", gap: 6 }}>
+      {buckets.map(([heading, inBucket], bi) => (
+        <div key={heading} style={{ marginBottom: 14 }}>
+          <FoldHead
+            text={heading}
+            count={inBucket.length}
+            open={folds.isOpen(heading, bi)}
+            onToggle={() => folds.toggle(heading, bi)}
+          />
+      <div style={{ display: folds.isOpen(heading, bi) ? "grid" : "none", gap: 6 }}>
         {inBucket.map((m) => {
           const material = MATERIALS.find((x) => x.code === m.materialCode);
           return (
