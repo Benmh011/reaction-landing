@@ -13,7 +13,7 @@
 // ————————————————————————————————————————————————————————————————
 
 import { useEffect, useMemo, useState } from "react";
-import { fmtQty, locationLabel, type Movement } from "./stock";
+import { fmtQty, locationLabel, materialByCode, type Material, type Movement } from "./stock";
 import {
   trace,
   pickableLots,
@@ -97,6 +97,30 @@ async function exportPack(ex: Exercise) {
 }
 
 // ————————————————————————— the desk —————————————————————————
+
+function LineTag({ material }: { material?: Material }) {
+  const line = material?.line;
+  if (line !== "ice cream" && line !== "chocolate") return null;
+  return (
+    <span style={{ display: "block", marginTop: 5 }}>
+      <span
+        style={{
+          fontFamily: "var(--font-mono)",
+          display: "inline-block",
+          fontSize: 9.5,
+          letterSpacing: "0.12em",
+          padding: "2px 7px",
+          border: "1px solid var(--rule-strong)",
+          borderRadius: 999,
+          color: MUTED,
+          whiteSpace: "nowrap",
+        }}
+      >
+        {line === "chocolate" ? "CHOCOLATE" : "ICE CREAM"}
+      </span>
+    </span>
+  );
+}
 
 export default function RecallDesk({
   movements,
@@ -418,8 +442,11 @@ function TraceView({ t }: { t: Trace }) {
             {t.forward.map((f) => {
               const r = t.reconciliation.find((x) => x.lot.lot === f.lot);
               return (
-                <div key={f.lot} style={{ ...card, padding: "10px 15px", display: "flex", justifyContent: "space-between", gap: 12 }}>
-                  <span style={{ fontSize: 14 }}>{r?.material?.name ?? f.materialCode}</span>
+                <div key={f.lot} style={{ ...card, padding: "10px 15px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 14 }}>
+                    {r?.material?.name ?? f.materialCode}
+                    <LineTag material={r?.material ?? materialByCode(f.materialCode)} />
+                  </span>
                   <span style={{ ...mono, fontSize: 12.5, color: MUTED }}>batch {f.lot} · {r ? fmtQty(r.in, r.unit) : ""} made</span>
                 </div>
               );
@@ -429,8 +456,8 @@ function TraceView({ t }: { t: Trace }) {
       ) : (
         <div style={{ display: "grid", gap: 6 }}>
           {t.back.map((b) => (
-            <div key={`${b.materialCode}-${b.lot}`} style={{ ...card, padding: "10px 15px", display: "flex", justifyContent: "space-between", gap: 12 }}>
-              <span style={{ fontSize: 14 }}>{b.materialCode}</span>
+            <div key={`${b.materialCode}-${b.lot}`} style={{ ...card, padding: "10px 15px", display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 14 }}>{materialByCode(b.materialCode)?.name ?? b.materialCode}</span>
               <span style={{ ...mono, fontSize: 12.5, color: MUTED }}>lot {b.lot}</span>
             </div>
           ))}
