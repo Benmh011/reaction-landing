@@ -1229,7 +1229,7 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
       case "coldchain":
         return <MonitorDesk />;
       case "production":
-        return <ProductionDesk operator={operator} />;
+        return <ProductionDesk operator={operator} movements={movements} onMovements={setMovements} />;
       case "checks":
         return <CheckDesk operator={operator} readings={readings} onReadings={setReadings} />;
       case "procedures":

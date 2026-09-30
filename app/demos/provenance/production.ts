@@ -74,6 +74,10 @@ export type FillCheck = {
 export type Batch = {
   id: string;
   product: string;
+  // Which finished product this makes, when known for certain — chosen
+  // from a list rather than typed, so it can be matched to a recipe and
+  // written into stock. Seeded batches are matched by name instead.
+  productCode?: string;
   line: "ice cream" | "chocolate";
   // Litres of mix, or kilograms of couverture.
   volume: number;

@@ -36,6 +36,8 @@ import {
   type Pasteurisation,
 } from "./production";
 import { batchRecordBlob, batchRecordFilename, download } from "./records-pdf";
+import { SEED_MOVEMENTS, MATERIALS, fmtQty, type Movement } from "./stock";
+import { batchMovements, isBooked, madeFrom, makeableProducts, productCodeFor, untraced } from "./batch-stock";
 import type { Status } from "./data";
 
 const GREEN = "#167a5b";
@@ -159,7 +161,24 @@ function Pills<T extends string>({
   );
 }
 
-export default function ProductionDesk({ operator = "" }: { operator?: string }) {
+export default function ProductionDesk({
+  operator = "",
+  movements = SEED_MOVEMENTS,
+  onMovements,
+}: {
+  operator?: string;
+  movements?: Movement[];
+  onMovements?: (next: Movement[]) => void;
+}) {
+  // Writing a batch into stock: what it drew and what it made. Nothing
+  // happens for a batch already in the log — which is how a seeded batch,
+  // or one booked earlier, is protected from being booked twice.
+  function book(b: Batch) {
+    if (!onMovements || b.stopped || isBooked(b.id, movements)) return;
+    const r = batchMovements(b, movements, operator || b.by, Date.now());
+    if (r.moves.length) onMovements([...r.moves, ...movements]);
+  }
+
   const [open, setOpen] = useSessionState<string | null>("production.open", null, isStringOrNull);
   const [line, setLine] = useSessionState("production.line", "", isOneOf("", "ice cream", "chocolate"));
   const [only, setOnly] = useSessionState("production.only", "", isOneOf("", "attention"));
@@ -243,6 +262,7 @@ export default function ProductionDesk({ operator = "" }: { operator?: string })
               ? { ...found, ...b, pasteurisation: found.pasteurisation, metal: found.metal, fill: found.fill }
               : b;
             setBatches((prev) => [next, ...prev.filter((x) => x.id !== b.id)]);
+            book(next);
             setStarting(false);
             setOpen(b.id);
             setJustSaved({ id: b.id, existed: !!found });
@@ -346,6 +366,12 @@ export default function ProductionDesk({ operator = "" }: { operator?: string })
           onToggle={() => setOpen(open === st.batch.id ? null : st.batch.id)}
           operator={operator}
           onUpdate={(fn) => update(st.batch.id, fn)}
+          movements={movements}
+          canBook={!!onMovements}
+          onBook={(b) => {
+            update(b.id, () => b);
+            book(b);
+          }}
         />
       ))}
     </>
@@ -478,16 +504,39 @@ function nowClock(): string {
   return new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date());
 }
 
+// The pack size is part of the product's name — "2L", "500ml", "100g".
+function packOf(name?: string): string {
+  return name?.match(/(\d+\s?(?:ml|l|g))\b/i)?.[1] ?? "\u2014";
+}
+
+function ProductSelect({ value, onChange }: { value: string; onChange: (code: string) => void }) {
+  return (
+    <label style={{ display: "block", width: 280 }}>
+      <span style={{ display: "block", fontSize: 12, color: MUTED, marginBottom: 4 }}>Product</span>
+      <select value={value} onChange={(e) => onChange(e.target.value)} style={inputStyle}>
+        {makeableProducts().map((m) => (
+          <option key={m.code} value={m.code}>
+            {m.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+// The product is chosen from a list rather than typed, so a batch always
+// matches a recipe and can be written into stock. The line and the pack
+// size follow from it — two fewer things to get wrong.
 function NewBatchForm({ operator, onSave, onCancel }: { operator: string; onSave: (b: Batch) => void; onCancel: () => void }) {
   const [id, setId] = useState("");
-  const [product, setProduct] = useState("");
-  const [line, setLine] = useState<"ice cream" | "chocolate">("ice cream");
+  const [code, setCode] = useState(makeableProducts()[0]?.code ?? "");
   const [volume, setVolume] = useState("");
   const [units, setUnits] = useState("");
-  const [pack, setPack] = useState("");
   const [at, setAt] = useState(nowClock());
 
-  const ok = id.trim() !== "" && product.trim() !== "";
+  const mat = MATERIALS.find((m) => m.code === code);
+  const line: Batch["line"] = mat?.line === "chocolate" ? "chocolate" : "ice cream";
+  const ok = id.trim() !== "" && !!mat;
 
   return (
     <FormPanel
@@ -495,16 +544,18 @@ function NewBatchForm({ operator, onSave, onCancel }: { operator: string; onSave
       onCancel={onCancel}
       saveLabel="Start batch"
       disabled={!ok}
-      note="The batch exists from here. Its heat treatment, detector challenges and fill weights are recorded against it as the run goes on, and it is not releasable until they are."
+      note="Starting a batch draws what it uses out of stock, earliest date first, and books what it makes into dispatch holding — so a recall can find it from the moment it exists. Its heat treatment, detector tests and weight checks are recorded against it as the run goes on, and it is not releasable until they are."
       onSave={() =>
+        mat &&
         onSave({
           id: id.trim(),
-          product: product.trim(),
+          product: mat.name,
+          productCode: mat.code,
           line,
           volume: Number(volume) || 0,
           volumeUnit: line === "chocolate" ? "kg" : "L",
           unitsMade: Number(units) || 0,
-          packSize: pack.trim() || "\u2014",
+          packSize: packOf(mat.name),
           startedAt: at.trim() || nowClock(),
           daysAgo: 0,
           by: operator || "\u2014",
@@ -515,12 +566,123 @@ function NewBatchForm({ operator, onSave, onCancel }: { operator: string; onSave
       }
     >
       <Field label="Batch code" value={id} onChange={setId} placeholder="IC-2609-35" />
-      <Field label="Product" value={product} onChange={setProduct} placeholder="Vanilla — 2L catering" width={260} />
-      <Choice label="Line" value={line} options={[["ice cream", "Ice cream"], ["chocolate", "Chocolate"]]} onChange={setLine} />
+      <ProductSelect value={code} onChange={setCode} />
       <Field label={line === "chocolate" ? "Volume (kg)" : "Volume (L)"} value={volume} onChange={setVolume} placeholder="780" width={120} />
       <Field label="Units made" value={units} onChange={setUnits} placeholder="384" width={120} />
-      <Field label="Pack size" value={pack} onChange={setPack} placeholder="2L" width={110} />
       <Field label="Started" value={at} onChange={setAt} width={110} />
+    </FormPanel>
+  );
+}
+
+// ————————————————————————— made from —————————————————————————
+//
+// The batch's own trace, one step back: every lot it drew on. This is the
+// visible half of production writing into stock — a recall of any lot here
+// finds this batch, and a recall of this batch finds all of them.
+
+function MadeFrom({
+  batch,
+  movements,
+  canBook,
+  onBook,
+}: {
+  batch: Batch;
+  movements: Movement[];
+  canBook: boolean;
+  onBook: (b: Batch) => void;
+}) {
+  const [booking, setBooking] = useState(false);
+  const booked = isBooked(batch.id, movements);
+
+  if (!booked) {
+    return (
+      <Block title="Made from">
+        <p style={{ fontSize: 13, color: BRASS, lineHeight: 1.55, marginBottom: 10 }}>
+          Not in stock yet. Until it is, a recall cannot find this batch, and it cannot be traced back to what it
+          was made from.
+        </p>
+        {canBook && !booking && (
+          <button
+            onClick={() => setBooking(true)}
+            style={{ font: "inherit", fontSize: 12.5, padding: "6px 12px", border: "1px solid var(--rule-strong)", background: "transparent", color: "inherit", borderRadius: 999, cursor: "pointer" }}
+          >
+            Book into stock
+          </button>
+        )}
+        {booking && (
+          <BookForm
+            batch={batch}
+            onCancel={() => setBooking(false)}
+            onSave={(b) => {
+              onBook(b);
+              setBooking(false);
+            }}
+          />
+        )}
+      </Block>
+    );
+  }
+
+  const inputs = madeFrom(batch.id, movements);
+  const short = untraced(batch, movements);
+  return (
+    <Block title={`Made from (${inputs.length})`}>
+      <p style={{ fontSize: 12.5, color: MUTED, marginBottom: 8, lineHeight: 1.5 }}>
+        Every lot this batch drew on. A recall of any one of them finds this batch.
+      </p>
+      {inputs.map((i) => (
+        <div key={`${i.materialCode}|${i.lot}`} style={row}>
+          <span style={{ flex: "1 1 200px", minWidth: 0, fontSize: 13.5 }}>
+            {i.material?.name ?? i.materialCode}
+            <span style={{ ...mono, fontSize: 11, color: MUTED }}> · {i.lot}</span>
+          </span>
+          <span style={{ ...mono, fontSize: 12, color: MUTED, ...col(110) }}>{fmtQty(i.qty, i.unit)}</span>
+        </div>
+      ))}
+      {short.length > 0 && (
+        <p style={{ fontSize: 12.5, color: BRASS, marginTop: 10, lineHeight: 1.5 }}>
+          Not fully traced: {short.map((x) => `${fmtQty(x.short, x.unit)} of ${x.name.toLowerCase()}`).join(", ")}. There
+          was not enough in stock to account for it, so it is shown as missing rather than drawn from a lot that
+          was never there.
+        </p>
+      )}
+    </Block>
+  );
+}
+
+// A batch from an imported chart knows its heat treatment and nothing about
+// what was packed, so it cannot go into stock until somebody says.
+function BookForm({ batch, onSave, onCancel }: { batch: Batch; onSave: (b: Batch) => void; onCancel: () => void }) {
+  const [code, setCode] = useState(productCodeFor(batch) ?? makeableProducts()[0]?.code ?? "");
+  const [volume, setVolume] = useState(batch.volume ? String(batch.volume) : "");
+  const [units, setUnits] = useState(batch.unitsMade ? String(batch.unitsMade) : "");
+  const mat = MATERIALS.find((m) => m.code === code);
+  const line: Batch["line"] = mat?.line === "chocolate" ? "chocolate" : "ice cream";
+  const ok = !!mat && Number(volume) > 0 && Number(units) > 0;
+  return (
+    <FormPanel
+      title="Book into stock"
+      onCancel={onCancel}
+      saveLabel="Book into stock"
+      disabled={!ok}
+      note="Draws the ingredients out of stock, earliest date first, and books the finished product into dispatch holding."
+      onSave={() =>
+        mat &&
+        onSave({
+          ...batch,
+          product: mat.name,
+          productCode: mat.code,
+          line,
+          volume: Number(volume),
+          volumeUnit: line === "chocolate" ? "kg" : "L",
+          unitsMade: Number(units),
+          packSize: packOf(mat.name),
+        })
+      }
+    >
+      <ProductSelect value={code} onChange={setCode} />
+      <Field label={line === "chocolate" ? "Volume (kg)" : "Volume (L)"} value={volume} onChange={setVolume} placeholder="780" width={120} />
+      <Field label="Units packed" value={units} onChange={setUnits} placeholder="384" width={120} />
     </FormPanel>
   );
 }
@@ -857,12 +1019,18 @@ function BatchRow({
   onToggle,
   operator,
   onUpdate,
+  movements,
+  canBook,
+  onBook,
 }: {
   state: BatchState;
   open: boolean;
   onToggle: () => void;
   operator: string;
   onUpdate: (fn: (b: Batch) => Batch) => void;
+  movements: Movement[];
+  canBook: boolean;
+  onBook: (b: Batch) => void;
 }) {
   const b = state.batch;
   const [adding, setAdding] = useState<"metal" | "fill" | "pasteurisation" | null>(null);
@@ -952,7 +1120,7 @@ function BatchRow({
             <p style={{ fontSize: 13.5, lineHeight: 1.55, flex: 1, minWidth: 260 }}>{state.release}</p>
             <ExportButton
               label="Export batch record"
-              build={async () => download(await batchRecordBlob(b, operator), batchRecordFilename(b))}
+              build={async () => download(await batchRecordBlob(b, operator, movements), batchRecordFilename(b))}
             />
           </div>
 
@@ -965,6 +1133,10 @@ function BatchRow({
             <Detail k="Packed" v={b.stopped ? "Nothing packed" : `${b.unitsMade.toLocaleString("en-GB")} \u00d7 ${b.packSize}`} />
             <Detail k="Run by" v={b.by} />
           </Block>
+
+          {!b.stopped && (
+            <MadeFrom batch={b} movements={movements} canBook={canBook} onBook={onBook} />
+          )}
 
           <Block title="Pasteurisation">
             <Line status={state.pasteurisation.status} text={state.pasteurisation.reason} />

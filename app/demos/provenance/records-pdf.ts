@@ -35,6 +35,7 @@ import {
   type Movement,
   type Freshness,
 } from "./stock";
+import { madeFrom, untraced } from "./batch-stock";
 import type { GoodsIn, GoodsLine } from "./goodsin";
 import { dateStatus, daysUntil, dueLabel, type ControlledDoc } from "./data";
 import {
@@ -1396,7 +1397,7 @@ export function batchRecordFilename(b: Batch): string {
   return `batch-${slug(b.id)}-${stamp()}.pdf`;
 }
 
-export async function buildBatchRecordPdf(b: Batch, operator: string): Promise<jsPDF> {
+export async function buildBatchRecordPdf(b: Batch, operator: string, movements: Movement[] = []): Promise<jsPDF> {
   const st = judgeBatch(b);
   const d = await open("Production record", b.product);
   const h = makeHelpers(d, b.id);
@@ -1428,6 +1429,40 @@ export async function buildBatchRecordPdf(b: Batch, operator: string): Promise<j
   );
   d.y += 6;
   h.line(st.release, 10, NAVY);
+
+  if (!b.stopped) {
+    const inputs = madeFrom(b.id, movements);
+    d.y += 6;
+    h.head(`Made from (${inputs.length})`);
+    if (inputs.length === 0) {
+      h.line("Not booked into stock, so this batch cannot yet be traced back to what it was made from.", 9.5, AMBER);
+    } else {
+      h.line("Every lot this batch drew on. A recall of any one of them finds this batch.", 9, MUTED);
+      d.y += 2;
+      for (const i of inputs) {
+        h.ensure(7);
+        d.doc.setFont("helvetica", "normal");
+        d.doc.setFontSize(9.5);
+        d.doc.setTextColor(...NAVY);
+        d.doc.text(fit(d.doc, i.material?.name ?? i.materialCode, 88), M, d.y);
+        d.doc.setFontSize(8.5);
+        d.doc.setTextColor(...MUTED);
+        d.doc.text(fit(d.doc, i.lot, 40), M + 92, d.y);
+        d.doc.setTextColor(...NAVY);
+        d.doc.text(fmtQty(i.qty, i.unit), W - M, d.y, { align: "right" });
+        d.y += 5;
+      }
+      const short = untraced(b, movements);
+      if (short.length) {
+        d.y += 1;
+        h.line(
+          `Not fully traced: ${short.map((x) => `${fmtQty(x.short, x.unit)} of ${x.name.toLowerCase()}`).join(", ")}. There was not enough in stock to account for it.`,
+          9,
+          AMBER,
+        );
+      }
+    }
+  }
   d.y += 6;
 
   // ── heat treatment ──
@@ -1561,8 +1596,8 @@ export async function buildBatchRecordPdf(b: Batch, operator: string): Promise<j
   return d.doc;
 }
 
-export async function batchRecordBlob(b: Batch, operator: string): Promise<Blob> {
-  const doc = await buildBatchRecordPdf(b, operator);
+export async function batchRecordBlob(b: Batch, operator: string, movements: Movement[] = []): Promise<Blob> {
+  const doc = await buildBatchRecordPdf(b, operator, movements);
   return doc.output("blob");
 }
 

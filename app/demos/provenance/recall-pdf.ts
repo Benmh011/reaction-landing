@@ -142,7 +142,11 @@ export async function buildTracePack(ex: Exercise): Promise<jsPDF> {
     doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(...NAVY);
     doc.text(fit(doc, locationLabel(b.location, b.locationId), 56), M, y);
     doc.setTextColor(...MUTED); doc.setFontSize(8.5);
-    doc.text(fit(doc, `${b.material?.name ?? b.materialCode} · ${b.lot}${b.location?.holding ? " · on hold" : ""}`, 74), M + 58, y);
+    // The lot is the one thing a trace pack cannot lose, so it is always
+    // printed whole; when space runs short, the product name gives way.
+    const tail = ` · ${b.lot}${b.location?.holding ? " · on hold" : ""}`;
+    const room = Math.max(12, 54 - doc.getTextWidth(tail));
+    doc.text(fit(doc, b.material?.name ?? b.materialCode, room) + tail, M + 58, y);
     doc.setTextColor(...NAVY); doc.setFontSize(10);
     doc.text(`book ${fmtQty(b.qty, b.unit)}`, W - M - 32, y, { align: "right" });
     if (c === undefined) { doc.setTextColor(...AMBER); doc.text("not counted", W - M, y, { align: "right" }); }
