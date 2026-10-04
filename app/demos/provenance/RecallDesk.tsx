@@ -37,11 +37,11 @@ import {
 import { tracePackBlob, tracePackFilename } from "./recall-pdf";
 
 const GREEN = "#167a5b";
-const BRASS = "#a3772a";
-const VERM = "#c22f4e";
-const MUTED = "#6f7482";
-const NAVY = "#10284a";
-const GOLD = "#c9a24a";
+const BRASS = "#b26a00";
+const VERM = "#c0392b";
+const MUTED = "#5a6e85";
+const NAVY = "#15385c";
+const GOLD = "#3370b8";
 
 const serif: React.CSSProperties = { fontFamily: "var(--font-serif)", fontWeight: 500, letterSpacing: "-0.01em" };
 const mono: React.CSSProperties = { fontFamily: "var(--font-mono)" };

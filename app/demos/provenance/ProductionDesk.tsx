@@ -41,8 +41,8 @@ import { batchMovements, isBooked, madeFrom, makeableProducts, productCodeFor, u
 import type { Status } from "./data";
 
 const GREEN = "#167a5b";
-const BRASS = "#a3772a";
-const VERM = "#c22f4e";
+const BRASS = "#b26a00";
+const VERM = "#c0392b";
 const MUTED = "var(--text-muted)";
 const STATUS_COLOR: Record<Status, string> = { ok: GREEN, due: BRASS, overdue: VERM };
 

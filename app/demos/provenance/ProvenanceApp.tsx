@@ -38,9 +38,9 @@ import { SEED_RUNS, loadRuns, saveRuns, schedule as sopSchedule, sopById, fmtAgo
 
 // ————— status colours: semantic, not brand, so unchanged —————
 const GREEN = "#167a5b";
-const BRASS = "#a3772a";
-const VERM = "#c22f4e";
-const BLUE = "#2c6e8a";
+const BRASS = "#b26a00";
+const VERM = "#c0392b";
+const BLUE = "#3370b8";
 const MUTED = "var(--text-muted)";
 
 const STATUS_COLOR: Record<Status, string> = { ok: GREEN, due: BRASS, overdue: VERM };
@@ -1013,11 +1013,17 @@ function Detail({ k, v }: { k: string; v: string }) {
 // The one moving part in the sidebar. A single gold bar that measures the
 // active item and glides to it, so the navigation reads as one thing
 // rather than seven buttons taking turns.
-function useMarker(active: SectionId) {
+// The marker measures the active row — and must measure again once the
+// sidebar is actually on screen. It used to measure only when the active
+// section changed, so on a first visit, with the welcome scene or the
+// restore still showing, there was nothing to measure; "Overview" then
+// never changed, and the marker stayed missing until you clicked elsewhere.
+function useMarker(active: SectionId, shown: boolean) {
   const refs = useRef<Record<string, HTMLElement | null>>({});
   const [box, setBox] = useState<{ top: number; height: number } | null>(null);
 
   useLayoutEffect(() => {
+    if (!shown) return;
     const el = refs.current[active];
     if (!el) return;
     const measure = () => setBox({ top: el.offsetTop, height: el.offsetHeight });
@@ -1025,7 +1031,7 @@ function useMarker(active: SectionId) {
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [active]);
+  }, [active, shown]);
 
   return { refs, box };
 }
@@ -1205,7 +1211,7 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
   // read 60 where the overview itself said 30.
   const openFlags = counts.overview.n;
   const severeOpen = counts.overview.severe;
-  const { refs, box } = useMarker(view === "start" ? "overview" : view);
+  const { refs, box } = useMarker(view === "start" ? "overview" : view, restored && view !== "start");
 
   if (!restored) {
     return (
@@ -1217,7 +1223,7 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
 
   if (view === "start") {
     return (
-      <div className="pv-root">
+      <div className="pv-root pv-classic">
         <Welcome onEnter={() => setView("overview")} />
         <ThemeStyles />
       </div>
@@ -1437,22 +1443,36 @@ function ThemeStyles() {
     <style>{`
         /* Salcombe Dairy theme, scoped — the rest of the site keeps its own palette */
         .pv-root {
-          --bg:           #f4efe4;
-          --bg-surface:   #ebe4d3;
-          --bg-elevated:  #fbf8f0;
-          --text:         #14213a;
-          --text-soft:    #3b4356;
-          --text-muted:   #6f7482;
-          --rule:         #e0d9c8;
-          --rule-strong:  #c6bfab;
-          --navy:         #10284a;
-          --navy-deep:    #0a1b33;
-          --gold:         #c9a24a;
+          /* South Moor's palette: a cool clinical page, white surfaces with
+             fine blue-grey lines, deep blue-ink text and a blue accent. Red,
+             amber and green still mean severity and nothing else — blue is
+             not a status colour, so the two never collide. */
+          --bg:           #f4f6fa;
+          --bg-surface:   #e8eef5;
+          --bg-elevated:  #ffffff;
+          --text:         #15385c;
+          --text-soft:    #34506e;
+          --text-muted:   #5a6e85;
+          --rule:         #d6dfea;
+          --rule-strong:  #c2cfde;
+          --navy:         #15385c;
+          --navy-deep:    #0e2741;
+          --gold:         #3370b8;
+          --blue:         #3370b8;
+          --blue-deep:    #245489;
+          --blue-soft:    #e8eef5;
+          /* The sidebar — and the phone's top bar and menu — stay Salcombe
+             Dairy's navy: the one part of the app in their own colours, set
+             against South Moor's palette everywhere else. The marker is a
+             light blue from the same family rather than the old gold. */
+          --side-bg:      #10284a;
+          --side-line:    #10284a;
+          --side-accent:  #7fb0e8;
           --on-navy:      #dfe6ef;
-          --on-navy-soft: #8f9db3;
+          --on-navy-soft: #9fb0c6;
           --accent:       var(--navy);
-          --font-serif:   var(--font-fraunces, 'Fraunces'), Georgia, 'Times New Roman', serif;
-          --font-sans:    var(--font-plex, 'IBM Plex Sans'), system-ui, -apple-system, 'Segoe UI', sans-serif;
+          --font-serif:   'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+          --font-sans:    'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
           --font-mono:    var(--font-plex-mono, 'IBM Plex Mono'), 'JetBrains Mono', ui-monospace, monospace;
           font-family: var(--font-sans);
           background: var(--bg);
@@ -1469,20 +1489,29 @@ function ThemeStyles() {
           font-family: var(--font-sans); font-size: 13.5px;
           font-weight: 500;
           color: var(--text); cursor: pointer;
-          box-shadow: 0 1px 2px rgba(20, 33, 58, 0.06);
+          box-shadow: 0 1px 2px rgba(21, 56, 92, 0.06);
           transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
         }
         .pv-root .prov-back:hover {
           background: var(--bg-surface);
           border-color: var(--navy);
-          box-shadow: 0 2px 6px rgba(20, 33, 58, 0.1);
+          box-shadow: 0 2px 6px rgba(21, 56, 92, 0.1);
         }
         .pv-root .prov-back:active { box-shadow: none; }
         .pv-root .prov-back-arrow {
           font-size: 16px; line-height: 1;
           color: var(--navy);
         }
-        .pv-root .btn-primary { background: var(--navy); color: #f4efe4; font-family: var(--font-sans); }
+        .pv-root.pv-classic {
+          --bg: #f4efe4; --bg-surface: #ebe4d3; --bg-elevated: #fbf8f0;
+          --text: #14213a; --text-soft: #3b4356; --text-muted: #6f7482;
+          --rule: #e0d9c8; --rule-strong: #c6bfab;
+          --navy: #10284a; --navy-deep: #0a1b33; --gold: #c9a24a;
+          --font-serif: var(--font-fraunces, 'Fraunces'), Georgia, 'Times New Roman', serif;
+          --font-sans: var(--font-plex, 'IBM Plex Sans'), system-ui, -apple-system, 'Segoe UI', sans-serif;
+        }
+        .pv-root .btn-primary { background: var(--blue); color: #ffffff; font-family: var(--font-sans); }
+        .pv-root .btn-primary:hover { background: var(--blue-deep); }
         .pv-root .btn-primary:hover:not(:disabled) { background: var(--navy-deep); }
         .pv-root .btn-ghost { color: var(--navy); font-family: var(--font-sans); }
         .pv-root button, .pv-root input, .pv-root select { font-family: var(--font-sans); }
@@ -1495,12 +1524,12 @@ function ThemeStyles() {
           text-align: center;
           padding: 2px 5px;
           border-radius: 99px;
-          color: var(--navy);
-          background: rgba(201,162,74,0.85);
+          color: #ffffff;
+          background: ${BRASS};
           display: inline-block;
           line-height: 1.4;
         }
-        .pv-flag-severe { color: #fbf8f0; background: ${VERM}; }
+        .pv-flag-severe { color: #ffffff; background: ${VERM}; }
 
         .prov-shell {
           display: grid;
@@ -1513,7 +1542,7 @@ function ThemeStyles() {
           display: flex;
           flex-direction: column;
           padding: 28px 16px 24px 22px;
-          background: var(--navy);
+          background: var(--side-bg);
           color: var(--on-navy);
           position: sticky;
           top: 0;
@@ -1525,7 +1554,8 @@ function ThemeStyles() {
           font-size: 23px;
           letter-spacing: 0.005em;
           line-height: 1.1;
-          color: #f4efe4;
+          color: #f4f6fa;
+          font-weight: 600;
           background: none;
           border: none;
           padding: 0;
@@ -1539,7 +1569,7 @@ function ThemeStyles() {
           left: 0;
           width: 3px;
           border-radius: 2px;
-          background: var(--gold);
+          background: var(--side-accent);
           transition: top 260ms cubic-bezier(.2,.7,.2,1), height 260ms cubic-bezier(.2,.7,.2,1);
           pointer-events: none;
         }
@@ -1551,7 +1581,7 @@ function ThemeStyles() {
           text-align: left;
           font-size: 14px;
           font-weight: 400;
-          color: var(--on-navy-soft);
+          color: var(--on-navy);
           background: transparent;
           border: none;
           border-radius: 0 9px 9px 0;
@@ -1559,11 +1589,11 @@ function ThemeStyles() {
           cursor: pointer;
           transition: color 160ms ease, background 160ms ease;
         }
-        .prov-navitem:hover { color: var(--on-navy); }
+        .prov-navitem:hover { color: #ffffff; background: rgba(255,255,255,0.06); }
         .prov-navitem[aria-current="page"] {
-          color: #f4efe4;
-          font-weight: 500;
-          background: rgba(255,255,255,0.06);
+          color: #ffffff;
+          font-weight: 600;
+          background: rgba(255,255,255,0.1);
         }
         .prov-sidefoot {
           margin-top: auto;
@@ -1608,9 +1638,9 @@ function ThemeStyles() {
         }
         .prov-navctl:hover, .prov-navctl:focus-visible {
           opacity: 1;
-          background: rgba(255, 255, 255, 0.08);
+          background: rgba(255,255,255,0.08);
         }
-        .prov-navrow-beside .prov-navsplit { opacity: 1; color: var(--gold); }
+        .prov-navrow-beside .prov-navsplit { opacity: 1; color: var(--side-accent); }
 
         /* ————— panes ————— */
         .prov-panes { display: flex; gap: 0; min-width: 0; }
@@ -1687,7 +1717,7 @@ function ThemeStyles() {
           margin-right: 8px;
           vertical-align: -3px;
           border-radius: 999px;
-          background: #c22f4e;
+          background: #c0392b;
           color: #fff;
           font-family: var(--font-sans);
           font-size: 12px;
@@ -1753,9 +1783,8 @@ function ThemeStyles() {
             align-items: center;
             gap: 12px;
             padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 10px;
-            background: var(--navy);
+            background: var(--side-bg);
             color: var(--on-navy);
-            box-shadow: 0 1px 0 rgba(255,255,255,0.07);
           }
           .prov-topbar-title {
             flex: 1;
@@ -1856,6 +1885,7 @@ function ThemeStyles() {
             transform: translateX(-100%);
             transition: transform 220ms cubic-bezier(.2,.7,.2,1);
             box-shadow: none;
+            background: var(--side-bg);
           }
           .prov-side-open {
             transform: translateX(0);

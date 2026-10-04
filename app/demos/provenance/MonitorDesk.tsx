@@ -15,10 +15,10 @@ import { REGIME_LABEL } from "./stock";
 import type { Status } from "./data";
 
 const GREEN = "#167a5b";
-const BRASS = "#a3772a";
-const VERM = "#c22f4e";
-const MUTED = "#6f7482";
-const NAVY = "#10284a";
+const BRASS = "#b26a00";
+const VERM = "#c0392b";
+const MUTED = "#5a6e85";
+const NAVY = "#15385c";
 
 const STATUS_COLOR: Record<Status, string> = { ok: GREEN, due: BRASS, overdue: VERM };
 const STATUS_WORD: Record<Status, string> = { ok: "In spec", due: "Watch", overdue: "Excursion" };
@@ -92,7 +92,7 @@ export default function MonitorDesk() {
             <button
               key={h}
               onClick={() => setWindow(h)}
-              style={{ font: "inherit", fontSize: 12.5, padding: "6px 11px", border: "1px solid var(--rule)", borderRadius: 8, background: window_ === h ? "rgba(16,40,74,0.08)" : "none", color: "inherit", cursor: "pointer", fontWeight: window_ === h ? 600 : 400 }}
+              style={{ font: "inherit", fontSize: 12.5, padding: "6px 11px", border: "1px solid var(--rule)", borderRadius: 8, background: window_ === h ? "rgba(51,112,184,0.1)" : "none", color: "inherit", cursor: "pointer", fontWeight: window_ === h ? 600 : 400 }}
             >
               {h === 72 ? "3 days" : `${h}h`}
             </button>

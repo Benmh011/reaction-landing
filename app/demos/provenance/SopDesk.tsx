@@ -27,11 +27,11 @@ import {
 import { runPdfBlob, runFilename } from "./sop-pdf";
 
 const GREEN = "#167a5b";
-const BRASS = "#a3772a";
-const VERM = "#c22f4e";
-const MUTED = "#6f7482";
-const NAVY = "#10284a";
-const GOLD = "#c9a24a";
+const BRASS = "#b26a00";
+const VERM = "#c0392b";
+const MUTED = "#5a6e85";
+const NAVY = "#15385c";
+const GOLD = "#3370b8";
 
 const serif: React.CSSProperties = { fontFamily: "var(--font-serif)", fontWeight: 500, letterSpacing: "-0.01em" };
 const mono: React.CSSProperties = { fontFamily: "var(--font-mono)" };
@@ -385,7 +385,7 @@ function Thread({
           justify-self: end;
           max-width: 82%;
           background: ${NAVY};
-          color: #f4efe4;
+          color: #f4f6fa;
           border-radius: 14px 14px 4px 14px;
           padding: 9px 15px;
           min-width: 96px;
@@ -407,7 +407,7 @@ function Thread({
           cursor: pointer;
           transition: background 140ms ease, color 140ms ease;
         }
-        .sop-choice:hover { background: ${NAVY}; color: #f4efe4; }
+        .sop-choice:hover { background: ${NAVY}; color: #f4f6fa; }
         .sop-choice-no { border-color: ${VERM}; color: ${VERM}; }
         .sop-choice-no:hover { background: ${VERM}; color: #fff; }
         .sop-stop, .sop-end {

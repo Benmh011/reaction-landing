@@ -38,9 +38,9 @@ import {
 } from "./checks";
 
 const GREEN = "#167a5b";
-const BRASS = "#a3772a";
-const VERM = "#c22f4e";
-const MUTED = "#6f7482";
+const BRASS = "#b26a00";
+const VERM = "#c0392b";
+const MUTED = "#5a6e85";
 
 const STATUS_COLOR: Record<Status, string> = { ok: GREEN, due: BRASS, overdue: VERM };
 const STATUS_WORD: Record<Status, string> = { ok: "In spec", due: "Watch", overdue: "Exception" };

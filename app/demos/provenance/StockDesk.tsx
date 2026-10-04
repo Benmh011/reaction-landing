@@ -65,11 +65,11 @@ import {
 } from "./records-pdf";
 
 const GREEN = "#167a5b";
-const BRASS = "#a3772a";
-const VERM = "#c22f4e";
-const BLUE = "#2c6e8a";
-const MUTED = "#6f7482";
-const TEAL = "#10284a";
+const BRASS = "#b26a00";
+const VERM = "#c0392b";
+const BLUE = "#3370b8";
+const MUTED = "#5a6e85";
+const TEAL = "#15385c";
 
 const mono: React.CSSProperties = { fontFamily: "var(--font-mono)" };
 const serifItal: React.CSSProperties = {
@@ -532,7 +532,7 @@ function GoodsInTab({ movements, onBook, operator = "" }: { movements: Movement[
               <div
                 style={{
                   borderLeft: `2px solid ${BRASS}`,
-                  background: "rgba(163,119,42,0.06)",
+                  background: "rgba(178,106,0,0.07)",
                   borderRadius: 8,
                   padding: "10px 14px",
                 }}
