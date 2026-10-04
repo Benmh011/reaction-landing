@@ -17,6 +17,7 @@ import {
 import { SEED_READINGS, loadReadings, saveReadings, exceptions as checkExceptions, type Reading } from "./checks";
 import { SEED_MOVEMENTS, shelfLife, declarationGaps, balances, misplaced, loadMovements, saveMovements, type Movement } from "./stock";
 import QuestionnaireDesk, { answeredRefs } from "./QuestionnaireDesk";
+import { NavIcon } from "./icons";
 import Welcome from "./Welcome";
 import StockDesk from "./StockDesk";
 import CheckDesk from "./CheckDesk";
@@ -1370,6 +1371,7 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
                     className="prov-navitem"
                     aria-current={on ? "page" : undefined}
                   >
+                    <NavIcon id={s.id} />
                     <span style={{ flex: 1, minWidth: 0 }}>{s.label}</span>
                     {c.n > 0 && <span className={`pv-flag${c.severe ? " pv-flag-severe" : ""}`}>{c.n}</span>}
                   </button>
