@@ -21,6 +21,14 @@ const MUTED = "#5a6e85";
 const NAVY = "#15385c";
 
 const STATUS_COLOR: Record<Status, string> = { ok: GREEN, due: BRASS, overdue: VERM };
+
+// Amber is used two ways. As text it must stay dark to be readable on
+// white. As a fill — an edge, a dot, a swatch, a badge — it must be light,
+// so it stands apart from the dark red by brightness and not only hue: at
+// small sizes the dark amber and the red read as the same warm colour, and
+// for anyone colour-blind hue alone does not separate them at all.
+const AMBER_FILL = "#eda83e";
+const fill = (c: string) => (c.toLowerCase() === "#b26a00" ? AMBER_FILL : c);
 const STATUS_WORD: Record<Status, string> = { ok: "In spec", due: "Watch", overdue: "Excursion" };
 
 const serif: React.CSSProperties = { fontFamily: "var(--font-serif)", fontWeight: 500, letterSpacing: "-0.01em" };
@@ -241,7 +249,7 @@ function Chart({ r, hours }: { r: AssetLive; hours: number }) {
         <text key={i} x={x(ts)} y={H - 8} textAnchor={i === 0 ? "start" : i === ticks ? "end" : "middle"} fontSize={10} fill={MUTED} fontFamily="var(--font-mono)">{fmtT(ts)}</text>
       ))}
       <path d={path} fill="none" stroke={NAVY} strokeWidth={1.6} />
-      {r.last && <circle cx={x(r.last.ts)} cy={y(r.last.celsius)} r={3.5} fill={STATUS_COLOR[r.status]} />}
+      {r.last && <circle cx={x(r.last.ts)} cy={y(r.last.celsius)} r={3.5} fill={fill(STATUS_COLOR[r.status])} />}
     </svg>
   );
 }

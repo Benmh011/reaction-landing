@@ -44,6 +44,14 @@ const BLUE = "#3370b8";
 const MUTED = "var(--text-muted)";
 
 const STATUS_COLOR: Record<Status, string> = { ok: GREEN, due: BRASS, overdue: VERM };
+
+// Amber is used two ways. As text it must stay dark to be readable on
+// white. As a fill — an edge, a dot, a swatch, a badge — it must be light,
+// so it stands apart from the dark red by brightness and not only hue: at
+// small sizes the dark amber and the red read as the same warm colour, and
+// for anyone colour-blind hue alone does not separate them at all.
+const AMBER_FILL = "#eda83e";
+const fill = (c: string) => (c.toLowerCase() === "#b26a00" ? AMBER_FILL : c);
 const STATUS_WORD: Record<Status, string> = { ok: "In date", due: "Due soon", overdue: "Overdue" };
 
 const serif: React.CSSProperties = { fontFamily: "var(--font-serif)" };
@@ -58,7 +66,7 @@ function Dot({ status }: { status: Status }) {
         width: 8,
         height: 8,
         borderRadius: 99,
-        background: STATUS_COLOR[status],
+        background: fill(STATUS_COLOR[status]),
         marginRight: 8,
         flexShrink: 0,
       }}
@@ -322,7 +330,7 @@ function Legend() {
         <span key={k.word} style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12.5 }}>
           <span
             aria-hidden
-            style={{ width: 12, height: 12, borderRadius: 3, background: k.colour, flexShrink: 0 }}
+            style={{ width: 12, height: 12, borderRadius: 3, background: fill(k.colour), flexShrink: 0 }}
           />
           <span style={{ color: k.colour, fontWeight: 500 }}>{k.word}</span>
           <span style={{ color: MUTED }}>{k.means}</span>
@@ -388,7 +396,7 @@ function Overview({ items, onGo }: { items: Item[]; onGo: (id: SectionId) => voi
             key={g.key}
             style={{
               border: "1px solid var(--rule)",
-              borderLeft: `3px solid ${g.severe > 0 ? VERM : BRASS}`,
+              borderLeft: `3px solid ${g.severe > 0 ? VERM : AMBER_FILL}`,
               borderRadius: 12,
               background: "var(--bg-elevated)",
               marginBottom: 10,
@@ -535,7 +543,7 @@ function Person({
       : "all current";
 
   return (
-    <div style={{ border: "1px solid var(--rule)", borderLeft: `3px solid ${STATUS_COLOR[worst]}`, borderRadius: 12, background: "var(--bg-elevated)", marginBottom: 8, overflow: "hidden" }}>
+    <div style={{ border: "1px solid var(--rule)", borderLeft: `3px solid ${fill(STATUS_COLOR[worst])}`, borderRadius: 12, background: "var(--bg-elevated)", marginBottom: 8, overflow: "hidden" }}>
       <button
         onClick={() => setOpen((v) => !v)}
         style={{
@@ -816,7 +824,7 @@ function Personnel() {
               ? `${p.soon.length} due soon`
               : "all current";
           return (
-            <div key={p.name} style={{ border: "1px solid var(--rule)", borderLeft: `3px solid ${STATUS_COLOR[p.worst]}`, borderRadius: 12, background: "var(--bg-elevated)", marginBottom: 8, overflow: "hidden" }}>
+            <div key={p.name} style={{ border: "1px solid var(--rule)", borderLeft: `3px solid ${fill(STATUS_COLOR[p.worst])}`, borderRadius: 12, background: "var(--bg-elevated)", marginBottom: 8, overflow: "hidden" }}>
               <button
                 onClick={() => setOpen(isOpen ? null : p.name)}
                 style={{
@@ -1524,8 +1532,12 @@ function ThemeStyles() {
           text-align: center;
           padding: 2px 5px;
           border-radius: 99px;
-          color: #ffffff;
-          background: ${BRASS};
+          /* Light amber with navy numbers, against the dark red with white
+             ones: the two differ in lightness, not only hue, so they stay
+             apart at badge size on navy — and for anyone colour-blind. The
+             darker amber was indistinguishable from the red there. */
+          color: #10284a;
+          background: ${AMBER_FILL};
           display: inline-block;
           line-height: 1.4;
         }

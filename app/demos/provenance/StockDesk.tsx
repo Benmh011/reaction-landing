@@ -69,6 +69,14 @@ const BRASS = "#b26a00";
 const VERM = "#c0392b";
 const BLUE = "#3370b8";
 const MUTED = "#5a6e85";
+
+// Amber is used two ways. As text it must stay dark to be readable on
+// white. As a fill — an edge, a dot, a swatch, a badge — it must be light,
+// so it stands apart from the dark red by brightness and not only hue: at
+// small sizes the dark amber and the red read as the same warm colour, and
+// for anyone colour-blind hue alone does not separate them at all.
+const AMBER_FILL = "#eda83e";
+const fill = (c: string) => (c.toLowerCase() === "#b26a00" ? AMBER_FILL : c);
 const TEAL = "#15385c";
 
 const mono: React.CSSProperties = { fontFamily: "var(--font-mono)" };
@@ -531,7 +539,7 @@ function GoodsInTab({ movements, onBook, operator = "" }: { movements: Movement[
             {wrongPlace.length > 0 && (
               <div
                 style={{
-                  borderLeft: `2px solid ${BRASS}`,
+                  borderLeft: `2px solid ${AMBER_FILL}`,
                   background: "rgba(178,106,0,0.07)",
                   borderRadius: 8,
                   padding: "10px 14px",
@@ -1271,12 +1279,12 @@ function ShelfLifeTab({ movements, operator = "" }: { movements: Movement[]; ope
               gridTemplateColumns: "1fr auto",
               gap: 14,
               padding: "11px 15px",
-              borderLeft: r.state === "fresh" || r.state === "unknown" ? undefined : `2px solid ${FRESH_COLOR[r.state]}`,
+              borderLeft: r.state === "fresh" || r.state === "unknown" ? undefined : `2px solid ${fill(FRESH_COLOR[r.state])}`,
             }}
           >
             <div>
               <p style={{ fontSize: 14 }}>
-                <Dot color={FRESH_COLOR[r.state]} />
+                <Dot color={fill(FRESH_COLOR[r.state])} />
                 {r.balance.material?.name ?? r.balance.materialCode}
               </p>
               <p style={{ ...mono, fontSize: 10.5, color: MUTED, paddingLeft: 16, marginTop: 2 }}>
@@ -1330,7 +1338,7 @@ function AllergenTab({ movements }: { movements: Movement[] }) {
       </div>
 
       {gaps.length > 0 && (
-        <div style={{ ...card, borderLeft: `2px solid ${BRASS}`, marginBottom: 16 }}>
+        <div style={{ ...card, borderLeft: `2px solid ${AMBER_FILL}`, marginBottom: 16 }}>
           <p style={{ fontSize: 13.5, fontWeight: 500, marginBottom: 4 }}>
             <Dot color={BRASS} />
             {gaps.length} material{gaps.length === 1 ? "" : "s"} held with no current declaration
@@ -1347,7 +1355,7 @@ function AllergenTab({ movements }: { movements: Movement[] }) {
           <div key={r.material.code} style={{ ...card, padding: "12px 16px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
               <p style={{ fontSize: 14 }}>
-                <Dot color={r.declarationOnFile ? GREEN : BRASS} />
+                <Dot color={r.declarationOnFile ? GREEN : AMBER_FILL} />
                 {r.material.name}
               </p>
               <span style={{ ...mono, fontSize: 11.5, color: r.declarationOnFile ? MUTED : BRASS }}>
@@ -1411,7 +1419,7 @@ function HoldsTab({ movements, operator = "" }: { movements: Movement[]; operato
               .sort((x, y) => y.ts - x.ts)[0];
             const age = m ? daysSince(m.ts) : null;
             return (
-              <div key={`${b.materialCode}-${b.lot}`} style={{ ...card, borderLeft: `2px solid ${BRASS}`, padding: "12px 16px" }}>
+              <div key={`${b.materialCode}-${b.lot}`} style={{ ...card, borderLeft: `2px solid ${AMBER_FILL}`, padding: "12px 16px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                   <p style={{ fontSize: 14 }}>
                     <Dot color={BRASS} />

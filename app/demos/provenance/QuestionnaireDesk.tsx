@@ -26,6 +26,14 @@ const HONEY = "#b26a00";
 const RASP = "#c0392b";
 const MUTED = "#5a6e85";
 
+// Amber is used two ways. As text it must stay dark to be readable on
+// white. As a fill — an edge, a dot, a swatch, a badge — it must be light,
+// so it stands apart from the dark red by brightness and not only hue: at
+// small sizes the dark amber and the red read as the same warm colour, and
+// for anyone colour-blind hue alone does not separate them at all.
+const AMBER_FILL = "#eda83e";
+const fill = (c: string) => (c.toLowerCase() === "#b26a00" ? AMBER_FILL : c);
+
 const mono: React.CSSProperties = { fontFamily: "var(--font-mono)" };
 
 const th: React.CSSProperties = {
@@ -396,7 +404,7 @@ export default function QuestionnaireDesk({ onFiled }: { onFiled?: (refs: string
                     padding: "14px 18px",
                     background: "var(--bg-elevated)",
                     border: "1px solid var(--rule)",
-                    borderLeft: `3px solid ${HONEY}`,
+                    borderLeft: `3px solid ${AMBER_FILL}`,
                     borderRadius: 12,
                   }}
                 >

@@ -46,6 +46,14 @@ const VERM = "#c0392b";
 const MUTED = "var(--text-muted)";
 const STATUS_COLOR: Record<Status, string> = { ok: GREEN, due: BRASS, overdue: VERM };
 
+// Amber is used two ways. As text it must stay dark to be readable on
+// white. As a fill — an edge, a dot, a swatch, a badge — it must be light,
+// so it stands apart from the dark red by brightness and not only hue: at
+// small sizes the dark amber and the red read as the same warm colour, and
+// for anyone colour-blind hue alone does not separate them at all.
+const AMBER_FILL = "#eda83e";
+const fill = (c: string) => (c.toLowerCase() === "#b26a00" ? AMBER_FILL : c);
+
 const serif: React.CSSProperties = { fontFamily: "var(--font-serif)" };
 const mono: React.CSSProperties = { fontFamily: "var(--font-mono)" };
 
@@ -315,7 +323,7 @@ export default function ProductionDesk({
           st.batch.line !== "chocolate" && !st.batch.pasteurisation ? "the heat treatment" : null,
         ].filter(Boolean) as string[];
         return (
-          <div style={{ ...card, marginBottom: 22, borderLeft: `2px solid ${STATUS_COLOR[st.status]}` }}>
+          <div style={{ ...card, marginBottom: 22, borderLeft: `2px solid ${fill(STATUS_COLOR[st.status])}` }}>
             <p style={{ fontSize: 13.5, lineHeight: 1.55 }}>
               Batch <strong style={{ fontWeight: 500 }}>{st.batch.id}</strong>{" "}
               {justSaved.existed
@@ -873,7 +881,7 @@ function ChartImport({
         ].filter(Boolean) as string[]
       : [];
     return (
-      <div style={{ ...card, marginBottom: 22, borderLeft: `2px solid ${STATUS_COLOR[v.status]}` }}>
+      <div style={{ ...card, marginBottom: 22, borderLeft: `2px solid ${fill(STATUS_COLOR[v.status])}` }}>
         <p style={{ ...mono, fontSize: 10, letterSpacing: "0.16em", color: MUTED, marginBottom: 10 }}>
           READ FROM {read.fileName.toUpperCase()}
         </p>
@@ -1035,7 +1043,7 @@ function BatchRow({
   const b = state.batch;
   const [adding, setAdding] = useState<"metal" | "fill" | "pasteurisation" | null>(null);
   return (
-    <div style={{ border: "1px solid var(--rule)", borderLeft: `3px solid ${STATUS_COLOR[state.status]}`, borderRadius: 12, background: "var(--bg-elevated)", marginBottom: 8, overflow: "hidden" }}>
+    <div style={{ border: "1px solid var(--rule)", borderLeft: `3px solid ${fill(STATUS_COLOR[state.status])}`, borderRadius: 12, background: "var(--bg-elevated)", marginBottom: 8, overflow: "hidden" }}>
       <button
         onClick={onToggle}
         style={{
@@ -1109,7 +1117,7 @@ function BatchRow({
           <div
             style={{
               ...card,
-              borderLeft: `2px solid ${STATUS_COLOR[state.status]}`,
+              borderLeft: `2px solid ${fill(STATUS_COLOR[state.status])}`,
               marginBottom: 20,
               display: "flex",
               gap: 16,

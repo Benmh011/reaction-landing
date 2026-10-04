@@ -30,6 +30,9 @@ const GREEN = "#167a5b";
 const BRASS = "#b26a00";
 const VERM = "#c0392b";
 const MUTED = "#5a6e85";
+
+// Light amber for a dot — see ProvenanceApp for why fills and text differ.
+const AMBER_FILL = "#eda83e";
 const NAVY = "#15385c";
 const GOLD = "#3370b8";
 
@@ -187,7 +190,7 @@ export default function SopDesk({
           <div key={sop.id} style={{ ...card, display: "grid", gridTemplateColumns: "1fr auto", gap: 14, alignItems: "center" }}>
             <div>
               <p style={{ fontSize: 15, fontWeight: 500, marginBottom: 3 }}>
-                {state === "due" && <span aria-hidden style={{ display: "inline-block", width: 8, height: 8, borderRadius: 99, background: BRASS, marginRight: 8 }} />}
+                {state === "due" && <span aria-hidden style={{ display: "inline-block", width: 8, height: 8, borderRadius: 99, background: AMBER_FILL, marginRight: 8 }} />}
                 {sop.name}
               </p>
               <p style={{ fontSize: 13, color: MUTED, lineHeight: 1.5 }}>{sop.purpose}</p>

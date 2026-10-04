@@ -43,6 +43,14 @@ const VERM = "#c0392b";
 const MUTED = "#5a6e85";
 
 const STATUS_COLOR: Record<Status, string> = { ok: GREEN, due: BRASS, overdue: VERM };
+
+// Amber is used two ways. As text it must stay dark to be readable on
+// white. As a fill — an edge, a dot, a swatch, a badge — it must be light,
+// so it stands apart from the dark red by brightness and not only hue: at
+// small sizes the dark amber and the red read as the same warm colour, and
+// for anyone colour-blind hue alone does not separate them at all.
+const AMBER_FILL = "#eda83e";
+const fill = (c: string) => (c.toLowerCase() === "#b26a00" ? AMBER_FILL : c);
 const STATUS_WORD: Record<Status, string> = { ok: "In spec", due: "Watch", overdue: "Exception" };
 
 const mono: React.CSSProperties = { fontFamily: "var(--font-mono)" };
@@ -69,7 +77,7 @@ function Dot({ status }: { status: Status }) {
         width: 8,
         height: 8,
         borderRadius: 99,
-        background: STATUS_COLOR[status],
+        background: fill(STATUS_COLOR[status]),
         marginRight: 8,
         flexShrink: 0,
       }}
@@ -263,7 +271,7 @@ export default function CheckDesk({
                 key={e.assetId}
                 style={{
                   ...card,
-                  borderLeft: `2px solid ${STATUS_COLOR[e.status]}`,
+                  borderLeft: `2px solid ${fill(STATUS_COLOR[e.status])}`,
                   padding: "12px 16px",
                 }}
               >
@@ -545,7 +553,7 @@ function RecordForm({
         <div
           style={{
             ...card,
-            borderLeft: `2px solid ${STATUS_COLOR[verdict.status]}`,
+            borderLeft: `2px solid ${fill(STATUS_COLOR[verdict.status])}`,
             marginBottom: 18,
           }}
         >
