@@ -5,15 +5,38 @@
 
 export type Status = "ok" | "due" | "overdue";
 
-export const QUESTIONNAIRES = [
+export type Questionnaire = {
+  id: string;
+  from: string;
+  received: string;
+  questions: number;
+  drafted: number;
+  state: string;
+  // Still waiting for a person to review it.
+  open: boolean;
+  // The buyer's workbook, for one still waiting: reviewing it reads this
+  // file with the same engine as any upload.
+  sample?: string;
+  fileName?: string;
+};
+
+export const QUESTIONNAIRES: Questionnaire[] = [
+  // Harbourline is the sample workbook on the site, so reviewing it opens a
+  // real questionnaire rather than a line of numbers. Its figures are what
+  // the desk's own engine finds in that file — 14 questions, 12 drafted
+  // from the controlled documents, 2 held for a person (product liability
+  // cover and sustainability accreditations). They used to read 64, 61 and
+  // 3, which matched no file. If the workbook changes, these change with it.
   {
     id: "SPQ-0341",
     from: "Harbourline Hotels Group",
     received: "21 Jul 2026",
-    questions: 64,
-    drafted: 61,
-    state: "Ready for review",
+    questions: 14,
+    drafted: 12,
+    state: "Waiting for review",
     open: true,
+    sample: "/samples/harbourline-supplier-questionnaire.xlsx",
+    fileName: "harbourline-supplier-questionnaire.xlsx",
   },
   { id: "SPQ-0339", from: "Westcott Farm Shops", received: "17 Jul 2026", questions: 38, drafted: 38, state: "Sent", open: false },
   { id: "SPQ-0336", from: "The Anchor & Hope, Dartmouth", received: "11 Jul 2026", questions: 22, drafted: 22, state: "Sent", open: false },

@@ -16,7 +16,7 @@ import {
 } from "./records-pdf";
 import { SEED_READINGS, loadReadings, saveReadings, exceptions as checkExceptions, type Reading } from "./checks";
 import { SEED_MOVEMENTS, shelfLife, declarationGaps, balances, misplaced, loadMovements, saveMovements, type Movement } from "./stock";
-import QuestionnaireDesk from "./QuestionnaireDesk";
+import QuestionnaireDesk, { answeredRefs } from "./QuestionnaireDesk";
 import Welcome from "./Welcome";
 import StockDesk from "./StockDesk";
 import CheckDesk from "./CheckDesk";
@@ -177,7 +177,7 @@ function keepRecent(tabs: SectionId[], next: SectionId, beside: SectionId | null
 
 type Item = { severe: boolean; text: string; goto: SectionId };
 
-function buildPicture(movements: Movement[], readings: Reading[], runs: Run[]): Item[] {
+function buildPicture(movements: Movement[], readings: Reading[], runs: Run[], filed: string[] = []): Item[] {
   const items: Item[] = [];
 
   for (const e of productionExceptions(SEED_BATCHES)) {
@@ -233,6 +233,7 @@ function buildPicture(movements: Movement[], readings: Reading[], runs: Run[]): 
   }
 
   for (const q of QUESTIONNAIRES) {
+    if (filed.includes(q.id)) continue;
     if (q.open && q.drafted < q.questions)
       items.push({ severe: false, text: `${q.from} questionnaire drafted — ${q.questions - q.drafted} answers held for review.`, goto: "questionnaires" });
   }
@@ -471,14 +472,14 @@ function Overview({ items, onGo }: { items: Item[]; onGo: (id: SectionId) => voi
   );
 }
 
-function Questionnaires() {
+function Questionnaires({ onFiled }: { onFiled?: (refs: string[]) => void }) {
   return (
     <>
       <SectionTitle
         title="Spec questionnaires"
         sub="New stockists send these before they order — their workbook, their layout, their phrasing. The desk drafts every answer it can stand behind from your controlled documents, cites the source, and holds the rest for a person."
       />
-      <QuestionnaireDesk />
+      <QuestionnaireDesk onFiled={onFiled} />
     </>
   );
 }
@@ -1186,7 +1187,17 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
     if (runsLoaded) saveRuns(runs);
   }, [runs, runsLoaded]);
 
-  const picture = useMemo(() => buildPicture(movements, readings, runs), [movements, readings, runs]);
+  // Questionnaires already filed, read once the app is on the device and
+  // updated the moment one is saved, so the Overview clears without a reload.
+  const [filed, setFiled] = useState<string[]>([]);
+  useEffect(() => {
+    try {
+      setFiled(answeredRefs());
+    } catch {
+      // Storage blocked: nothing is filed yet as far as this device knows.
+    }
+  }, []);
+  const picture = useMemo(() => buildPicture(movements, readings, runs, filed), [movements, readings, runs, filed]);
   const counts = useMemo(() => countsFor(picture), [picture]);
   // The overview row already holds the grand total — every item is added
   // to its own section and to Overview, so the sidebar can show both.
@@ -1220,7 +1231,7 @@ export default function ProvenanceApp({ user }: { user?: AppUser | null }) {
       case "overview":
         return <Overview items={picture} onGo={setView} />;
       case "questionnaires":
-        return <Questionnaires />;
+        return <Questionnaires onFiled={setFiled} />;
       case "documents":
         return <Documents />;
       case "personnel":

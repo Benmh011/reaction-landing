@@ -45,11 +45,16 @@ const td: React.CSSProperties = {
   verticalAlign: "top",
 };
 
+// A questionnaire already on the books — Harbourline — keeps the reference
+// and sender it arrived with, all the way through to the record, rather
+// than being filed as a new one.
+type Seed = { ref: string; name: string };
+
 type Stage =
   | { name: "intake"; error?: string }
   | { name: "parsing"; fileName: string }
-  | { name: "review"; fileName: string; intake: Intake }
-  | { name: "done"; fileName: string; intake: Intake };
+  | { name: "review"; fileName: string; intake: Intake; seed?: Seed }
+  | { name: "done"; fileName: string; intake: Intake; seed?: Seed };
 
 // ————— the record of completed questionnaires —————
 
@@ -65,6 +70,12 @@ type ArchiveRow = {
 };
 
 const ARCHIVE_KEY = "pv-questionnaire-archive";
+
+// The references now in the record. The Overview reads this so a
+// questionnaire stops being "held for review" once it is filed.
+export function answeredRefs(): string[] {
+  return loadArchive().map((r) => r.ref);
+}
 const MAX_STORED_BYTES = 2_500_000;
 
 const loadArchive = (): ArchiveRow[] => {
@@ -180,7 +191,7 @@ function ReportCard({ report, onPromote }: { report: IntakeReport; onPromote: (i
 
 // ————— the desk —————
 
-export default function QuestionnaireDesk() {
+export default function QuestionnaireDesk({ onFiled }: { onFiled?: (refs: string[]) => void } = {}) {
   const [stage, setStage] = useState<Stage>({ name: "intake" });
   const [archive, setArchive] = useState<ArchiveRow[]>([]);
   const [search, setSearch] = useState("");
@@ -190,12 +201,34 @@ export default function QuestionnaireDesk() {
 
   useEffect(() => setArchive(loadArchive()), []);
 
+  // Waiting for review: on the books, not yet filed.
+  const waiting = QUESTIONNAIRES.filter((q) => q.open && q.sample && !archive.some((a) => a.ref === q.id));
+
+  // Opening one reads its workbook with the same engine as any upload, so
+  // the review is of real questions with real drafted answers.
+  const openWaiting = async (q: (typeof QUESTIONNAIRES)[number]) => {
+    if (!q.sample) return;
+    const fileName = q.fileName ?? q.sample.split("/").pop() ?? "questionnaire.xlsx";
+    setStage({ name: "parsing", fileName });
+    try {
+      const res = await fetch(q.sample);
+      if (!res.ok) throw new Error(`The ${q.from} workbook could not be loaded.`);
+      const file = new File([await res.blob()], fileName, {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const intake = await parseIncoming(file);
+      setStage({ name: "review", fileName, intake, seed: { ref: q.id, name: q.from } });
+    } catch (e) {
+      setStage({ name: "intake", error: e instanceof Error ? e.message : "That questionnaire could not be opened." });
+    }
+  };
+
   useEffect(() => {
     if (stage.name !== "done") {
       setSavedRef(null);
       setRecordName("");
     } else {
-      setRecordName(stage.fileName.replace(/\.(xlsx|xlsm|xls|csv)$/i, ""));
+      setRecordName(stage.seed?.name ?? stage.fileName.replace(/\.(xlsx|xlsm|xls|csv)$/i, ""));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage.name]);
@@ -271,7 +304,7 @@ export default function QuestionnaireDesk() {
     const chunks = stage.intake.chunks;
     const row: ArchiveRow = {
       id: String(Date.now()),
-      ref: nextRef(archive),
+      ref: stage.seed?.ref ?? nextRef(archive),
       name: recordName.trim() || stage.fileName.replace(/\.(xlsx|xlsm|xls|csv)$/i, ""),
       fileName: stage.fileName,
       date: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
@@ -283,6 +316,7 @@ export default function QuestionnaireDesk() {
     setArchive(rows);
     saveArchive(rows);
     setSavedRef(row.ref);
+    onFiled?.(rows.map((r) => r.ref));
   };
 
   // ————— intake —————
@@ -345,6 +379,42 @@ export default function QuestionnaireDesk() {
           </a>{" "}
           — a typical hotel group supplier approval workbook — and drop it in.
         </p>
+        {waiting.length > 0 && (
+          <div style={{ marginTop: 34 }}>
+            <p style={{ ...mono, fontSize: 11, letterSpacing: "0.16em", color: HONEY, marginBottom: 10 }}>
+              WAITING FOR REVIEW ({waiting.length})
+            </p>
+            <div style={{ display: "grid", gap: 8 }}>
+              {waiting.map((q) => (
+                <div
+                  key={q.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: 12,
+                    padding: "14px 18px",
+                    background: "var(--bg-elevated)",
+                    border: "1px solid var(--rule)",
+                    borderLeft: `3px solid ${HONEY}`,
+                    borderRadius: 12,
+                  }}
+                >
+                  <span style={{ flex: "1 1 240px", minWidth: 0 }}>
+                    <span style={{ display: "block", fontSize: 14.5, color: "var(--text)" }}>{q.from}</span>
+                    <span style={{ ...mono, display: "block", fontSize: 11.5, color: MUTED, marginTop: 3 }}>
+                      {q.id} · received {q.received} · {q.drafted} of {q.questions} drafted ·{" "}
+                      <span style={{ color: HONEY }}>{q.questions - q.drafted} held for you</span>
+                    </span>
+                  </span>
+                  <button className="btn btn-primary" onClick={() => openWaiting(q)}>
+                    Review
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <RecordList archive={archive} search={search} setSearch={setSearch} />
       </div>
     );
@@ -598,8 +668,13 @@ function RecordList({
   const live = archive.filter(
     (r) => !q || r.name.toLowerCase().includes(q) || r.ref.toLowerCase().includes(q) || r.fileName.toLowerCase().includes(q),
   );
+  // Finished ones only. A questionnaire still waiting has its own list
+  // above; once it is filed it appears here from the archive instead.
   const seeded = QUESTIONNAIRES.filter(
-    (r) => !q || r.from.toLowerCase().includes(q) || r.id.toLowerCase().includes(q),
+    (r) =>
+      !r.open &&
+      !archive.some((a) => a.ref === r.id) &&
+      (!q || r.from.toLowerCase().includes(q) || r.id.toLowerCase().includes(q)),
   );
 
   return (
