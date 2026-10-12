@@ -65,6 +65,7 @@ import {
   type StockFilter,
   type StockSort,
 } from "./records-pdf";
+import ScanTab from "./ScanTab";
 import {
   MATERIALS as SAGE_MATERIALS,
 } from "./stock";
@@ -166,7 +167,7 @@ function Dot({ color }: { color: string }) {
 
 // ————————————————————————— the desk —————————————————————————
 
-type Tab = "goodsin" | "onhand" | "shelf" | "allergens" | "holds" | "log" | "sage";
+type Tab = "goodsin" | "scan" | "onhand" | "shelf" | "allergens" | "holds" | "log" | "sage";
 
 export default function StockDesk({
   operator = "",
@@ -192,7 +193,7 @@ export default function StockDesk({
   const [tab, setTab] = useSessionState<Tab>(
     "stock.tab",
     "goodsin",
-    isOneOf("goodsin", "onhand", "shelf", "allergens", "holds", "log", "sage"),
+    isOneOf("goodsin", "scan", "onhand", "shelf", "allergens", "holds", "log", "sage"),
   );
   const [shown, setShown] = useState<{ code: string; lot: string } | null>(null);
   const [reveal, setReveal] = useState<{ code: string; lot: string; nonce: number } | null>(null);
@@ -224,6 +225,7 @@ export default function StockDesk({
         {(
           [
             ["goodsin", "Goods in"],
+            ["scan", "Scan"],
             ["onhand", "Stock on hand"],
             ["shelf", "Shelf life"],
             ["allergens", "Allergens"],
@@ -255,6 +257,7 @@ export default function StockDesk({
       </div>
 
       {tab === "goodsin" && <GoodsInTab movements={movements} operator={operator} onBook={(ms) => setMovements((p) => [...ms, ...p])} />}
+      {tab === "scan" && <ScanTab movements={movements} operator={operator} onBook={(ms) => setMovements((p) => [...ms, ...p])} />}
       {tab === "onhand" && <OnHandTab movements={movements} reveal={reveal} onRevealed={() => setReveal(null)} />}
       {tab === "shelf" && <ShelfLifeTab movements={movements} operator={operator} />}
       {tab === "allergens" && <AllergenTab movements={movements} />}

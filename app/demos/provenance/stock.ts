@@ -151,6 +151,11 @@ export type Material = {
   // storage regimes.
   line?: "ice cream" | "chocolate" | "both";
   allergenNote?: string;
+  // The code printed on the product's own label ("Code: 1028"), which the
+  // scanner reads to know what a tub is.
+  labelCode?: string;
+  // A barcode on the pack, where it has one, 8 to 14 digits.
+  gtin?: string;
 };
 
 // Whether a location can hold a material under its regime.
@@ -488,6 +493,24 @@ export const MATERIALS: Material[] = [
     declarationOnFile: true,
     shelfLifeDays: 365,
     line: "ice cream",
+  },
+  // A real Salcombe Dairy product, taken from one of their own tub labels:
+  // "Rum & Raisin Ice Cream, 5 Litres, Code: 1028". The label code is what
+  // the scanner reads. No shelf life is set here because the label carries
+  // its own printed date, and that date is what the lot is known by.
+  {
+    code: "FG-RUMR5",
+    name: "Rum & Raisin — 5L catering",
+    kind: "finished",
+    category: "finished",
+    unit: "units",
+    regime: "frozen",
+    maxIntakeTempC: -18,
+    aliases: ["rum & raisin 5l", "rum and raisin 5 litre"],
+    allergens: ["milk"],
+    declarationOnFile: true,
+    line: "ice cream",
+    labelCode: "1028",
   },
   {
     code: "FG-BAR70",
@@ -936,6 +959,16 @@ export const SEED_MOVEMENTS: Movement[] = oneDatePerLot([
   mv("t55", "FG-SALT5", "IC-2609-30", "SH-ISL", 240, "units", "transfer-in", 1, "S. Trent", "TN-2260"),
   mv("s51", "FG-SALT5", "IC-2609-30", "SH-ISL", -38, "units", "sale", 0, "Shop till", undefined, "Counter sales"),
   dispatch("d8", "FG-SALT5", "IC-2609-30", "WH-DISP", 360, "units", 0, "J. Okafor", "Westcott Farm Shops", "DN-3161"),
+
+  // ── Rum & Raisin 5L, as on the real label ──
+  //
+  // The lot is the label's code and use-by date together, 1028-041227,
+  // because the label carries no batch number — so scanning a real tub
+  // marked "Code: 1028  Use by 04/12/27" finds this stock. The date is
+  // fixed rather than worked out from today, because it is printed.
+  { ...mv("m90", "FG-RUMR5", "1028-041227", "WH-COLD", 48, "units", "adjustment", 9, "A. Voss", "OPEN-1028", "Opening stock, counted in"), bestBefore: "04 Dec 2027" },
+  { ...mv("t90", "FG-RUMR5", "1028-041227", "WH-COLD", -12, "units", "transfer-out", 5, "S. Trent", "TN-2262"), bestBefore: "04 Dec 2027" },
+  { ...mv("t91", "FG-RUMR5", "1028-041227", "SH-ISL", 12, "units", "transfer-in", 5, "S. Trent", "TN-2262"), bestBefore: "04 Dec 2027" },
 ]);
 
 function mv(

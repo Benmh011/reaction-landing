@@ -89,6 +89,7 @@ export const PLACEHOLDER_COST: Record<string, number> = {
   "FG-MINT5": 1.95,
   "FG-CHOC5": 1.95,
   "FG-BAR70": 1.6,
+  "FG-RUMR5": 18.5,
 };
 
 // Which movements Sage hears about. Transfers and holds move stock between
