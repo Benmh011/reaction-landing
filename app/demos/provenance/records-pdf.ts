@@ -36,6 +36,7 @@ import {
   type Freshness,
 } from "./stock";
 import { madeFrom, untraced } from "./batch-stock";
+import { totals, type SageLine } from "./sage";
 import type { GoodsIn, GoodsLine } from "./goodsin";
 import { dateStatus, daysUntil, dueLabel, type ControlledDoc } from "./data";
 import {
@@ -1615,4 +1616,110 @@ export function download(blob: Blob, filename: string): void {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+// ————————————————————————— Sage 50 entry sheet —————————————————————————
+//
+// For the hand-over batch, as a sheet to enter from. Laid out in the order
+// Sage's own Adjustments In and Adjustments Out screens ask for things, with
+// a box per line to tick as it goes in, and the value of each side to check
+// against Sage's own total afterwards. The same batch is also a file Sage
+// can import, which is the quicker route; this is for typing, or for
+// checking an import line by line.
+
+export type SageSheet = { ref: string; at: number; by: string; includeSales: boolean; lines: SageLine[] };
+
+const ddmmyyyy = (d: string) => `${d.slice(0, 2)}/${d.slice(2, 4)}/${d.slice(4)}`;
+const money = (n: number) => `\u00a3${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+export async function buildSageSheetPdf(b: SageSheet, operator: string): Promise<jsPDF> {
+  const d = await open("Accounts hand-over", `Sage stock entries \u2014 ${b.ref}`);
+  const h = makeHelpers(d, b.ref);
+  const t = totals(b.lines);
+  const days = b.lines.map((l) => l.day).sort();
+  const span = days.length
+    ? `${ddmmyyyy(b.lines.find((l) => l.day === days[0])!.date)} to ${ddmmyyyy(b.lines.find((l) => l.day === days[days.length - 1])!.date)}`
+    : "\u2014";
+
+  h.kv("Batch", b.ref, NAVY, true);
+  h.kv("Reference in Sage", b.ref);
+  h.kv("Covers", span);
+  h.kv("Prepared by", b.by || operator || "\u2014");
+  h.kv("Adjustments in", `${t.inLines} lines \u00b7 ${money(t.inValue)}`);
+  h.kv("Adjustments out", `${t.outLines} lines \u00b7 ${money(t.outValue)}`);
+  h.kv("Sales", b.includeSales ? "Included" : "Left out \u2014 taken out of stock by Sage invoices");
+  d.y += 2;
+  h.line(
+    "Import the matching .csv file through File > Import > Stock Transactions, or enter each line by hand on Products > Adjustments In and Adjustments Out. Use the batch reference on every line, so any figure in Sage traces back to this record. Totals are per product, per day: lots, best-before dates and locations are held in the stock register, not in Sage.",
+    9,
+    MUTED,
+  );
+  d.y += 4;
+
+  const section = (title: string, rows: SageLine[], value: number) => {
+    h.head(`${title} (${rows.length})`);
+    if (!rows.length) {
+      h.line("Nothing to enter.", 9.5, MUTED);
+      d.y += 4;
+      return;
+    }
+    const cols = { box: M, code: M + 7, date: M + 38, det: M + 62, qty: M + 142, cost: W - M };
+    const header = () => {
+      d.doc.setFont("helvetica", "normal");
+      d.doc.setFontSize(8);
+      d.doc.setTextColor(...MUTED);
+      d.doc.text("Product code", cols.code, d.y);
+      d.doc.text("Date", cols.date, d.y);
+      d.doc.text("Details", cols.det, d.y);
+      d.doc.text("Quantity", cols.qty, d.y, { align: "right" });
+      d.doc.text("Cost each", cols.cost, d.y, { align: "right" });
+      d.y += 4.5;
+    };
+    header();
+    for (const r of rows) {
+      if (d.y + 8 > H - 22) {
+        d.doc.addPage();
+        d.y = M;
+        header();
+      }
+      d.doc.setDrawColor(...MUTED);
+      d.doc.setLineWidth(0.25);
+      d.doc.rect(cols.box, d.y - 3, 3.2, 3.2);
+      d.doc.setFont("helvetica", "bold");
+      d.doc.setFontSize(9.5);
+      d.doc.setTextColor(...NAVY);
+      d.doc.text(fit(d.doc, r.sageCode, 29), cols.code, d.y);
+      d.doc.setFont("helvetica", "normal");
+      d.doc.text(ddmmyyyy(r.date), cols.date, d.y);
+      d.doc.text(fit(d.doc, r.details, 58), cols.det, d.y);
+      d.doc.text(`${r.qty.toLocaleString("en-GB", { maximumFractionDigits: 2 })} ${r.unit}`, cols.qty, d.y, { align: "right" });
+      d.doc.text(money(r.cost), cols.cost, d.y, { align: "right" });
+      d.y += 3.6;
+      d.doc.setFontSize(7.5);
+      d.doc.setTextColor(...MUTED);
+      d.doc.text(fit(d.doc, r.name, 100), cols.code, d.y);
+      d.y += 2.2;
+      h.rule(d.y, 0.15);
+      d.y += 4;
+    }
+    d.doc.setFont("helvetica", "bold");
+    d.doc.setFontSize(9.5);
+    d.doc.setTextColor(...NAVY);
+    d.doc.text(`Value ${money(value)}`, W - M, d.y, { align: "right" });
+    d.y += 9;
+  };
+
+  section("Adjustments In \u2014 AI", b.lines.filter((l) => l.type === "AI"), t.inValue);
+  section("Adjustments Out \u2014 AO", b.lines.filter((l) => l.type === "AO"), t.outValue);
+
+  h.footer();
+  return d.doc;
+}
+
+export async function sageSheetBlob(b: SageSheet, operator: string): Promise<Blob> {
+  return (await buildSageSheetPdf(b, operator)).output("blob");
+}
+
+export function sageSheetFilename(ref: string): string {
+  return `sage-entry-sheet-${ref}-${stamp()}.pdf`;
 }

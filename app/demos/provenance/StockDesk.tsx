@@ -58,11 +58,36 @@ import {
   applyStockFilter,
   goodsInBlob,
   goodsInFilename,
+  sageSheetBlob,
+  sageSheetFilename,
   SITES,
   LINES,
   type StockFilter,
   type StockSort,
 } from "./records-pdf";
+import {
+  MATERIALS as SAGE_MATERIALS,
+} from "./stock";
+import {
+  pending as sagePending,
+  collate,
+  unmapped,
+  leftOut,
+  totals as sageTotals,
+  toCsv,
+  csvFilename,
+  batchRef,
+  nextNumber,
+  costIsPlaceholder,
+  PLACEHOLDER_COST,
+  loadSettings as loadSageSettings,
+  saveSettings as saveSageSettings,
+  loadBatches as loadSageBatches,
+  saveBatches as saveSageBatches,
+  type SageSettings,
+  type SageBatch,
+  type SageLine,
+} from "./sage";
 
 const GREEN = "#167a5b";
 const BRASS = "#b26a00";
@@ -141,7 +166,7 @@ function Dot({ color }: { color: string }) {
 
 // ————————————————————————— the desk —————————————————————————
 
-type Tab = "goodsin" | "onhand" | "shelf" | "allergens" | "holds" | "log";
+type Tab = "goodsin" | "onhand" | "shelf" | "allergens" | "holds" | "log" | "sage";
 
 export default function StockDesk({
   operator = "",
@@ -167,7 +192,7 @@ export default function StockDesk({
   const [tab, setTab] = useSessionState<Tab>(
     "stock.tab",
     "goodsin",
-    isOneOf("goodsin", "onhand", "shelf", "allergens", "holds", "log"),
+    isOneOf("goodsin", "onhand", "shelf", "allergens", "holds", "log", "sage"),
   );
   const [shown, setShown] = useState<{ code: string; lot: string } | null>(null);
   const [reveal, setReveal] = useState<{ code: string; lot: string; nonce: number } | null>(null);
@@ -204,6 +229,7 @@ export default function StockDesk({
             ["allergens", "Allergens"],
             ["holds", "Holds"],
             ["log", "Movement log"],
+            ["sage", "To Sage"],
           ] as [Tab, string][]
         ).map(([id, label]) => (
           <button
@@ -234,6 +260,7 @@ export default function StockDesk({
       {tab === "allergens" && <AllergenTab movements={movements} />}
       {tab === "holds" && <HoldsTab movements={movements} operator={operator} />}
       {tab === "log" && <LogTab movements={movements} />}
+      {tab === "sage" && <SageTab movements={movements} operator={operator} />}
       {shown && <LotTrace movements={movements} code={shown.code} lot={shown.lot} onClose={() => setShown(null)} />}
     </>
   );
@@ -1684,5 +1711,393 @@ function LogTab({ movements }: { movements: Movement[] }) {
         </div>
       ))}
     </>
+  );
+}
+
+// ————————————————————————— to Sage —————————————————————————
+//
+// The hand-over to Sage 50. Everything Sage has not yet been given, as one
+// numbered batch: a file Sage imports, or a sheet to type from. Marking it
+// handed over closes it, and the next batch starts exactly where it ended.
+// The rules live in sage.ts; this is the screen for them.
+
+const money = (n: number) => `\u00a3${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const shortDay = (day: string) =>
+  new Date(`${day}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+
+function SageTab({ movements, operator = "" }: { movements: Movement[]; operator?: string }) {
+  const [settings, setSettingsRaw] = useState<SageSettings>(() => loadSageSettings());
+  const [batches, setBatchesRaw] = useState<SageBatch[]>(() => loadSageBatches());
+  const [confirming, setConfirming] = useState(false);
+  const [closed, setClosed] = useState<string | null>(null);
+  const [showCodes, setShowCodes] = useState(false);
+
+  const setSettings = (fn: (s: SageSettings) => SageSettings) =>
+    setSettingsRaw((prev) => {
+      const next = fn(prev);
+      saveSageSettings(next);
+      return next;
+    });
+
+  const waiting = useMemo(() => sagePending(movements, batches), [movements, batches]);
+  const ref = batchRef(nextNumber(batches));
+  const lines = useMemo(() => collate(waiting, settings, ref), [waiting, settings, ref]);
+  const missing = useMemo(() => unmapped(waiting, settings), [waiting, settings]);
+  const t = sageTotals(lines);
+  const out = leftOut(waiting, settings.includeSales);
+  const placeholderCosts = lines.some((l) => costIsPlaceholder(l.materialCode, settings));
+  const days = useMemo(() => [...new Set(lines.map((l) => l.day))], [lines]);
+  const folds = useFolds("stock.sage.open", (_g, i) => i === days.length - 1);
+
+  const csv = (ls: SageLine[], r: string) =>
+    download(new Blob([toCsv(ls)], { type: "text/csv;charset=utf-8" }), csvFilename(r));
+
+  function handOver() {
+    const batch: SageBatch = {
+      no: nextNumber(batches),
+      ref,
+      at: Date.now(),
+      by: operator || "\u2014",
+      includeSales: settings.includeSales,
+      ids: waiting.map((m) => m.id),
+      lines,
+    };
+    const next = [batch, ...batches];
+    setBatchesRaw(next);
+    saveSageBatches(next);
+    setConfirming(false);
+    setClosed(ref);
+  }
+
+  const leftOutParts = [
+    out.transfers ? `${out.transfers} transfers between sites` : "",
+    out.holds ? `${out.holds} moves into quarantine` : "",
+  ].filter(Boolean);
+
+  return (
+    <>
+      <p style={{ fontSize: 14, color: MUTED, lineHeight: 1.6, maxWidth: 720, marginBottom: 18 }}>
+        Everything Sage 50 has not been given yet, as one numbered batch: a file Sage imports, or a sheet to enter
+        from. Sage gets the totals per product and day; the lots and the trace stay here. Mark the batch handed over
+        once it is in Sage, and the next one starts where it ended.
+      </p>
+
+      {closed && (
+        <div style={{ ...card, borderLeft: `2px solid ${GREEN}`, marginBottom: 16 }}>
+          <p style={{ fontSize: 13.5, lineHeight: 1.55 }}>
+            {closed} marked as handed over. It is kept below, and nothing in it will appear in another batch.
+          </p>
+        </div>
+      )}
+
+      <div style={{ ...card, marginBottom: 16 }}>
+        <p style={{ ...mono, fontSize: 11, letterSpacing: "0.14em", color: MUTED, marginBottom: 8 }}>
+          NEXT HAND-OVER · {ref}
+        </p>
+        {lines.length === 0 ? (
+          <p style={{ fontSize: 14, lineHeight: 1.55 }}>
+            Nothing new for Sage{batches.length ? ` since ${batches[0].ref}` : ""}.
+          </p>
+        ) : (
+          <p style={{ fontSize: 14, lineHeight: 1.55 }}>
+            {waiting.length} stock movements become <strong>{lines.length} lines</strong> for Sage:{" "}
+            {t.inLines} adjustments in ({money(t.inValue)}) and {t.outLines} out ({money(t.outValue)}).
+          </p>
+        )}
+        {leftOutParts.length > 0 && (
+          <p style={{ fontSize: 13, color: MUTED, lineHeight: 1.55, marginTop: 6 }}>
+            Left out: {leftOutParts.join(" and ")}. Stock moving within the business nets to nothing in Sage.
+          </p>
+        )}
+        <label style={{ display: "flex", gap: 10, alignItems: "flex-start", marginTop: 12, fontSize: 13.5, cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            checked={settings.includeSales}
+            onChange={(e) => {
+              const v = e.target.checked;
+              setSettings((s) => ({ ...s, includeSales: v }));
+            }}
+            style={{ marginTop: 3 }}
+          />
+          <span>
+            Include sales and dispatches{!settings.includeSales && out.sales ? ` (${out.sales} waiting)` : ""}
+            <span style={{ display: "block", fontSize: 12.5, color: MUTED, marginTop: 2 }}>
+              Leave off if sales are invoiced in Sage: an invoice already takes the stock out, and sending it again
+              would count every sale twice.
+            </span>
+          </span>
+        </label>
+      </div>
+
+      {missing.length > 0 && (
+        <div style={{ ...card, borderLeft: `2px solid ${AMBER_FILL}`, marginBottom: 16 }}>
+          <p style={{ fontSize: 13.5, lineHeight: 1.55 }}>
+            <strong>
+              {missing.length} {missing.length === 1 ? "product has" : "products have"} no Sage product code yet.
+            </strong>{" "}
+            Sage rejects a line it cannot match to one of its products, so the batch cannot be handed over until each
+            has a code.
+          </p>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+            <button
+              className="btn"
+              style={{ border: "1px solid var(--rule-strong)", fontSize: 13, padding: "6px 12px" }}
+              onClick={() => setShowCodes(true)}
+            >
+              Set the codes
+            </button>
+            <button
+              className="btn"
+              style={{ border: "1px solid var(--rule-strong)", fontSize: 13, padding: "6px 12px" }}
+              onClick={() =>
+                setSettings((s) => ({
+                  ...s,
+                  codes: { ...s.codes, ...Object.fromEntries(missing.map((c) => [c, c])) },
+                }))
+              }
+            >
+              Use our codes for these
+            </button>
+          </div>
+        </div>
+      )}
+
+      {lines.length > 0 && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
+          <ExportButton label="Download import file" build={async () => csv(lines, ref)} />
+          <ExportButton
+            label="Download entry sheet"
+            build={async () =>
+              download(
+                await sageSheetBlob({ ref, at: Date.now(), by: operator, includeSales: settings.includeSales, lines }, operator),
+                sageSheetFilename(ref),
+              )
+            }
+          />
+          {!confirming ? (
+            <button
+              className="btn"
+              style={{ border: "1px solid var(--rule-strong)", fontSize: 13, padding: "7px 14px", opacity: missing.length ? 0.5 : 1 }}
+              disabled={missing.length > 0}
+              onClick={() => {
+                setClosed(null);
+                setConfirming(true);
+              }}
+            >
+              Mark as handed over
+            </button>
+          ) : (
+            <span style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <span style={{ fontSize: 13 }}>Is {ref} in Sage?</span>
+              <button className="btn btn-primary" style={{ fontSize: 13, padding: "7px 14px" }} onClick={handOver}>
+                Yes, close {ref}
+              </button>
+              <button
+                className="btn"
+                style={{ border: "1px solid var(--rule-strong)", fontSize: 13, padding: "7px 14px" }}
+                onClick={() => setConfirming(false)}
+              >
+                Not yet
+              </button>
+            </span>
+          )}
+        </div>
+      )}
+      {lines.length > 0 && placeholderCosts && (
+        <p style={{ fontSize: 12.5, color: MUTED, marginBottom: 16 }}>
+          Some costs are placeholders. Set real ones under product codes and costs, or Sage will value the stock at
+          these figures.
+        </p>
+      )}
+
+      {lines.length > 0 && (
+        <div style={{ display: "grid", gap: 8, marginTop: 14, marginBottom: 24 }}>
+          {days.map((day, di) => {
+            const inDay = lines.filter((l) => l.day === day);
+            return (
+              <div key={day}>
+                <FoldHead
+                  text={shortDay(day)}
+                  count={inDay.length}
+                  open={folds.isOpen(day, di)}
+                  onToggle={() => folds.toggle(day, di)}
+                />
+                <div style={{ display: folds.isOpen(day, di) ? "grid" : "none", gap: 6 }}>
+                  {inDay.map((l) => (
+                    <div
+                      key={`${l.materialCode}|${l.type}|${l.reason}`}
+                      style={{ ...card, padding: "10px 15px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}
+                    >
+                      <span
+                        style={{
+                          ...mono,
+                          fontSize: 10,
+                          letterSpacing: "0.1em",
+                          padding: "2px 7px",
+                          border: "1px solid var(--rule-strong)",
+                          borderRadius: 999,
+                          color: MUTED,
+                          flexShrink: 0,
+                        }}
+                      >
+                        {l.type === "AI" ? "IN" : "OUT"}
+                      </span>
+                      <span style={{ flex: "1 1 220px", minWidth: 0 }}>
+                        <span style={{ display: "block", fontSize: 14 }}>{l.name}</span>
+                        <span style={{ ...mono, display: "block", fontSize: 11.5, color: MUTED, marginTop: 2 }}>
+                          <span style={{ whiteSpace: "nowrap" }}>{l.sageCode}</span> · {l.details}
+                        </span>
+                      </span>
+                      <span style={{ ...mono, fontSize: 12.5, whiteSpace: "nowrap" }}>{fmtQty(l.qty, l.unit)}</span>
+                      <span style={{ ...mono, fontSize: 12, color: MUTED, whiteSpace: "nowrap", minWidth: 64, textAlign: "right" }}>
+                        {money(l.cost)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div style={{ marginBottom: 24 }}>
+        <FoldHead
+          text="Product codes and costs"
+          count={SAGE_MATERIALS.length}
+          open={showCodes}
+          onToggle={() => setShowCodes((v) => !v)}
+        />
+        {showCodes && (
+          <div style={{ ...card, marginTop: 8 }}>
+            <p style={{ fontSize: 12.5, color: MUTED, lineHeight: 1.55, marginBottom: 12 }}>
+              The Sage code each product goes in under, and its cost per unit. Costs left blank use the placeholder
+              shown, which is not a real figure.
+            </p>
+            <div style={{ display: "grid", gap: 8 }}>
+              {SAGE_MATERIALS.map((m) => (
+                <SageCodeRow
+                  key={m.code}
+                  code={m.code}
+                  name={m.name}
+                  unit={m.unit}
+                  sageCode={settings.codes[m.code] ?? ""}
+                  cost={settings.costs[m.code]}
+                  onCode={(v) => setSettings((s) => ({ ...s, codes: { ...s.codes, [m.code]: v } }))}
+                  onCost={(v) =>
+                    setSettings((s) => {
+                      const costs = { ...s.costs };
+                      if (v === undefined) delete costs[m.code];
+                      else costs[m.code] = v;
+                      return { ...s, costs };
+                    })
+                  }
+                />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {batches.length > 0 && (
+        <>
+          <p style={{ ...mono, fontSize: 11, letterSpacing: "0.14em", color: MUTED, marginBottom: 10 }}>
+            HANDED OVER ({batches.length})
+          </p>
+          <div style={{ display: "grid", gap: 8 }}>
+            {batches.map((b) => {
+              const bt = sageTotals(b.lines);
+              return (
+                <div key={b.ref} style={{ ...card, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  <span style={{ flex: "1 1 240px", minWidth: 0 }}>
+                    <span style={{ display: "block", fontSize: 14.5 }}>{b.ref}</span>
+                    <span style={{ ...mono, display: "block", fontSize: 11.5, color: MUTED, marginTop: 3 }}>
+                      <span style={{ whiteSpace: "nowrap" }}>
+                        {new Date(b.at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                      </span>{" "}
+                      · <span style={{ whiteSpace: "nowrap" }}>{b.by}</span> ·{" "}
+                      <span style={{ whiteSpace: "nowrap" }}>{b.lines.length} lines</span> ·{" "}
+                      <span style={{ whiteSpace: "nowrap" }}>in {money(bt.inValue)}</span> ·{" "}
+                      <span style={{ whiteSpace: "nowrap" }}>out {money(bt.outValue)}</span>
+                    </span>
+                  </span>
+                  <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <button
+                      className="btn"
+                      style={{ border: "1px solid var(--rule-strong)", fontSize: 12.5, padding: "6px 12px" }}
+                      onClick={() => csv(b.lines, b.ref)}
+                    >
+                      Import file
+                    </button>
+                    <ExportButton
+                      label="Entry sheet"
+                      build={async () =>
+                        download(await sageSheetBlob(b, operator), sageSheetFilename(b.ref))
+                      }
+                    />
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+// One product's Sage code and cost. The cost is typed as text and only
+// saved when it reads as a number, so "1." on the way to "1.50" is not lost.
+function SageCodeRow({
+  code,
+  name,
+  unit,
+  sageCode,
+  cost,
+  onCode,
+  onCost,
+}: {
+  code: string;
+  name: string;
+  unit: string;
+  sageCode: string;
+  cost: number | undefined;
+  onCode: (v: string) => void;
+  onCost: (v: number | undefined) => void;
+}) {
+  const [text, setText] = useState(cost === undefined ? "" : String(cost));
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", paddingBottom: 8, borderBottom: "1px solid var(--rule)" }}>
+      <span style={{ flex: "1 1 200px", minWidth: 0 }}>
+        <span style={{ display: "block", fontSize: 13.5 }}>{name}</span>
+        <span style={{ ...mono, display: "block", fontSize: 11, color: MUTED }}>
+          ours {code} · per {unit === "units" ? "unit" : unit}
+        </span>
+      </span>
+      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: MUTED }}>
+        Sage code
+        <input
+          value={sageCode}
+          onChange={(e) => onCode(e.target.value.toUpperCase().slice(0, 30))}
+          placeholder="not set"
+          style={{ ...inputStyle, width: 120, ...mono, fontSize: 12.5 }}
+        />
+      </label>
+      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: MUTED }}>
+        Cost £
+        <input
+          value={text}
+          inputMode="decimal"
+          onChange={(e) => {
+            const v = e.target.value;
+            setText(v);
+            if (v.trim() === "") onCost(undefined);
+            else if (/^\d*\.?\d*$/.test(v) && Number.isFinite(Number(v))) onCost(Number(v));
+          }}
+          placeholder={(PLACEHOLDER_COST[code] ?? 0).toFixed(2)}
+          style={{ ...inputStyle, width: 84, ...mono, fontSize: 12.5 }}
+        />
+      </label>
+    </div>
   );
 }
