@@ -75,6 +75,13 @@ export const RECIPES: Record<string, RecipeLine[]> = {
   "FG-HONEY2": [...MIX_BASE, ...TUB2],
   "FG-MINT5": [...MIX_BASE, ...TUB500],
   "FG-CHOC5": [...MIX_BASE, ...TUB500],
+  // Raisins 10% and rum 7%, as the label declares them.
+  "FG-RUMR5": [
+    ...MIX_BASE,
+    { code: "RM-RAISIN", per: 0.1, basis: "mix" },
+    { code: "RM-RUM", per: 0.07, basis: "mix" },
+    { code: "PK-TUB5", per: 1, basis: "unit" },
+  ],
   "FG-BAR70": [
     { code: "RM-COCOA", per: 0.7, basis: "mix" },
     { code: "RM-SUGAR", per: 0.3, basis: "mix" },

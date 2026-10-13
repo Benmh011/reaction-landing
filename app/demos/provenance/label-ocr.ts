@@ -3,12 +3,16 @@
 //
 // Adapted from South Moor's lib/vm-ocr.ts. There the reader hunts for a
 // medicine licence number in a band across the frame. Here it reads the
-// whole label, because the label is the whole photo, and looks for the
-// three things that identify a tub:
+// whole label, because the label is the whole photo, and picks out two
+// separate things:
 //
-//     Code: 1028          the product, by their own code
-//     Use by 04/12/27     the date, which on these labels is also the lot
-//     5 Litres            the size, as a cross-check
+//     Code: 1028               the batch number
+//     Rum & Raisin Ice Cream   the product, from its description
+//     5 Litres                 and its size, which tells a 5L tub from a
+//                              500ml one of the same flavour
+//
+// along with the use-by date. The batch and the product are read on their
+// own; neither is worked out from the other.
 //
 // The text reader (Tesseract, run by label-read.ts) only turns the picture
 // into text, and it makes mistakes: frost, water and a curved tub all cost
@@ -21,17 +25,17 @@
 // there is none.
 // ————————————————————————————————————————————————————————————————
 
-import type { Material } from "./stock";
+import { parseNoteDate, type Material, type Movement } from "./stock";
 
 export type LabelFields = {
-  code: string | null;
+  batch: string | null;
   useBy: string | null; // yyyy-mm-dd
   dateWords: string | null; // "Use by", "Best before" — as printed
-  size: string | null; // "5 L"
+  size: string | null; // "5 L", "500 ml"
   name: string | null; // the product line as printed
 };
 
-export const EMPTY_FIELDS: LabelFields = { code: null, useBy: null, dateWords: null, size: null, name: null };
+export const EMPTY_FIELDS: LabelFields = { batch: null, useBy: null, dateWords: null, size: null, name: null };
 
 // Inside a number the reader confuses a few letters for digits. These are
 // only ever applied to text already found in a number's position.
@@ -54,6 +58,29 @@ export function parseLabelDate(s: string): string | null {
   return realDate(Number(m[1]), Number(m[2]), y);
 }
 
+// The batch as printed after "Code", "Batch" or "Lot": all digits, where
+// the reader's letter-for-digit slips are put right, or a short letter
+// prefix and digits ("L1028"), kept as printed.
+function batchToken(raw: string): string | null {
+  const t = raw.replace(/[.,:;]+$/, "");
+  if (/^[0-9OoIl|!SB]{3,8}$/.test(t)) {
+    const d = digitsOnly(t);
+    return /^\d{3,8}$/.test(d) && /\d.*\d/.test(t) ? d : null;
+  }
+  const m = t.match(/^([A-Za-z]{1,3})-?([0-9OoIl|!SB]{2,8})$/);
+  if (m) {
+    const d = digitsOnly(m[2]);
+    return /^\d+$/.test(d) ? `${m[1].toUpperCase()}${d}` : null;
+  }
+  return null;
+}
+
+// A line from the ingredients or nutrition panel rather than the front of
+// the label: those list things, so they carry commas.
+function isListLine(line: string): boolean {
+  return /ingredient|nutrition|typical|per\s*100/i.test(line) || (line.match(/,/g) ?? []).length >= 2;
+}
+
 // Line by line, as South Moor's reader does: letting a pattern run across a
 // line break glues neighbouring numbers together.
 export function readLabelText(text: string): LabelFields {
@@ -64,12 +91,9 @@ export function readLabelText(text: string): LabelFields {
     .filter(Boolean);
 
   for (const line of lines) {
-    if (!out.code) {
-      const m = line.match(/\bc[o0]de\s*[:;.,]?\s*([0-9OoIl|!SB]{3,6})\b/i);
-      if (m) {
-        const d = digitsOnly(m[1]);
-        if (/^\d{3,6}$/.test(d)) out.code = d;
-      }
+    if (!out.batch) {
+      const m = line.match(/\b(?:c[o0]de|batch|l[o0]t)\s*(?:no\.?|number)?\s*[:;.,#]?\s*([A-Za-z0-9|!-]{2,12})/i);
+      if (m) out.batch = batchToken(m[1]);
     }
     if (!out.useBy) {
       const m = line.match(
@@ -84,15 +108,21 @@ export function readLabelText(text: string): LabelFields {
         }
       }
     }
-    if (!out.size) {
-      const m = line.match(/\b(\d+(?:[.,]\d+)?)\s*(litres?|liters?|ltrs?|ml|kg)\b/i);
+    if (!out.size && !isListLine(line)) {
+      // Litres spelt out, or ml; a bare "L" only as a capital. Grams are
+      // not read: a sparse reading breaks the nutrition panel into pieces
+      // ("5.68g") that no rule can tell from a pack size, and every tub is
+      // sold by volume.
+      const m =
+        line.match(/(?<![\d.,])(\d+(?:[.,]\d+)?)\s*(litres?|liters?|ltrs?|ml)\b/i) ??
+        line.match(/(?<![\d.,])(\d+(?:[.,]\d+)?)\s*(L)\b/);
       if (m) {
-        const unit = /^l/i.test(m[2]) ? "L" : m[2].toLowerCase();
-        out.size = `${m[1].replace(",", ".")} ${unit}`;
+        const n = m[1].replace(",", ".");
+        out.size = `${n} ${m[2].toLowerCase() === "ml" ? "ml" : "L"}`;
       }
     }
-    if (!out.name && /ice\s*cream|sorbet|gelato/i.test(line) && !/ingredient|contains|milk,/i.test(line)) {
-      out.name = line.replace(/[^A-Za-z&'\- ]/g, "").replace(/\s+/g, " ").trim();
+    if (!out.name && /ice\s*cream|sorbet|gelato|chocolate/i.test(line) && !isListLine(line) && !/contains/i.test(line)) {
+      out.name = line.replace(/[^A-Za-z0-9%&'\- ]/g, "").replace(/\s+/g, " ").trim();
     }
   }
   return out;
@@ -102,7 +132,7 @@ export function readLabelText(text: string): LabelFields {
 // found it, so a later, noisier pass cannot overwrite a clean early one.
 export function mergeFields(a: LabelFields, b: LabelFields): LabelFields {
   return {
-    code: a.code ?? b.code,
+    batch: a.batch ?? b.batch,
     useBy: a.useBy ?? b.useBy,
     dateWords: a.dateWords ?? b.dateWords,
     size: a.size ?? b.size,
@@ -123,35 +153,94 @@ export function nameWords(m: Pick<Material, "name">): string[] {
     .filter((w) => w.length >= 3 && w !== "and");
 }
 
+// A size as millilitres or grams, so "5 Litres", "5L" and "5000 ml" are
+// the same thing.
+export function sizeAmount(s: string): number | null {
+  const m = s.match(/(\d+(?:[.,]\d+)?)\s*(ml|l|litres?|liters?|ltrs?|kg|g)\b/i);
+  if (!m) return null;
+  const n = Number(m[1].replace(",", "."));
+  const u = m[2].toLowerCase();
+  return u === "ml" || u === "g" ? n : n * 1000;
+}
+
+// A product's pack size, from the part of its name after the dash:
+// "Rum & Raisin — 5L catering" is 5000.
+export function packAmount(m: Pick<Material, "name">): number | null {
+  const after = m.name.split(/\s+[—–-]\s+/)[1];
+  return after ? sizeAmount(after) : null;
+}
+
+// The front of the label: every line that is not the ingredients or the
+// nutrition panel. "Raisins" and "Rum" both appear in the ingredients of a
+// Rum & Raisin tub, but so might "chocolate" in a mint choc chip; only the
+// front says what the tub is.
+function frontText(fullText: string): string {
+  return fullText
+    .split(/[\r\n]+/)
+    .filter((l) => !isListLine(l))
+    .join("\n");
+}
+
 function textHasWords(text: string, words: string[]): boolean {
   const t = text.toLowerCase().replace(/&/g, " ");
   return words.length > 0 && words.every((w) => t.includes(w));
 }
 
-export type Match =
-  | { kind: "code"; material: Material; nameAgrees: boolean }
-  | { kind: "name"; material: Material } // no code read; the name alone points to one product
-  | { kind: "unknown-code"; code: string }
+export type ProductMatch =
+  | { kind: "one"; material: Material }
+  | { kind: "several"; options: Material[] }
   | { kind: "none" };
 
-// The code decides the product. The name on the label is only a
-// cross-check: if it does not agree, the person is asked rather than told.
-export function matchProduct(fields: LabelFields, fullText: string, materials: Material[]): Match {
-  if (fields.code) {
-    const m = materials.find((x) => x.labelCode === fields.code);
-    if (!m) return { kind: "unknown-code", code: fields.code };
-    return { kind: "code", material: m, nameAgrees: textHasWords(fullText, nameWords(m)) };
-  }
-  const byName = materials.filter((x) => x.labelCode && textHasWords(fullText, nameWords(x)));
-  return byName.length === 1 ? { kind: "name", material: byName[0] } : { kind: "none" };
+// The product, from the description and the size. The batch number plays
+// no part: it is read and checked separately.
+export function matchProduct(fields: LabelFields, fullText: string, materials: Material[]): ProductMatch {
+  const finished = materials.filter((m) => m.kind === "finished");
+  const where = [fields.name ?? "", frontText(fullText)].join("\n");
+  let fits = finished.filter((m) => textHasWords(where, nameWords(m)));
+  const want = fields.size ? sizeAmount(fields.size) : null;
+  if (want) fits = fits.filter((m) => {
+    const have = packAmount(m);
+    return have !== null && Math.abs(have - want) <= want * 0.01;
+  });
+  if (fits.length === 1) return { kind: "one", material: fits[0] };
+  if (fits.length > 1) return { kind: "several", options: fits };
+  return { kind: "none" };
 }
 
-// These labels carry no batch number, so the code and the use-by date
-// together stand for the lot: every tub of 1028 marked 04/12/27 is one lot.
-// The same label always gives the same lot, whoever scans it.
-export function lotFromLabel(code: string, isoDate: string): string {
-  const [y, m, d] = isoDate.split("-");
-  return `${code}-${d}${m}${y.slice(2)}`;
+// ————————————————————————— the batch's own record —————————————————————————
+
+export type BatchRecord = {
+  batch: string;
+  material: Material | undefined;
+  materialCode: string;
+  useBy: string | null; // yyyy-mm-dd
+  madeAt: string;
+  by: string;
+};
+
+// What the stock log says batch `batch` is: the product it made and the
+// date it was given when it was made. A label printed "L1028" also finds
+// batch 1028, since L is only the usual mark for a lot number.
+export function batchRecord(batch: string, movements: Movement[], materials: Material[]): BatchRecord | null {
+  const tries = [batch, batch.replace(/^L/i, "")];
+  for (const lot of tries) {
+    const y = movements.find((m) => m.reason === "production-yield" && m.lot === lot);
+    if (!y) continue;
+    const d = parseNoteDate(y.bestBefore);
+    return {
+      batch: lot,
+      material: materials.find((x) => x.code === y.materialCode),
+      materialCode: y.materialCode,
+      useBy: d ? isoOf(d) : null,
+      madeAt: y.at,
+      by: y.by,
+    };
+  }
+  return null;
+}
+
+function isoOf(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 export function shortDate(iso: string): string {
@@ -181,8 +270,8 @@ export function greyForOcr(rgba: Uint8ClampedArray, invert: boolean): void {
 
 // The passes, in order. A whole label is a block of text, so block first;
 // sparse text second, for a photo at an angle; inverted last, for a label
-// printed light on dark. The first pass that gives a known code and a date
-// stops the run.
+// printed light on dark. The run stops at the first point where the
+// batch, the date and the product are all known.
 export type LabelPass = { label: string; invert: boolean; psm: "SINGLE_BLOCK" | "SPARSE_TEXT" | "AUTO" };
 export const LABEL_PASSES: LabelPass[] = [
   { label: "as shot, text block", invert: false, psm: "SINGLE_BLOCK" },
@@ -193,6 +282,9 @@ export const LABEL_PASSES: LabelPass[] = [
 
 export type LabelRecord = {
   fields: LabelFields;
+  // What each pass read on its own, so a batch number one pass got wrong
+  // and another got right can still be found.
+  readings: LabelFields[];
   passes: { label: string; text: string }[];
   thumb: string | null;
   fullText: string;

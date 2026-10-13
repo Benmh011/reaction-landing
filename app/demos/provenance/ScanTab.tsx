@@ -7,15 +7,25 @@
 // photo of the label is tried as a barcode first (South Moor's decoder,
 // unchanged), and where there is none — as on Salcombe Dairy's own labels —
 // its words are read (South Moor's text reader, adapted in label-ocr.ts and
-// label-read.ts). The code on the label decides the product; the name is a
-// cross-check. Nothing is saved until a person confirms what was read, so a
-// date misread through frost cannot slip into the trace.
+// label-read.ts).
 //
-// The four-digit code can be typed instead, which is as quick as a camera
+// Two things are read from the label, separately:
+//
+//   - the batch number, printed after "Code" — that is the lot; and
+//   - the product, from the description and the size.
+//
+// Then what the label says is compared with what our records say batch
+// is. They agree nearly every time and the person never sees the check.
+// When they do not, either the reader misread the number or the tub is
+// mislabelled, and the two are shown side by side for the person to sort
+// out before anything is saved.
+//
+// The batch and date can be typed instead, which is as quick as a camera
 // in a freezer with gloves on.
 //
-// Once confirmed, the tub can be moved, recorded sold, or recorded as
-// waste, and those are written to the same stock log as everything else.
+// Booking stock in is not done here. A tub enters stock when its batch is
+// saved on the Production records page, with the ingredients it used; a
+// scan can only find, move, sell or waste a tub that is already recorded.
 // ————————————————————————————————————————————————————————————————
 
 import { useMemo, useRef, useState } from "react";
@@ -32,13 +42,15 @@ import {
 } from "./stock";
 import {
   EMPTY_FIELDS,
-  lotFromLabel,
+  batchRecord,
   matchProduct,
   parseLabelDate,
   shortDate,
+  type BatchRecord,
   type LabelFields,
   type LabelRecord,
 } from "./label-ocr";
+import { madeFrom } from "./batch-stock";
 
 const GREEN = "#167a5b";
 const VERM = "#c0392b";
@@ -63,13 +75,26 @@ const input: React.CSSProperties = {
 };
 const ghost: React.CSSProperties = { border: "1px solid var(--rule-strong)" };
 
-const LABELLED = () => MATERIALS.filter((m) => m.labelCode);
+const FINISHED = () =>
+  MATERIALS.filter((m) => m.kind === "finished").sort((a, b) => a.name.localeCompare(b.name));
+
+// How the product on the confirm screen was arrived at, for saying so.
+type ProductHow = "label" | "several" | "unread" | "record" | "barcode";
 
 type Stage =
   | { name: "idle"; error?: string }
   | { name: "reading"; note: string }
-  | { name: "confirm"; record: LabelRecord | null; barcodeNote?: string; code: string; date: string }
-  | { name: "found"; material: Material; lot: string; useBy: string };
+  | {
+      name: "confirm";
+      record: LabelRecord | null;
+      barcodeNote?: string;
+      batch: string;
+      date: string;
+      productCode: string;
+      how: ProductHow;
+      options?: string[];
+    }
+  | { name: "found"; material: Material; batch: string; useBy: string; rec: BatchRecord | null };
 
 type Action = "move" | "sold" | "waste";
 
@@ -102,6 +127,13 @@ function Note({ color, children }: { color: string; children: React.ReactNode })
   );
 }
 
+// Of everything the passes read as a batch number, the first one our
+// records know; failing that, the first one read at all.
+function pickBatch(readings: LabelFields[], merged: LabelFields, movements: Movement[]): string | null {
+  for (const r of readings) if (r.batch && batchRecord(r.batch, movements, MATERIALS)) return r.batch;
+  return merged.batch;
+}
+
 export default function ScanTab({
   movements,
   operator = "",
@@ -112,7 +144,7 @@ export default function ScanTab({
   onBook: (ms: Movement[]) => void;
 }) {
   const [stage, setStage] = useState<Stage>({ name: "idle" });
-  const [typedCode, setTypedCode] = useState("");
+  const [typedBatch, setTypedBatch] = useState("");
   const [typedDate, setTypedDate] = useState("");
   const camRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -133,35 +165,48 @@ export default function ScanTab({
       if (dec) {
         const scan = readScan(dec.text);
         const digits = scan.kind === "gtin" || scan.kind === "gs1" ? scan.gtin : null;
-        const byBarcode = LABELLED().find(
-          (m) => (digits && m.gtin && m.gtin.padStart(14, "0") === digits) || m.labelCode === dec.text.trim(),
-        );
-        if (byBarcode) {
-          const expiry = scan.kind === "gs1" ? scan.expiry : null;
-          setStage({ name: "confirm", record: null, code: byBarcode.labelCode!, date: expiry ? shortDate(expiry) : "" });
+        const product = digits ? FINISHED().find((m) => m.gtin && m.gtin.padStart(14, "0") === digits) : undefined;
+        const batch = scan.kind === "gs1" ? scan.batch : batchRecord(dec.text.trim(), movements, MATERIALS) ? dec.text.trim() : null;
+        const expiry = scan.kind === "gs1" ? scan.expiry : null;
+        if (product || batch) {
+          setStage({
+            name: "confirm",
+            record: null,
+            batch: batch ?? "",
+            date: expiry ? shortDate(expiry) : "",
+            productCode: product?.code ?? "",
+            how: product ? "barcode" : "unread",
+          });
           return;
         }
-        barcodeNote = `A barcode was read (${dec.text}) but it is not linked to a product, so the label's words were read instead.`;
+        barcodeNote = `A barcode was read (${dec.text}) but it is not one of ours, so the label's words were read instead.`;
       }
 
       // No usable barcode: read the words.
       const { readLabelPhoto } = await import("./label-read");
       const record = await readLabelPhoto(
         file,
-        (f) => !!f.useBy && !!f.code && LABELLED().some((m) => m.labelCode === f.code),
+        (f, text, readings) => {
+          const b = pickBatch(readings, f, movements);
+          return !!f.useBy && !!b && !!batchRecord(b, movements, MATERIALS) && matchProduct(f, text, MATERIALS).kind === "one";
+        },
         (note) => live() && setStage({ name: "reading", note }),
       );
       if (!live()) return;
+      const match = matchProduct(record.fields, record.fullText, MATERIALS);
       setStage({
         name: "confirm",
         record,
         barcodeNote,
-        code: record.fields.code ?? "",
+        batch: pickBatch(record.readings, record.fields, movements) ?? "",
         date: record.fields.useBy ? shortDate(record.fields.useBy) : "",
+        productCode: match.kind === "one" ? match.material.code : "",
+        how: match.kind === "one" ? "label" : match.kind === "several" ? "several" : "unread",
+        options: match.kind === "several" ? match.options.map((m) => m.code) : undefined,
       });
     } catch (e) {
       if (!live()) return;
-      setStage({ name: "idle", error: e instanceof Error ? e.message : "That photo could not be read. Type the code instead." });
+      setStage({ name: "idle", error: e instanceof Error ? e.message : "That photo could not be read. Type the batch instead." });
     }
   }
 
@@ -171,11 +216,25 @@ export default function ScanTab({
     if (f) void readPhoto(f);
   }
 
+  // Typed: only the batch and date are typed. The product is filled from
+  // the batch's record for the person to check against the tub in hand.
+  function lookUpTyped() {
+    const rec = batchRecord(typedBatch.trim(), movements, MATERIALS);
+    setStage({
+      name: "confirm",
+      record: null,
+      batch: typedBatch.trim(),
+      date: typedDate,
+      productCode: rec?.materialCode ?? "",
+      how: rec ? "record" : "unread",
+    });
+  }
+
   return (
     <>
       <p style={{ fontSize: 14, color: MUTED, lineHeight: 1.6, maxWidth: 720, marginBottom: 18 }}>
-        Photograph a tub's label, or type the code printed on it. The code says what the tub is and the use-by date
-        says which lot; check both before anything is saved.
+        Photograph a tub's label, or type the batch number printed on it after "Code". The batch says which lot the tub
+        is from; check what was read before anything is saved.
       </p>
 
       {stage.name === "idle" && (
@@ -206,14 +265,13 @@ export default function ScanTab({
             <p style={{ fontSize: 15, marginBottom: 12 }}>Or type it from the label</p>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
               <label style={{ display: "grid", gap: 4, fontSize: 12.5, color: MUTED }}>
-                Code
+                Batch (Code)
                 <input
-                  value={typedCode}
-                  inputMode="numeric"
+                  value={typedBatch}
                   autoComplete="off"
                   placeholder="1028"
-                  onChange={(e) => setTypedCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  style={{ ...input, ...mono, width: 110, fontSize: 18, letterSpacing: "0.08em" }}
+                  onChange={(e) => setTypedBatch(e.target.value.replace(/[^A-Za-z0-9-]/g, "").toUpperCase().slice(0, 12))}
+                  style={{ ...input, ...mono, width: 130, fontSize: 18, letterSpacing: "0.08em" }}
                 />
               </label>
               <label style={{ display: "grid", gap: 4, fontSize: 12.5, color: MUTED }}>
@@ -229,9 +287,9 @@ export default function ScanTab({
               </label>
               <button
                 className="btn btn-primary"
-                disabled={typedCode.length < 3}
-                style={{ opacity: typedCode.length < 3 ? 0.5 : 1 }}
-                onClick={() => setStage({ name: "confirm", record: null, code: typedCode, date: typedDate })}
+                disabled={typedBatch.trim().length < 2}
+                style={{ opacity: typedBatch.trim().length < 2 ? 0.5 : 1 }}
+                onClick={lookUpTyped}
               >
                 Look up
               </button>
@@ -260,24 +318,24 @@ export default function ScanTab({
       {stage.name === "confirm" && (
         <Confirm
           stage={stage}
-          onChange={(code, date) => setStage({ ...stage, code, date })}
+          movements={movements}
+          onChange={(patch) => setStage({ ...stage, ...patch })}
           onBack={() => setStage({ name: "idle" })}
-          onConfirm={(material, useBy) =>
-            setStage({ name: "found", material, useBy, lot: lotFromLabel(material.labelCode!, useBy) })
-          }
+          onConfirm={(material, batch, useBy, rec) => setStage({ name: "found", material, batch, useBy, rec })}
         />
       )}
 
       {stage.name === "found" && (
         <Found
           material={stage.material}
-          lot={stage.lot}
+          batch={stage.batch}
           useBy={stage.useBy}
+          rec={stage.rec}
           movements={movements}
           operator={operator}
           onBook={onBook}
           onDone={() => {
-            setTypedCode("");
+            setTypedBatch("");
             setTypedDate("");
             setStage({ name: "idle" });
           }}
@@ -291,83 +349,139 @@ export default function ScanTab({
 
 function Confirm({
   stage,
+  movements,
   onChange,
   onBack,
   onConfirm,
 }: {
   stage: Extract<Stage, { name: "confirm" }>;
-  onChange: (code: string, date: string) => void;
+  movements: Movement[];
+  onChange: (patch: Partial<Extract<Stage, { name: "confirm" }>>) => void;
   onBack: () => void;
-  onConfirm: (m: Material, useBy: string) => void;
+  onConfirm: (m: Material, batch: string, useBy: string, rec: BatchRecord | null) => void;
 }) {
-  const rec = stage.record;
-  const fullText = rec?.fullText ?? "";
-  const fields: LabelFields = { ...(rec?.fields ?? EMPTY_FIELDS), code: stage.code || null };
-  const match = matchProduct(fields, fullText, MATERIALS);
+  const r = stage.record;
   const iso = parseLabelDate(stage.date);
-  const material = match.kind === "code" || match.kind === "name" ? match.material : null;
-  const readFromPhoto = !!rec;
-  const ok = !!material && !!iso;
+  const material = MATERIALS.find((m) => m.code === stage.productCode && m.kind === "finished") ?? null;
+  const rec = stage.batch ? batchRecord(stage.batch, movements, MATERIALS) : null;
+
+  // The label against our record of that batch.
+  const productDiffers = !!rec && !!material && rec.materialCode !== material.code;
+  const dateDiffers = !!rec && !!rec.useBy && !!iso && rec.useBy !== iso;
+  const disagrees = productDiffers || dateDiffers;
+  const ok = !!material && !!iso && !!stage.batch && !disagrees;
+
+  const sizeRow = r?.fields.size;
+  const fromLabel = r || stage.how === "barcode";
 
   return (
     <div style={{ ...card }}>
-      <p style={{ fontSize: 15, marginBottom: 4 }}>{readFromPhoto ? "Check what was read" : "Check the code"}</p>
+      <p style={{ fontSize: 15, marginBottom: 4 }}>{fromLabel ? "Check what was read" : "Check the batch"}</p>
       <p style={{ fontSize: 12.5, color: MUTED, marginBottom: 12 }}>
         Compare with the label. Correct anything that is wrong before going on.
       </p>
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <label style={{ display: "grid", gap: 4, fontSize: 12.5, color: MUTED }}>
-          Code
+          Batch (Code)
           <input
-            value={stage.code}
-            inputMode="numeric"
-            onChange={(e) => onChange(e.target.value.replace(/\D/g, "").slice(0, 6), stage.date)}
-            style={{ ...input, ...mono, width: 110, fontSize: 20, letterSpacing: "0.08em" }}
+            value={stage.batch}
+            onChange={(e) => onChange({ batch: e.target.value.replace(/[^A-Za-z0-9-]/g, "").toUpperCase().slice(0, 12) })}
+            style={{ ...input, ...mono, width: 130, fontSize: 20, letterSpacing: "0.08em" }}
           />
         </label>
         <label style={{ display: "grid", gap: 4, fontSize: 12.5, color: MUTED }}>
-          {rec?.fields.dateWords ?? "Use by"}
+          {r?.fields.dateWords ?? "Use by"}
           <input
             value={stage.date}
             inputMode="numeric"
             placeholder="dd/mm/yy"
-            onChange={(e) => onChange(stage.code, e.target.value.slice(0, 10))}
+            onChange={(e) => onChange({ date: e.target.value.slice(0, 10) })}
             style={{ ...input, ...mono, width: 140, fontSize: 20 }}
           />
         </label>
-        {rec?.fields.size && (
+        {sizeRow && (
           <div style={{ display: "grid", gap: 4, fontSize: 12.5, color: MUTED }}>
             Size
-            <span style={{ ...mono, fontSize: 20, padding: "9px 0" }}>{rec.fields.size}</span>
+            <span style={{ ...mono, fontSize: 20, padding: "9px 0" }}>{sizeRow}</span>
           </div>
         )}
       </div>
 
+      <label style={{ display: "grid", gap: 4, fontSize: 12.5, color: MUTED, marginTop: 12, maxWidth: 420 }}>
+        Product
+        <select
+          value={stage.productCode}
+          onChange={(e) => onChange({ productCode: e.target.value })}
+          style={{ ...input, fontSize: 15 }}
+        >
+          <option value="">Choose the product…</option>
+          {FINISHED().map((m) => (
+            <option key={m.code} value={m.code}>
+              {m.name}
+            </option>
+          ))}
+        </select>
+      </label>
       {material && (
-        <div style={{ marginTop: 14, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <span style={{ fontSize: 16 }}>{material.name}</span>
+        <div style={{ marginTop: 8 }}>
           <LineTag m={material} />
         </div>
       )}
 
       {stage.barcodeNote && <Note color={MUTED}>{stage.barcodeNote}</Note>}
-      {!stage.code && <Note color={AMBER_FILL}>No code was read. Type it from the label.</Note>}
-      {match.kind === "unknown-code" && (
-        <Note color={VERM}>Code {match.code} is not on the product list. Check it against the label.</Note>
-      )}
-      {match.kind === "code" && readFromPhoto && !match.nameAgrees && (
-        <Note color={VERM}>
-          The label's name does not look like {material!.name}. Check the code is right before going on.
+      {stage.how === "several" && !material && (
+        <Note color={AMBER_FILL}>
+          The description fits more than one product (
+          {(stage.options ?? []).map((c) => MATERIALS.find((m) => m.code === c)?.name ?? c).join(", ")}). Pick the one
+          on the tub.
         </Note>
       )}
-      {match.kind === "name" && (
-        <Note color={AMBER_FILL}>No code was read, but the name matches {match.material.name}. Check that is right.</Note>
+      {stage.how === "unread" && !material && fromLabel && (
+        <Note color={AMBER_FILL}>The product could not be told from the label's description. Pick it from the list.</Note>
+      )}
+      {stage.how === "record" && material && !disagrees && (
+        <Note color={MUTED}>Filled in from batch {rec?.batch}'s record. Check it is the tub in front of you.</Note>
+      )}
+      {!stage.batch && <Note color={AMBER_FILL}>No batch number was read. Type it from the label, after "Code".</Note>}
+      {stage.batch && !rec && (
+        <Note color={AMBER_FILL}>
+          No batch {stage.batch} is recorded. Check the number against the label. If it is right, this batch was never
+          booked into stock.
+        </Note>
       )}
       {!iso && (
         <Note color={AMBER_FILL}>
-          {stage.date ? "That date is not a real date — check it." : "No date was read. Type the use-by date from the label."}
+          {stage.date ? "That date is not a real date. Check it." : "No date was read. Type the use-by date from the label."}
         </Note>
+      )}
+
+      {disagrees && rec && (
+        <div style={{ marginTop: 14, border: `1px solid ${VERM}`, borderRadius: 10, padding: "12px 14px" }}>
+          <p style={{ fontSize: 14, marginBottom: 10 }}>The label and our record of batch {rec.batch} do not agree.</p>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(70px, auto) 1fr 1fr", gap: "6px 12px", fontSize: 13.5 }}>
+            <span />
+            <span style={{ ...mono, fontSize: 10.5, letterSpacing: "0.12em", color: MUTED }}>ON THE LABEL</span>
+            <span style={{ ...mono, fontSize: 10.5, letterSpacing: "0.12em", color: MUTED }}>OUR RECORD</span>
+            <span style={{ color: MUTED }}>Product</span>
+            <span style={{ color: productDiffers ? VERM : undefined }}>{material?.name ?? "—"}</span>
+            <span style={{ color: productDiffers ? VERM : undefined }}>{rec.material?.name ?? rec.materialCode}</span>
+            <span style={{ color: MUTED }}>Use by</span>
+            <span style={{ ...mono, color: dateDiffers ? VERM : undefined }}>{iso ? shortDate(iso) : "—"}</span>
+            <span style={{ ...mono, color: dateDiffers ? VERM : undefined }}>{rec.useBy ? shortDate(rec.useBy) : "—"}</span>
+          </div>
+          <p style={{ fontSize: 13, lineHeight: 1.55, marginTop: 10 }}>
+            If the batch number was misread, correct it above, or use our record if the tub matches it. If the label
+            really says this, the tub may be mislabelled: set it aside and tell whoever manages stock.
+          </p>
+          <button
+            className="btn"
+            style={{ ...ghost, marginTop: 10 }}
+            onClick={() => onChange({ productCode: rec.materialCode, date: rec.useBy ? shortDate(rec.useBy) : stage.date })}
+          >
+            Use our record
+          </button>
+        </div>
       )}
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 16 }}>
@@ -375,7 +489,7 @@ function Confirm({
           className="btn btn-primary"
           disabled={!ok}
           style={{ opacity: ok ? 1 : 0.5 }}
-          onClick={() => material && iso && onConfirm(material, iso)}
+          onClick={() => material && iso && onConfirm(material, rec?.batch ?? stage.batch, iso, rec)}
         >
           That is right
         </button>
@@ -384,14 +498,14 @@ function Confirm({
         </button>
       </div>
 
-      {rec && (
+      {r && (
         <details style={{ marginTop: 16 }}>
           <summary style={{ fontSize: 12.5, color: MUTED, cursor: "pointer" }}>What the reader saw</summary>
-          {rec.thumb && (
+          {r.thumb && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={rec.thumb} alt="" style={{ display: "block", maxWidth: "100%", width: 260, borderRadius: 8, marginTop: 10 }} />
+            <img src={r.thumb} alt="" style={{ display: "block", maxWidth: "100%", width: 260, borderRadius: 8, marginTop: 10 }} />
           )}
-          {rec.passes.map((p) => (
+          {r.passes.map((p) => (
             <div key={p.label} style={{ marginTop: 10 }}>
               <p style={{ ...mono, fontSize: 10.5, letterSpacing: "0.12em", color: MUTED }}>{p.label.toUpperCase()}</p>
               <p style={{ ...mono, fontSize: 11.5, whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.5 }}>
@@ -409,25 +523,28 @@ function Confirm({
 
 function Found({
   material,
-  lot,
+  batch,
   useBy,
+  rec,
   movements,
   operator,
   onBook,
   onDone,
 }: {
   material: Material;
-  lot: string;
+  batch: string;
   useBy: string;
+  rec: BatchRecord | null;
   movements: Movement[];
   operator: string;
   onBook: (ms: Movement[]) => void;
   onDone: () => void;
 }) {
   const here = useMemo(
-    () => balances(movements).filter((b) => b.materialCode === material.code && b.lot === lot && b.qty > 0),
-    [movements, material.code, lot],
+    () => balances(movements).filter((b) => b.materialCode === material.code && b.lot === batch && b.qty > 0),
+    [movements, material.code, batch],
   );
+  const inputs = useMemo(() => madeFrom(batch, movements), [movements, batch]);
   const [action, setAction] = useState<Action>("move");
   const [from, setFrom] = useState(here[0]?.locationId ?? "");
   const [to, setTo] = useState("");
@@ -451,7 +568,7 @@ function Found({
     const ref = `SCAN-${now.toString(36).toUpperCase()}`;
     const base = {
       materialCode: material.code,
-      lot,
+      lot: batch,
       unit: material.unit,
       ts: now,
       at,
@@ -488,20 +605,25 @@ function Found({
         <LineTag m={material} />
       </div>
       <p style={{ ...mono, fontSize: 12, color: MUTED, marginTop: 4 }}>
-        <span style={{ whiteSpace: "nowrap" }}>Code {material.labelCode}</span> ·{" "}
-        <span style={{ whiteSpace: "nowrap" }}>Use by {shortDate(useBy)}</span> ·{" "}
-        <span style={{ whiteSpace: "nowrap" }}>Lot {lot}</span>
+        <span style={{ whiteSpace: "nowrap" }}>Batch {batch}</span> ·{" "}
+        <span style={{ whiteSpace: "nowrap" }}>Use by {shortDate(useBy)}</span>
+        {rec && (
+          <>
+            {" "}
+            · <span style={{ whiteSpace: "nowrap" }}>Made {rec.madeAt}</span>
+          </>
+        )}
       </p>
 
       {done && <Note color={GREEN}>{done}</Note>}
 
       <p style={{ ...mono, fontSize: 10.5, letterSpacing: "0.14em", color: MUTED, marginTop: 16, marginBottom: 8 }}>
-        WHERE THIS LOT IS
+        WHERE THIS BATCH IS
       </p>
       {here.length === 0 ? (
         <p style={{ fontSize: 13.5, lineHeight: 1.55 }}>
-          No stock of this lot is recorded. If the tub is in front of you, it was never booked in — check with whoever
-          manages stock.
+          No stock of batch {batch} is recorded. If the tub is in front of you, its batch was never booked in from
+          Production records. Check with whoever manages stock.
         </p>
       ) : (
         <div style={{ display: "grid", gap: 6 }}>
@@ -515,6 +637,26 @@ function Found({
             </div>
           ))}
         </div>
+      )}
+
+      {inputs.length > 0 && (
+        <details style={{ marginTop: 12 }}>
+          <summary style={{ fontSize: 13, color: MUTED, cursor: "pointer" }}>What went into it</summary>
+          <div style={{ display: "grid", gap: 4, marginTop: 8 }}>
+            {inputs.map((i) => (
+              <div
+                key={`${i.materialCode}|${i.lot}`}
+                style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", fontSize: 13 }}
+              >
+                <span>
+                  {i.material?.name ?? i.materialCode}{" "}
+                  <span style={{ ...mono, fontSize: 11.5, color: MUTED, whiteSpace: "nowrap" }}>lot {i.lot}</span>
+                </span>
+                <span style={{ ...mono, fontSize: 12 }}>{fmtQty(i.qty, i.unit)}</span>
+              </div>
+            ))}
+          </div>
+        </details>
       )}
 
       {here.length > 0 && (

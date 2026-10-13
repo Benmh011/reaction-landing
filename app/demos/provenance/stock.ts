@@ -151,9 +151,6 @@ export type Material = {
   // storage regimes.
   line?: "ice cream" | "chocolate" | "both";
   allergenNote?: string;
-  // The code printed on the product's own label ("Code: 1028"), which the
-  // scanner reads to know what a tub is.
-  labelCode?: string;
   // A barcode on the pack, where it has one, 8 to 14 digits.
   gtin?: string;
 };
@@ -317,6 +314,41 @@ export const MATERIALS: Material[] = [
     supplier: "Westridge Food Ingredients",
     line: "ice cream",
   },
+  // The two ingredients that make Rum & Raisin what it is, as named on
+  // its label. Aliases are specific: a bare "rum" would match "drum".
+  {
+    code: "RM-RAISIN",
+    name: "Californian raisins",
+    kind: "raw",
+    category: "fruit",
+    unit: "kg",
+    regime: "ambient",
+    typicalDelivery: 50,
+    aliases: ["californian raisins", "raisins"],
+    allergens: [],
+    declarationOnFile: true,
+    declarationReviewed: "02 Sep 2026",
+    shelfLifeDays: 365,
+    origin: "California",
+    supplier: "Westridge Food Ingredients",
+    line: "ice cream",
+  },
+  {
+    code: "RM-RUM",
+    name: "Dark rum",
+    kind: "raw",
+    category: "flavours",
+    unit: "L",
+    regime: "ambient",
+    typicalDelivery: 30,
+    aliases: ["dark rum", "navy rum", "golden rum"],
+    allergens: [],
+    declarationOnFile: true,
+    declarationReviewed: "02 Sep 2026",
+    shelfLifeDays: 1095,
+    supplier: "Westridge Food Ingredients",
+    line: "ice cream",
+  },
   {
     code: "PK-TUB2",
     name: "2L catering tub",
@@ -341,6 +373,22 @@ export const MATERIALS: Material[] = [
     regime: "ambient",
     typicalDelivery: 5000,
     aliases: ["500ml tub", "retail tub", "500 ml tub"],
+    allergens: [],
+    declarationOnFile: true,
+    declarationReviewed: "24 Jun 2026",
+    supplier: "Packaging supplier",
+    line: "ice cream",
+  },
+  {
+    code: "PK-TUB5",
+    name: "5L catering tub",
+    kind: "packaging-primary",
+    category: "packaging",
+    unit: "units",
+    regime: "ambient",
+    typicalDelivery: 200,
+    // The 5L tub comes with its own lid, so it is one item, not two.
+    aliases: ["5l catering tub", "5l tub", "5 litre tub"],
     allergens: [],
     declarationOnFile: true,
     declarationReviewed: "24 Jun 2026",
@@ -495,9 +543,10 @@ export const MATERIALS: Material[] = [
     line: "ice cream",
   },
   // A real Salcombe Dairy product, taken from one of their own tub labels:
-  // "Rum & Raisin Ice Cream, 5 Litres, Code: 1028". The label code is what
-  // the scanner reads. No shelf life is set here because the label carries
-  // its own printed date, and that date is what the lot is known by.
+  // "Rum & Raisin Ice Cream, 5 Litres, Code: 1028, Use by 04/12/27". The
+  // code is the batch, so it is not stored here; the scanner knows the
+  // product from the label's description and size. No shelf life is set:
+  // the use-by is printed on the label, so the batch carries it as made.
   {
     code: "FG-RUMR5",
     name: "Rum & Raisin — 5L catering",
@@ -510,7 +559,6 @@ export const MATERIALS: Material[] = [
     allergens: ["milk"],
     declarationOnFile: true,
     line: "ice cream",
-    labelCode: "1028",
   },
   {
     code: "FG-BAR70",
@@ -796,6 +844,10 @@ export const SEED_MOVEMENTS: Movement[] = oneDatePerLot([
   mv("m11", "PK-LID", "PKG-2606-C", "WH-DRY", 6100, "units", "goods-in", 75, "J. Okafor", "PKG-5510"),
   mv("m12", "PK-CASE", "PKG-2605-D", "WH-DRY", 310, "units", "goods-in", 88, "J. Okafor", "PKG-5480"),
   mv("m12a", "PK-BAR", "PKG-2606-W", "WH-DRY", 2400, "units", "goods-in", 78, "J. Okafor", "PKG-5522"),
+  // What batch 1028 (Rum & Raisin) was made from, besides the mix base.
+  mv("m12b", "RM-RAISIN", "WF-2609-02", "WH-DRY", 50, "kg", "goods-in", 40, "A. Voss", "WF-DN-1187"),
+  mv("m12c", "RM-RUM", "WF-2609-03", "WH-DRY", 30, "L", "goods-in", 40, "A. Voss", "WF-DN-1187"),
+  mv("m12d", "PK-TUB5", "PKG-2609-E", "WH-DRY", 200, "units", "goods-in", 40, "J. Okafor", "PKG-5531"),
 
   // Batch IC-2607-14 — the one already traced elsewhere in the demo.
   mv("m13", "FG-SALT2", "IC-2607-14", "WH-DISP", 412, "units", "production-yield", 62, "M. Reeve", "IC-2607-14"),
@@ -872,8 +924,8 @@ export const SEED_MOVEMENTS: Movement[] = oneDatePerLot([
   mv("m51", "RM-CREAM", "HF-260895-C", "WH-CHILL", 112, "L", "goods-in", 7, "M. Reeve", "HF-DN-4460"),
   mv("m52", "RM-MILK", "HF-260897", "WH-CHILL", 434, "L", "goods-in", 5, "M. Reeve", "HF-DN-4463"),
   mv("m53", "RM-CREAM", "HF-260897-C", "WH-CHILL", 140, "L", "goods-in", 5, "M. Reeve", "HF-DN-4463"),
-  mv("m54", "RM-MILK", "HF-260899", "WH-CHILL", 334.8, "L", "goods-in", 3, "M. Reeve", "HF-DN-4466"),
-  mv("m55", "RM-CREAM", "HF-260899-C", "WH-CHILL", 108, "L", "goods-in", 3, "M. Reeve", "HF-DN-4466"),
+  mv("m54", "RM-MILK", "HF-260899", "WH-CHILL", 486.7, "L", "goods-in", 3, "M. Reeve", "HF-DN-4466"),
+  mv("m55", "RM-CREAM", "HF-260899-C", "WH-CHILL", 157, "L", "goods-in", 3, "M. Reeve", "HF-DN-4466"),
   mv("m56", "RM-FRUIT", "SF-2609-14", "WH-CHILL", 64.8, "kg", "goods-in", 3, "J. Okafor", "SF-DN-221"),
   mv("pc-IC-2607-22-0", "RM-MILK", "HF-260718", "WH-CHILL", -403, "L", "production-consume", 61, "M. Reeve", "IC-2607-22"),
   mv("pc-IC-2607-22-1", "RM-CREAM", "HF-260718-C", "WH-CHILL", -130, "L", "production-consume", 61, "M. Reeve", "IC-2607-22"),
@@ -925,8 +977,8 @@ export const SEED_MOVEMENTS: Movement[] = oneDatePerLot([
   mv("pc-IC-2609-31-1", "RM-CREAM", "HF-260901-C", "WH-CHILL", -156, "L", "production-consume", 0, "M. Reeve", "IC-2609-31"),
   mv("pc-IC-2609-31-2", "RM-SUGAR", "BS-9911-K", "WH-DRY", -109.2, "kg", "production-consume", 0, "M. Reeve", "IC-2609-31"),
   mv("pc-IC-2609-31-3", "RM-GLUC", "GS-2606-02", "WH-DRY", -23.4, "kg", "production-consume", 0, "M. Reeve", "IC-2609-31"),
-  mv("pc-IC-2609-31-4", "RM-STAB", "ST-2604-19", "WH-DRY", -2.6, "kg", "production-consume", 0, "M. Reeve", "IC-2609-31"),
-  mv("pc-IC-2609-31-4-1", "RM-STAB", "ST-2609-02", "WH-DRY", -1.3, "kg", "production-consume", 0, "M. Reeve", "IC-2609-31"),
+  mv("pc-IC-2609-31-4", "RM-STAB", "ST-2604-19", "WH-DRY", -1.4, "kg", "production-consume", 0, "M. Reeve", "IC-2609-31"),
+  mv("pc-IC-2609-31-4-1", "RM-STAB", "ST-2609-02", "WH-DRY", -2.5, "kg", "production-consume", 0, "M. Reeve", "IC-2609-31"),
   mv("pc-IC-2609-31-5", "RM-VAN", "VN-2603-07", "WH-DRY", -3.1, "L", "production-consume", 0, "M. Reeve", "IC-2609-31"),
   mv("pc-IC-2609-31-6", "PK-TUB2", "PKG-2606-A", "WH-DRY", -348, "units", "production-consume", 0, "M. Reeve", "IC-2609-31"),
   mv("pc-IC-2609-31-6-1", "PK-TUB2", "PKG-2609-A", "WH-DRY", -36, "units", "production-consume", 0, "M. Reeve", "IC-2609-31"),
@@ -960,15 +1012,26 @@ export const SEED_MOVEMENTS: Movement[] = oneDatePerLot([
   mv("s51", "FG-SALT5", "IC-2609-30", "SH-ISL", -38, "units", "sale", 0, "Shop till", undefined, "Counter sales"),
   dispatch("d8", "FG-SALT5", "IC-2609-30", "WH-DISP", 360, "units", 0, "J. Okafor", "Westcott Farm Shops", "DN-3161"),
 
-  // ── Rum & Raisin 5L, as on the real label ──
+  // ── Batch 1028: Rum & Raisin 5L, as on the real label ──
   //
-  // The lot is the label's code and use-by date together, 1028-041227,
-  // because the label carries no batch number — so scanning a real tub
-  // marked "Code: 1028  Use by 04/12/27" finds this stock. The date is
-  // fixed rather than worked out from today, because it is printed.
-  { ...mv("m90", "FG-RUMR5", "1028-041227", "WH-COLD", 48, "units", "adjustment", 9, "A. Voss", "OPEN-1028", "Opening stock, counted in"), bestBefore: "04 Dec 2027" },
-  { ...mv("t90", "FG-RUMR5", "1028-041227", "WH-COLD", -12, "units", "transfer-out", 5, "S. Trent", "TN-2262"), bestBefore: "04 Dec 2027" },
-  { ...mv("t91", "FG-RUMR5", "1028-041227", "SH-ISL", 12, "units", "transfer-in", 5, "S. Trent", "TN-2262"), bestBefore: "04 Dec 2027" },
+  // "Code: 1028" on a Salcombe Dairy tub is the batch number. This is that
+  // batch: made three days ago from the lots below, 48 tubs into dispatch
+  // holding, then 36 to the coldstore and 12 to the Island Street shop.
+  // The use-by is the one printed on the real label, fixed rather than
+  // worked out from today, because it is printed.
+  mv("pc-1028-0", "RM-MILK", "HF-260899", "WH-CHILL", -151.9, "L", "production-consume", 3, "M. Reeve", "1028"),
+  mv("pc-1028-1", "RM-CREAM", "HF-260899-C", "WH-CHILL", -49, "L", "production-consume", 3, "M. Reeve", "1028"),
+  mv("pc-1028-2", "RM-SUGAR", "BS-9911-K", "WH-DRY", -34.3, "kg", "production-consume", 3, "M. Reeve", "1028"),
+  mv("pc-1028-3", "RM-GLUC", "GS-2606-02", "WH-DRY", -7.4, "kg", "production-consume", 3, "M. Reeve", "1028"),
+  mv("pc-1028-4", "RM-STAB", "ST-2604-19", "WH-DRY", -1.2, "kg", "production-consume", 3, "M. Reeve", "1028"),
+  mv("pc-1028-5", "RM-RAISIN", "WF-2609-02", "WH-DRY", -24.5, "kg", "production-consume", 3, "M. Reeve", "1028"),
+  mv("pc-1028-6", "RM-RUM", "WF-2609-03", "WH-DRY", -17.2, "L", "production-consume", 3, "M. Reeve", "1028"),
+  mv("pc-1028-7", "PK-TUB5", "PKG-2609-E", "WH-DRY", -48, "units", "production-consume", 3, "M. Reeve", "1028"),
+  { ...mv("py-1028", "FG-RUMR5", "1028", "WH-DISP", 48, "units", "production-yield", 3, "M. Reeve", "1028"), bestBefore: "04 Dec 2027" },
+  { ...mv("t90", "FG-RUMR5", "1028", "WH-DISP", -36, "units", "transfer-out", 3, "S. Trent", "TN-2263"), bestBefore: "04 Dec 2027" },
+  { ...mv("t91", "FG-RUMR5", "1028", "WH-COLD", 36, "units", "transfer-in", 3, "S. Trent", "TN-2263"), bestBefore: "04 Dec 2027" },
+  { ...mv("t92", "FG-RUMR5", "1028", "WH-DISP", -12, "units", "transfer-out", 2, "S. Trent", "TN-2264"), bestBefore: "04 Dec 2027" },
+  { ...mv("t93", "FG-RUMR5", "1028", "SH-ISL", 12, "units", "transfer-in", 2, "S. Trent", "TN-2264"), bestBefore: "04 Dec 2027" },
 ]);
 
 function mv(

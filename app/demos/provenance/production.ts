@@ -481,6 +481,31 @@ export const SEED_BATCHES: Batch[] = [
     ],
   },
   {
+    // A real batch number, from a real Salcombe Dairy tub label: the
+    // "Code: 1028" printed on it. Scanning that label finds this batch.
+    id: "1028",
+    product: "Rum & Raisin \u2014 5L catering",
+    line: "ice cream",
+    volume: 245,
+    volumeUnit: "L",
+    unitsMade: 48,
+    packSize: "5L",
+    startedAt: "13:20",
+    daysAgo: 3,
+    by: "M. Reeve",
+    pasteurisation: {
+      peakC: 85.8, holdSeconds: 16, chartRef: "CH-1028", divertTested: true,
+      divertTestedBy: "M. Reeve", at: "13:58", by: "chart recorder", via: "chart recorder",
+    },
+    metal: [
+      { when: "start of run", at: "14:40", by: "J. Okafor", fe: true, nonFe: true, stainless: true },
+      { when: "end of run", at: "15:35", by: "J. Okafor", fe: true, nonFe: true, stainless: true },
+    ],
+    fill: [
+      { at: "14:52", by: "M. Reeve", nominal: 5000, unit: "ml", samples: [5031, 5018, 5044, 5012, 5027, 5039, 5021, 5015, 5036, 5024] },
+    ],
+  },
+  {
     id: "IC-2609-28",
     product: "Honeycomb \u2014 2L catering",
     line: "ice cream",

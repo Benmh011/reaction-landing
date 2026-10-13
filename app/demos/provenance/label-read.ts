@@ -9,8 +9,8 @@
 // reader saw, so a failed read can be explained rather than just reported.
 //
 // What differs: the whole photo is read rather than a band, because a tub
-// label fills the frame; and a pass is confirmed when it gives a code on
-// the product list and a date — the two things needed to know the lot.
+// label fills the frame; and the run stops when the batch, the use-by date
+// and the product are all known.
 // ————————————————————————————————————————————————————————————————
 
 import {
@@ -139,13 +139,14 @@ export async function labelReader(progress?: (note: string) => void): Promise<Lo
 // stopping at the first point where `confirm` accepts what has been read.
 export async function readLabelPhoto(
   file: Blob,
-  confirm: (f: LabelFields) => boolean,
+  confirm: (merged: LabelFields, fullText: string, readings: LabelFields[]) => boolean,
   progress: (note: string) => void,
 ): Promise<LabelRecord> {
   const still = await stillFromFile(file);
   const thumb = thumbnail(still);
   const { worker, PSM, from } = await labelReader(progress);
   const passes: LabelRecord["passes"] = [];
+  const readings: LabelFields[] = [];
   let fields: LabelFields = { ...EMPTY_FIELDS };
   let fullText = "";
   for (let i = 0; i < LABEL_PASSES.length; i++) {
@@ -156,8 +157,10 @@ export async function readLabelPhoto(
     const text = String(result?.data?.text ?? "");
     passes.push({ label: p.label, text: text.replace(/[ \t]+/g, " ").trim() });
     fullText += "\n" + text;
-    fields = mergeFields(fields, readLabelText(text));
-    if (confirm(fields)) return { fields, passes, thumb, fullText, from, confirmed: true };
+    const reading = readLabelText(text);
+    readings.push(reading);
+    fields = mergeFields(fields, reading);
+    if (confirm(fields, fullText, readings)) return { fields, readings, passes, thumb, fullText, from, confirmed: true };
   }
-  return { fields, passes, thumb, fullText, from, confirmed: false };
+  return { fields, readings, passes, thumb, fullText, from, confirmed: false };
 }
