@@ -1,33 +1,19 @@
 import Link from "next/link";
 import SiteNav from "@/components/SiteNav";
 import SiteFooter from "@/components/SiteFooter";
-import Flock from "@/components/Flock";
 import { auth } from "@/auth";
 import BuildReveal from "@/components/BuildReveal";
-import HeadlineMorph from "@/components/HeadlineMorph";
+import LoomHero from "@/components/LoomHero";
 import AutomationDial from "@/components/AutomationDial";
 
 /**
- * Reaction — ink on paper.
+ * Reaction — the Loom.
  *
- * The page is a short manifesto: the Augmentation Ethos — enhance people,
- * after Newton. Above them, three squadrons of ink darts fly true boid
- * physics — each launched from the coloured tittle of its own lowercase i
- * in the headline — and part around the cursor as it moves. Your action,
- * their Reaction. Nothing announced; the position makes the argument.
+ * The hero is a field of sixty-four threads that drift loose on the left and
+ * braid tight on the right: intelligence, in formation. The headline resolves
+ * the same pun in motion on load. Below it, the page remains the short
+ * manifesto: the Augmentation Ethos — enhance people, after Newton.
  */
-
-/** A lowercase i whose tittle is a coloured launch pad. The glyph is dotless
- *  ı (U+0131); the dot is our own element, measured live by the Flock for
- *  lift-off, and it stays behind as the letter's permanent tittle. */
-function LaunchDot({ pad }: { pad: "verm" | "blue" | "green" }) {
-  return (
-    <span style={{ position: "relative", display: "inline-block" }}>
-      ı
-      <span data-captain={pad} className={`i-dot i-dot-${pad}`} aria-hidden="true" />
-    </span>
-  );
-}
 
 const serif = {
   fontFamily: "'Newsreader', Georgia, serif",
@@ -44,106 +30,7 @@ export default async function HomePage() {
     <>
       <SiteNav />
 
-      {/* ── HERO: the squadrons own the page. Ink on paper. ── */}
-      <section
-        style={{
-          position: "relative",
-          minHeight: "88vh",
-          display: "flex",
-          alignItems: "flex-end",
-          overflow: "hidden",
-          background: "var(--bg)",
-        }}
-        id="top"
-      >
-        <div style={{ position: "absolute", inset: 0 }}>
-          <Flock />
-      <HeadlineMorph />
-        </div>
-
-        <div className="container hero-pad" style={{ position: "relative", zIndex: 2, paddingTop: 180, paddingBottom: 96 }}>
-          <div style={{ maxWidth: 780 }}>
-            <h1
-              className="ink-enter hero-h1"
-              aria-label="Intelligence, in formation."
-              style={{
-                ...serif,
-                fontStyle: "italic",
-                fontWeight: 600,
-                lineHeight: 0.98,
-                color: "var(--text)",
-                margin: "0 0 30px",
-                animationDelay: "80ms",
-              }}
-            >
-              Intell<LaunchDot pad="verm" />gence,{" "}
-              <span style={{ whiteSpace: "nowrap" }}>
-              <LaunchDot pad="blue" />n
-              <span data-mf-group className="mf-group">
-                {["f", "o", "r", "m", "a", "t"].map((ch, i) => (
-                  <span key={i} className="mf-l" style={{ ["--d" as string]: `${i * 55}ms` }}>{ch}</span>
-                ))}
-                <span className="mf-l" style={{ ["--d" as string]: "330ms" }}><LaunchDot pad="green" /></span>
-                {["o", "n"].map((ch, i) => (
-                  <span key={ch} className="mf-l" style={{ ["--d" as string]: `${385 + i * 55}ms` }}>{ch}</span>
-                ))}
-                <span className="mf-l" style={{ ["--d" as string]: "495ms", color: "var(--reaction)" }}>.</span>
-              </span>
-              </span>
-            </h1>
-
-            <p
-              className="ink-enter"
-              style={{
-                fontSize: "clamp(1.05rem, 1.5vw, 1.2rem)",
-                lineHeight: 1.65,
-                color: "var(--text-soft)",
-                maxWidth: "56ch",
-                margin: "0 0 40px",
-                animationDelay: "180ms",
-              }}
-            >
-              Reaction builds locally hosted multi-agentic systems: a formation of small,
-              specialised agents that move as one: inside your walls, around your
-              workflows, in service of your team.
-            </p>
-
-            <div className="ink-enter" style={{ display: "flex", gap: 14, flexWrap: "wrap", animationDelay: "280ms" }}>
-              {loggedIn ? (
-                <Link href="/demo" className="btn btn-primary btn-large" data-flock-anchor>
-                  Launch demo
-                  <span className="arrow" aria-hidden="true">→</span>
-                </Link>
-              ) : (
-                <Link href="/auth/register" className="btn btn-primary btn-large" data-flock-anchor>
-                  Create account
-                  <span className="arrow" aria-hidden="true">→</span>
-                </Link>
-              )}
-              <Link href="#ethos" className="btn btn-ghost btn-large">
-                Our ethos
-              </Link>
-            </div>
-
-            {loggedIn ? (
-              <div className="mono ink-enter" style={{ marginTop: 18, fontSize: "0.74rem", letterSpacing: "0.08em", color: "var(--text-muted)", animationDelay: "440ms" }}>
-                Signed in as {session?.user?.email}.{" "}
-                <Link href="/auth/signout" style={{ color: "var(--reaction)", textDecoration: "none", borderBottom: "1px solid currentColor" }}>
-                  Sign out
-                </Link>
-              </div>
-            ) : (
-              <div className="mono ink-enter" style={{ marginTop: 18, fontSize: "0.74rem", letterSpacing: "0.08em", color: "var(--text-muted)", animationDelay: "440ms" }}>
-                Already have an account?{" "}
-                <Link href="/auth/signin" style={{ color: "var(--reaction)", textDecoration: "none", borderBottom: "1px solid currentColor" }}>
-                  Sign in
-                </Link>
-              </div>
-            )}
-          </div>
-
-        </div>
-      </section>
+      <LoomHero loggedIn={loggedIn} email={session?.user?.email ?? null} />
 
       {/* ── THE AUGMENTATION ETHOS ── */}
       <BuildReveal target="ethos" />

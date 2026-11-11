@@ -1,5 +1,4 @@
 import Link from "next/link";
-import SectionDropdown from "@/components/SectionDropdown";
 import { auth } from "@/auth";
 
 interface SiteNavProps {
@@ -7,25 +6,23 @@ interface SiteNavProps {
   rightAction?: { label: string; href: string };
   /**
    * Force the signed-out signout link (legacy prop, still honoured). Normally
-   * leave unset: SiteNav now derives login state from the session itself.
+   * leave unset: SiteNav derives login state from the session itself.
    */
   signOutHref?: string;
-  /** Hide the section dropdown (e.g. on pages other than the home landing page) */
+  /** Legacy prop from the dropdown era; accepted and ignored. */
   hideSectionDropdown?: boolean;
 }
 
 /**
- * Session-aware nav. Reads the Auth.js session on the server so every page —
- * the landing page included — reflects whether the visitor is logged in:
- *   · logged out → the configured right action (default "Book a demo")
- *   · logged in  → "Launch demo" + "Sign out"
- * The session persists via the Auth.js cookie until the user signs out; this
- * component simply renders that state instead of assuming logged-out.
+ * Session-aware nav, restyled for the Loom landing: the wordmark lives in the
+ * true top-left corner, quiet text links sit right, and the one loud thing is
+ * the vermilion action pill.
+ *   · logged out → Sign in + the configured right action (default "Book a demo")
+ *   · logged in  → Sign out + "Launch demo"
  */
 export default async function SiteNav({
   rightAction = { label: "Book a demo", href: "/demo" },
   signOutHref,
-  hideSectionDropdown = false,
 }: SiteNavProps) {
   const session = await auth();
   const loggedIn = Boolean(session?.user);
@@ -33,37 +30,46 @@ export default async function SiteNav({
   return (
     <nav className="nav">
       <div className="nav-inner nav-fullbleed">
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {!hideSectionDropdown && <SectionDropdown />}
-          <Link href="/" className="nav-brand">
-            Reaction
+        <Link href="/" className="nav-brand">
+          Reaction
+        </Link>
+        <div className="nav-links">
+          <Link href="/products" className="nav-link nav-link-wide">
+            Products
           </Link>
-        </div>
-        <div className="nav-actions" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          {/* Always visible, regardless of sign-in state, sitting between the
-              left brand and the right-hand primary action. */}
-          <Link href="/products" className="btn btn-ghost">
-            Our products
+          <Link href="/#ethos" className="nav-link nav-link-wide">
+            Ethos
           </Link>
+          <Link href="/demo" className="nav-link nav-link-wide">
+            Demos
+          </Link>
+          <a href="mailto:info@reaction.org.uk" className="nav-link nav-link-wide">
+            Contact
+          </a>
           {loggedIn ? (
             <>
-              <Link href="/auth/signout" className="btn btn-ghost">
+              <Link href="/auth/signout" className="nav-link">
                 Sign out
               </Link>
-              <Link href="/demo" className="btn btn-primary">
+              <Link href="/demo" className="btn btn-nav-verm">
                 Launch demo
                 <span className="arrow" aria-hidden="true">→</span>
               </Link>
             </>
           ) : signOutHref ? (
-            <Link href={signOutHref} className="btn btn-ghost">
+            <Link href={signOutHref} className="nav-link">
               Sign out
             </Link>
           ) : (
-            <Link href={rightAction.href} className="btn btn-primary">
-              {rightAction.label}
-              <span className="arrow" aria-hidden="true">→</span>
-            </Link>
+            <>
+              <Link href="/auth/signin" className="nav-link">
+                Sign in
+              </Link>
+              <Link href={rightAction.href} className="btn btn-nav-verm">
+                {rightAction.label}
+                <span className="arrow" aria-hidden="true">→</span>
+              </Link>
+            </>
           )}
         </div>
       </div>
