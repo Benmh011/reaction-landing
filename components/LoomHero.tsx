@@ -58,11 +58,28 @@ export default function LoomHero({
     const h1 = root.querySelector<HTMLElement>(".loom-h1");
     const sb = h1?.querySelector<HTMLElement>(".sb");
     if (!h1 || !sb) return;
-    const scs = Array.from(root.querySelectorAll<HTMLElement>(".loom-h1 .sc, .loom-h1c .sc"));
+    const scs = Array.from(root.querySelectorAll<HTMLElement>(".loom-h1 .sc, .loom-h1c .sc, .loom-h1b .sc"));
     const scTex = h1.querySelector<HTMLElement>(".sc");
 
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const narrow = window.matchMedia("(max-width: 700px)").matches;
+
+    if (!reduce) {
+      const paths = Array.from(root.querySelectorAll<SVGPathElement>(".loom-weave path"));
+      for (let i = 0; i < paths.length; i++) {
+        const p = paths[i];
+        const L = p.getTotalLength();
+        p.style.strokeDasharray = `${L}`;
+        p.style.strokeDashoffset = `${L}`;
+      }
+      // force style flush so the transition animates from the hidden state
+      void root.getBoundingClientRect();
+      for (let i = 0; i < paths.length; i++) {
+        const p = paths[i];
+        p.style.transition = `stroke-dashoffset 1.9s cubic-bezier(0.3, 0.2, 0.2, 1) ${i * 9}ms`;
+        p.style.strokeDashoffset = "0";
+      }
+    }
 
     const lineHeight = () => parseFloat(getComputedStyle(h1).fontSize); // line-height: 1
 
@@ -131,6 +148,22 @@ export default function LoomHero({
 
       <div className="loom-body">
         <div className="loom-h1w">
+          <div className="loom-h1b" aria-hidden="true">
+            <span className="sa">
+              Intell
+              <TiPlain />
+              gence,
+            </span>{" "}
+            <span className="sb">
+              <TiPlain />n
+            </span>
+            <br />
+            <span className="sc">
+              format
+              <TiPlain />
+              on<span className="stop">.</span>
+            </span>
+          </div>
           <h1 className="loom-h1" aria-label="Intelligence, in formation.">
             <span className="sa">
               Intell

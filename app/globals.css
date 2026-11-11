@@ -581,7 +581,7 @@ section { position: relative; z-index: 2; }
   overflow: hidden;
   background: var(--loom-ground);
 }
-.loom-weave { position: absolute; inset: 0; }
+.loom-weave { position: absolute; inset: 0; opacity: 0; animation: loomFade 1.1s ease 0.1s forwards; }
 .loom-weave svg { width: 100%; height: 100%; display: block; }
 .loom-body {
   position: relative;
@@ -594,7 +594,7 @@ section { position: relative; z-index: 2; }
 }
 
 /* Headline + its dot overlay share one type spec so they register exactly. */
-.loom-h1, .loom-h1c {
+.loom-h1, .loom-h1c, .loom-h1b {
   font-family: "Schibsted Grotesk", "Inter", sans-serif;
   font-weight: 750;
   font-size: clamp(2.4rem, 6.7vw, 6rem);
@@ -633,6 +633,7 @@ section { position: relative; z-index: 2; }
 .loom-hero .ti .u.blue { color: #2565aa; }
 .loom-hero .ti .u.green { color: #0d5a40; }
 
+.loom-h1 { position: relative; z-index: 2; }
 .loom-h1c {
   position: absolute;
   top: 0;
@@ -642,6 +643,19 @@ section { position: relative; z-index: 2; }
   z-index: 3;
   pointer-events: none;
 }
+/* Parchment rim under the textured glyphs: the weave parts around the word. */
+.loom-h1b {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  margin: 0;
+  z-index: 1;
+  pointer-events: none;
+  -webkit-text-stroke: 14px var(--loom-ground);
+  opacity: 0.92;
+}
+.loom-h1b .stop { color: transparent; }
 .loom-h1c .stop { color: transparent; }
 
 /* CTAs arrive once the pun has landed. */
@@ -698,7 +712,7 @@ body:has(.loom-hero) .nav {
 
 @media (max-width: 700px) {
   .loom-body { padding: 96px 24px 40px; }
-  .loom-h1, .loom-h1c { margin-bottom: 36px; }
+  .loom-h1, .loom-h1c, .loom-h1b { margin-bottom: 36px; }
   .loom-strip { padding: 14px 24px; font-size: 0.6rem; }
 }
 @media (prefers-reduced-motion: reduce) {
