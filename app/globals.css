@@ -167,11 +167,12 @@ section { position: relative; z-index: 2; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-primary {
-  background: var(--text);
-  color: var(--bg);
+  background: var(--reaction);
+  color: #faf6ec;
   box-shadow: var(--shadow-cta);
 }
 .btn-primary:hover:not(:disabled) {
+  background: #b73413;
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0,0,0,0.10), 0 8px 24px rgba(0,0,0,0.10);
 }
@@ -627,7 +628,7 @@ section { position: relative; z-index: 2; }
   left: 0;
   top: 0;
   font-weight: 500;
-  clip-path: inset(-10% -40% 64% -40%);
+  clip-path: inset(-10% -40% 71% -40%);
 }
 .loom-hero .ti .u.verm { color: #c93a17; }
 .loom-hero .ti .u.blue { color: #2565aa; }
@@ -741,4 +742,59 @@ body:has(.loom-hero) .nav {
 @media (max-width: 880px) {
   .nav-link-wide { display: none; }
   .nav-links { gap: 16px; }
+}
+
+
+/* ─────────────────────────────────────────────────────────────
+   THE LOOM, CARRIED DOWN THE PAGE — the homepage wears the hero's
+   parchment from top to bottom, with the tokens that sit on it retuned.
+   ───────────────────────────────────────────────────────────── */
+.loom-page {
+  --bg: #e9e2d0;
+  --bg-surface: #ded6c1;
+  --bg-elevated: #f1ecdd;
+  --text-muted: #6b6457;
+  --rule: #d5ccb5;
+  --rule-strong: #b9af96;
+  background: var(--bg);
+}
+body:has(.loom-page) { background: #e9e2d0; }
+
+/* The typeface's own tittle, recoloured, for headings outside the hero. */
+.lti { position: relative; display: inline-block; line-height: 1; }
+.lti .u {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-weight: 500;
+  clip-path: inset(-10% -40% 71% -40%);
+}
+.lti .u.verm { color: #c93a17; }
+.lti .u.blue { color: #2565aa; }
+.lti .u.green { color: #0d5a40; }
+
+/* Threads where the tenet rules used to be: each draws in left to right. */
+.ethos-thread {
+  grid-column: 1 / -1;
+  display: block;
+  width: 100%;
+  height: 22px;
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path 1.3s cubic-bezier(0.3, 0.2, 0.2, 1);
+}
+#ethos.on .ethos-thread { clip-path: inset(0 0 0 0); }
+
+/* What-we-build: three threads run side by side, then plait at the flagship. */
+.build-braid {
+  display: block;
+  width: 100%;
+  height: 44px;
+  margin: 0 0 40px;
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path 1.6s cubic-bezier(0.3, 0.2, 0.2, 1) 0.05s;
+}
+#build.on .build-braid { clip-path: inset(0 0 0 0); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ethos-thread, .build-braid { transition: none; clip-path: none; }
 }

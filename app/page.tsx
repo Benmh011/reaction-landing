@@ -12,22 +12,89 @@ import AutomationDial from "@/components/AutomationDial";
  * The hero is a field of sixty-four threads that drift loose on the left and
  * braid tight on the right: intelligence, in formation. The headline resolves
  * the same pun in motion on load. Below it, the page remains the short
- * manifesto: the Augmentation Ethos — enhance people, after Newton.
+ * manifesto — the Augmentation Ethos, enhance people, after Newton — set in
+ * the hero's own language: parchment ground, the display sans for headings,
+ * the italic serif as the second voice, threads where there were rules, and
+ * the typeface's own tittles carrying the three captain colours.
  */
 
+/** Second voice: the wordmark's italic serif, kept for the tenet names. */
 const serif = {
   fontFamily: "'Newsreader', Georgia, serif",
   fontVariationSettings: '"opsz" 144, "SOFT" 0, "WONK" 0',
   letterSpacing: "-0.02em",
 } as const;
 
+/** First voice: the hero's display sans, in solid ink. */
+const display = {
+  fontFamily: "'Schibsted Grotesk', 'Inter', sans-serif",
+  fontWeight: 750,
+  letterSpacing: "-0.02em",
+  color: "var(--text)",
+} as const;
+
+const CAPTAINS = ["#c93a17", "#2565aa", "#0d5a40"] as const;
+
+/** A lowercase i whose tittle is the typeface's own dot, recoloured: a real
+ *  "i" under the dotless ı, clipped so only its dot shows. */
+function Tittle({ c }: { c: "verm" | "blue" | "green" }) {
+  return (
+    <span className="lti">
+      <span className={`u ${c}`} aria-hidden="true">i</span>ı
+    </span>
+  );
+}
+
+/** One thread standing where a hairline rule used to: drawn in on reveal. */
+function Thread({ d, color, delay }: { d: string; color: string; delay: number }) {
+  return (
+    <svg
+      className="ethos-thread"
+      viewBox="0 0 1136 22"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+      focusable="false"
+      style={{ transitionDelay: `${delay}s` }}
+    >
+      <path d={d} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
+const TENET_THREADS = [
+  "M0 11 C 90 2, 170 20, 260 11 S 430 3, 520 11 S 700 19, 790 11 S 980 4, 1136 11",
+  "M0 11 C 110 19, 200 3, 300 11 S 480 18, 570 11 S 740 4, 840 11 S 1010 18, 1136 11",
+  "M0 11 C 80 4, 190 17, 280 11 S 450 5, 560 11 S 720 18, 820 11 S 1000 5, 1136 11",
+];
+
+/** Three threads run side by side under Websites and Software, then plait
+ *  together as they reach the flagship column. */
+function braidPaths(): string[] {
+  const W = 1136;
+  const mid = 22;
+  const x0 = 0.6 * W;
+  const period = 132;
+  return [0, 1, 2].map((k) => {
+    const pts: string[] = [];
+    for (let x = 0; x <= W; x += 8) {
+      const parallel = mid + (k - 1) * 7 + Math.sin(x / 90 + k * 1.7) * 1.6;
+      const t = Math.min(1, Math.max(0, (x - x0) / 120));
+      const ease = t * t * (3 - 2 * t);
+      const plait = mid + Math.sin(((x - x0) / period) * Math.PI * 2 + (k * 2 * Math.PI) / 3) * 11;
+      pts.push(`${x},${(parallel + (plait - parallel) * ease).toFixed(1)}`);
+    }
+    return "M" + pts.join(" L");
+  });
+}
+
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const session = await auth();
   const loggedIn = Boolean(session?.user);
+  const braid = braidPaths();
   return (
-    <>
+    <div className="loom-page">
       <SiteNav />
 
       <LoomHero loggedIn={loggedIn} email={session?.user?.email ?? null} />
@@ -37,23 +104,20 @@ export default async function HomePage() {
       <section style={{ padding: "110px 0 90px", borderTop: "1px solid var(--rule)" }} id="ethos">
         <div className="container">
           <header className="ethos-item ethos-head-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 360px", gap: 72, alignItems: "center", marginBottom: 70 }}>
-            <div style={{ maxWidth: 620 }}>
+            <div style={{ maxWidth: 660 }}>
             <div className="mono" style={{ fontSize: "0.7rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 20 }}>
               Our position · how we work with your people
             </div>
             <h2
+              aria-label="The Augmentation Ethos."
               style={{
-                ...serif,
-                fontStyle: "italic",
-                fontWeight: 600,
-                fontSize: "clamp(2.1rem, 4.2vw, 3.2rem)",
-                lineHeight: 1.1,
-                color: "var(--text)",
-                margin: "0 0 22px",
+                ...display,
+                fontSize: "clamp(2.1rem, 4.2vw, 3.5rem)",
+                lineHeight: 1.04,
+                margin: "0 0 24px",
               }}
             >
-              <span className="ethos-cap-verm">T</span>he <span className="ethos-cap-blue">A</span>ugmentation{" "}
-              <span className="ethos-cap-green">E</span>thos<span style={{ color: "var(--reaction)" }}>.</span>
+              The Augmentat<Tittle c="blue" />on Ethos<span style={{ color: "var(--reaction)" }}>.</span>
             </h2>
             <p style={{ fontSize: "1.08rem", lineHeight: 1.7, color: "var(--text-soft)", margin: 0, maxWidth: "58ch" }}>
               At a time when businesses are rushing to replace, we want to react to AI in a way that preserves roles, reinvents workflows, and creates meaningful, person-led growth. After all, an agentic system is only as effective as the team making use of it.
@@ -97,14 +161,15 @@ export default async function HomePage() {
               style={{
                 display: "grid",
                 gridTemplateColumns: "220px 1fr",
-                gap: 56,
+                columnGap: 56,
+                rowGap: 22,
                 alignItems: "start",
-                padding: "44px 0",
-                borderTop: "1px solid var(--rule)",
+                padding: "0 0 44px",
               }}
             >
+              <Thread d={TENET_THREADS[i]} color={CAPTAINS[i]} delay={0.35 + i * 0.25} />
               <div>
-                <div className="mono" style={{ fontSize: "0.68rem", letterSpacing: "0.18em", textTransform: "uppercase", color: ["#c93a17", "#2565aa", "#0d5a40"][i], marginBottom: 10 }}>
+                <div className="mono" style={{ fontSize: "0.68rem", letterSpacing: "0.18em", textTransform: "uppercase", color: CAPTAINS[i], marginBottom: 10 }}>
                   {tenet.num}
                 </div>
                 <div style={{ ...serif, fontStyle: "italic", fontWeight: 600, fontSize: "1.15rem", lineHeight: 1.3, color: "var(--text)" }}>
@@ -114,12 +179,11 @@ export default async function HomePage() {
               <div>
                 <h3
                   style={{
-                    ...serif,
-                    fontStyle: "italic",
-                    fontWeight: 600,
-                    fontSize: "clamp(1.25rem, 2vw, 1.55rem)",
-                    lineHeight: 1.2,
-                    color: "var(--text)",
+                    ...display,
+                    fontWeight: 700,
+                    letterSpacing: "-0.015em",
+                    fontSize: "clamp(1.2rem, 1.8vw, 1.5rem)",
+                    lineHeight: 1.18,
                     margin: "0 0 16px",
                   }}
                 >
@@ -140,18 +204,15 @@ export default async function HomePage() {
       <BuildReveal />
       <section style={{ padding: "100px 0 90px", borderTop: "1px solid var(--rule)" }} id="build">
         <div className="container">
-          <header style={{ maxWidth: 720, marginBottom: 64 }}>
+          <header style={{ maxWidth: 760, marginBottom: 56 }}>
             <div className="mono" style={{ fontSize: "0.7rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 20 }}>
               What we build · three trades, one workshop
             </div>
             <h2
               style={{
-                ...serif,
-                fontStyle: "italic",
-                fontWeight: 600,
-                fontSize: "clamp(1.9rem, 3.6vw, 2.8rem)",
-                lineHeight: 1.12,
-                color: "var(--text)",
+                ...display,
+                fontSize: "clamp(1.9rem, 3.6vw, 2.9rem)",
+                lineHeight: 1.08,
                 margin: 0,
               }}
             >
@@ -159,7 +220,11 @@ export default async function HomePage() {
             </h2>
           </header>
 
-          <div className="build-thread" aria-hidden="true" />
+          <svg className="build-braid" viewBox="0 0 1136 44" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+            {braid.map((d, k) => (
+              <path key={k} d={d} fill="none" stroke={CAPTAINS[k]} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+            ))}
+          </svg>
           <div className="build-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 56, alignItems: "start" }}>
             {[
               {
@@ -199,12 +264,11 @@ export default async function HomePage() {
                 </div>
                 <h3
                   style={{
-                    ...serif,
-                    fontStyle: "italic",
-                    fontWeight: 600,
-                    fontSize: "clamp(1.3rem, 2vw, 1.6rem)",
-                    lineHeight: 1.18,
-                    color: "var(--text)",
+                    ...display,
+                    fontWeight: 700,
+                    letterSpacing: "-0.015em",
+                    fontSize: "clamp(1.25rem, 1.9vw, 1.5rem)",
+                    lineHeight: 1.16,
                     margin: "0 0 18px",
                   }}
                 >
@@ -229,18 +293,16 @@ export default async function HomePage() {
             Philosophiæ Naturalis
           </div>
           <blockquote
+            aria-label="Every action has an equal and opposite Reaction."
             style={{
-              ...serif,
-              fontStyle: "italic",
-              fontWeight: 600,
+              ...display,
               fontSize: "clamp(1.9rem, 4vw, 3.2rem)",
-              lineHeight: 1.15,
-              color: "var(--text)",
-              maxWidth: "22ch",
-              margin: "0 auto 20px",
+              lineHeight: 1.08,
+              maxWidth: "20ch",
+              margin: "0 auto 28px",
             }}
           >
-            Every <span style={{ color: "#2565aa" }}>a</span>ct<span style={{ color: "#0d5a40" }}>i</span>on has an equal and opposite <span style={{ color: "var(--reaction)" }}>Reaction</span>.
+            Every act<Tittle c="blue" />on has an equal and oppos<Tittle c="green" />te <span style={{ color: "var(--reaction)" }}>Reaction</span>.
           </blockquote>
           <Link href="/demo" className="btn btn-primary btn-large">
             Set things in motion
@@ -250,6 +312,6 @@ export default async function HomePage() {
       </section>
 
       <SiteFooter />
-    </>
+    </div>
   );
 }
