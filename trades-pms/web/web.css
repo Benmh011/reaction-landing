@@ -1,0 +1,52 @@
+/* Web-only pieces, drawn from the app's own tokens in src/renderer/styles.css.
+   Everything here is prefixed tpmsw- so it cannot touch the app's screens. */
+
+.tpmsw-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--paper);
+}
+.tpmsw-box {
+  width: 460px;
+  max-width: 100%;
+  padding: 28px 28px 24px;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  box-shadow: 0 18px 50px rgba(23, 32, 42, 0.12);
+}
+.tpmsw-box h1 { font-size: 24px; margin: 0 0 8px; }
+.tpmsw-box p { margin: 0; color: var(--muted); }
+.tpmsw-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.tpmsw-btn {
+  font: inherit;
+  font-weight: 500;
+  padding: 7px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--rule);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.tpmsw-btn:hover { border-color: #AEB8B3; }
+.tpmsw-btn-primary { background: var(--ochre); border-color: var(--ochre); color: var(--ochre-ink); font-weight: 600; }
+.tpmsw-btn-primary:hover { background: var(--ochre-hover); border-color: var(--ochre-hover); }
+
+.tpmsw-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 900;
+  padding: 7px 16px;
+  text-align: center;
+  font-weight: 500;
+  background: var(--ochre-tint);
+  color: var(--ochre-ink);
+  border-bottom: 1px solid var(--ochre);
+}

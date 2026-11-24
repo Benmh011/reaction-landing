@@ -1,0 +1,15 @@
+{
+  "name": "trades-pms",
+  "productName": "Trades PMS",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Practice management for gas, plumbing, electrical and building trades",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/rules.test.js"
+  },
+  "devDependencies": {
+    "electron": "44.9.3"
+  }
+}
