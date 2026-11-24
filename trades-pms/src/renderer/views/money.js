@@ -6,47 +6,116 @@ window.Views = window.Views || {};
   const S = (...a) => Views.select(...a);
 
   // ---------- Today ----------
+  const svg = (inner, size = 18) => UI.raw(`<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`);
+  const ICON = {
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    tick: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+    arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+    percent: '<path d="M7 17 17 7"/><circle cx="8" cy="8" r="2"/><circle cx="16" cy="16" r="2"/>',
+    calendar: '<rect x="4" y="5.5" width="16" height="15" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/>',
+  };
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
   Views.dashboard = async (main) => {
     const d = await api('dashboard');
     const b = App.state.business;
     const gas = App.hasTrade('gas');
-    const overdue = d.due.filter(x => x.bucket === 'overdue').length;
-    const soon = d.due.filter(x => x.bucket !== 'overdue').length;
+    const overdueList = d.due.filter(x => x.bucket === 'overdue');
+    const soonList = d.due.filter(x => x.bucket !== 'overdue');
     const owed = d.unpaid.reduce((s, i) => s + i.balance, 0);
+    const lateInvoices = d.unpaid.filter(i => i.overdue).length;
+    const waiting = d.awaitingAcceptance.length;
+    const sent = d.awaitingAcceptance.filter(j => j.status === 'estimate_sent').length;
+    const nothingWaiting = !d.due.length && !d.toInvoice.length && !waiting;
+    // First run: no job has ever been started. The empty space becomes the way in.
+    const firstRun = nothingWaiting && !(await api('listJobs', 'all')).length;
+    const hasClients = firstRun && (await api('listClients')).length > 0;
+    // Web demo only: made-up work can be loaded once, into an empty account or alongside real entries.
+    const canSample = !!(window.tpms.web && window.TpmsSample) && !(await window.TpmsSample.loaded());
     const greeting = (() => { const hr = new Date().getHours(); return hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening'; })();
-    render(main, h`<div class="page"><header class="page-head"><div><h1>${greeting}${b.engineer_name ? `, ${b.engineer_name.split(' ')[0]}` : ''}</h1><p class="sub">${date(UI.today())}</p></div>
-      <div class="actions"><button class="btn" data-new-client>New client</button><button class="btn btn-primary" data-new-job>New job</button></div></header>
-      <div class="tiles">
-        ${gas ? h`<a class="tile ${overdue ? 'tile-bad' : ''}" href="#/reminders"><span class="tile-n">${overdue}</span><span>overdue checks and services</span></a>
-        <a class="tile" href="#/reminders"><span class="tile-n">${soon}</span><span>due in the next 60 days</span></a>` : ''}
-        <a class="tile" href="#/jobs?show=estimating"><span class="tile-n">${d.awaitingAcceptance.length}</span><span>estimates waiting for an answer</span></a>
-        <a class="tile" href="#/invoices"><span class="tile-n">${money(owed)}</span><span>owed on ${d.unpaid.length} ${d.unpaid.length === 1 ? 'invoice' : 'invoices'}</span></a>
-      </div>
+    const dayLine = new Date(UI.today() + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+    // One figure in the strip across the top. A zero is shown quietly; red is kept for what is late.
+    const cell = (href, label, n, note, o = {}) => h`<a class="glance-cell${o.zero ? ' is-zero' : ''}${o.bad ? ' is-bad' : ''}" href="${href}">
+      <span class="glance-l">${label}</span><span class="glance-n">${n}</span><span class="glance-note${o.good ? ' good' : ''}${o.badNote ? ' bad' : ''}">${o.good ? svg(ICON.tick, 14) : ''}${note}</span></a>`;
+    const waitingNote = [sent && `${sent} sent`, (waiting - sent) && `${waiting - sent} being priced`].filter(Boolean).join(', ');
+    const glance = h`<section class="glance" aria-label="At a glance">
+      ${gas ? h`${cell('#/reminders', 'Overdue checks and services', overdueList.length,
+          overdueList.length ? `Oldest is ${plural(Math.max(...overdueList.map(x => -x.days_left)), 'day', 'days')} over` : 'Nothing overdue',
+          { zero: !overdueList.length, bad: !!overdueList.length, good: !overdueList.length, badNote: !!overdueList.length })}
+        ${cell('#/reminders', 'Due in the next 60 days', soonList.length, soonList.length ? `Next on ${date(soonList[0].next_due)}` : 'Nothing coming up', { zero: !soonList.length })}` : ''}
+      ${cell('#/jobs?show=estimating', 'Estimates waiting for an answer', waiting, waiting ? waitingNote : 'None waiting', { zero: !waiting })}
+      ${cell('#/invoices', 'Owed to you', money(owed), d.unpaid.length ? `On ${plural(d.unpaid.length, 'invoice', 'invoices')}${lateInvoices ? `, ${lateInvoices} overdue` : ''}` : 'No unpaid invoices', { zero: !d.unpaid.length, badNote: !!lateInvoices })}
+    </section>`;
+
+    const row = (lead, title, sub, trail) => h`<li class="row">${lead || ''}<div class="row-main"><b>${title}</b><div class="muted">${sub}</div></div>${trail ? h`<div class="row-trail">${trail}</div>` : ''}</li>`;
+    const panel = (title, more, rows) => h`<section class="panel"><div class="panel-head"><h2>${title}</h2>${more || ''}</div><ul class="rows">${rows}</ul></section>`;
+    const duePill = x => x.bucket === 'overdue'
+      ? h`<span class="pill pill-bad">${plural(-x.days_left, 'day', 'days')} overdue</span>`
+      : h`<span class="pill pill-ochre">Due ${date(x.next_due)}</span>`;
+
+    const sampleStrip = h`<div class="start-sample"><div class="row-main"><b>Just looking around?</b><div class="muted">${firstRun ? 'Fill this account with made-up clients, jobs, invoices and certificates.' : 'Add made-up clients, jobs, invoices and certificates alongside your own.'}</div></div>
+      <button class="btn" data-sample>Load sample data</button></div>`;
+    const start = h`<section class="panel start"><div class="panel-head"><h2>Three steps to your first estimate</h2></div>
+      <p class="muted start-lead">Nothing is waiting yet. Start here.</p>
+      <ol class="start-steps">
+        <li class="${hasClients ? 'done' : 'now'}"><span class="start-n">${hasClients ? svg(ICON.tick, 16) : '1'}</span>
+          <div class="row-main"><b>Add a client</b><div class="muted">Their name, the property and how to reach them.</div></div>
+          ${hasClients ? '' : h`<button class="btn btn-dark" data-new-client>Add client${svg(ICON.arrow, 16)}</button>`}</li>
+        <li class="${hasClients ? 'now' : ''}"><span class="start-n">2</span>
+          <div class="row-main"><b>Start a job</b><div class="muted">Say what the work is and where.</div></div>
+          ${hasClients ? h`<button class="btn btn-dark" data-new-job>New job${svg(ICON.arrow, 16)}</button>` : ''}</li>
+        <li><span class="start-n">3</span>
+          <div class="row-main"><b>Price it and send the estimate</b><div class="muted">Every version is kept, and the customer signs off the one they accept.</div></div></li>
+      </ol>
+      ${canSample ? sampleStrip : ''}
+    </section>`;
+
+    const deadline = (ic, tone, title, sub, extra) => h`<li class="row deadline"><span class="chip-icon ${tone}">${svg(ICON[ic])}</span><div class="row-main"><b>${title}</b><div class="muted">${sub}</div>${extra || ''}</div></li>`;
+
+    render(main, h`<div class="page today"><header class="page-head"><div><p class="day">${dayLine}</p><h1>${greeting}${b.engineer_name ? `, ${b.engineer_name.split(' ')[0]}` : ''}</h1></div>
+      <div class="actions"><button class="btn" data-new-client>${svg(ICON.plus, 16)}New client</button><button class="btn btn-primary" data-new-job>${svg(ICON.plus, 16)}New job</button></div></header>
+      ${glance}
       <div class="two-col">
-        <div>
-          ${gas && d.due.length ? h`<section class="section"><div class="section-head"><h2>Coming up</h2><a href="#/reminders">All reminders</a></div><ul class="list">
-            ${d.due.slice(0, 6).map(x => h`<li><span class="${x.bucket === 'overdue' ? 'bad' : ''}">${date(x.next_due)}</span><span><b>${x.kind}</b><br><span class="muted">${x.client_name}, ${x.address_line1}</span></span></li>`)}</ul></section>` : ''}
-          ${d.toInvoice.length ? h`<section class="section"><div class="section-head"><h2>Ready to invoice</h2></div><ul class="list">
-            ${d.toInvoice.map(j => h`<li><a href="#/jobs/${j.id}" class="ref">${j.ref}</a><span><b>${j.title}</b><br><span class="muted">${j.client_name}, ${money(j.totals.total)}${j.totals.pendingExtras ? `, ${money(j.totals.pendingExtras)} of extras waiting for approval` : ''}</span></span></li>`)}</ul></section>` : ''}
-          ${d.awaitingAcceptance.length ? h`<section class="section"><div class="section-head"><h2>Estimates waiting</h2></div><ul class="list">
-            ${d.awaitingAcceptance.map(j => h`<li><a href="#/jobs/${j.id}" class="ref">${j.ref}</a><span><b>${j.title}</b><br><span class="muted">${j.client_name}, version ${j.latest_revision ? j.latest_revision.number : 1}, ${UI.esc(Labels.jobStatus[j.status]).toLowerCase()}</span></span></li>`)}</ul></section>` : ''}
-          ${!d.due.length && !d.toInvoice.length && !d.awaitingAcceptance.length ? h`<div class="empty"><h2>Nothing waiting</h2><p>Add a client, then start a job to price it.</p></div>` : ''}
+        <div class="col">
+          ${gas && d.due.length ? panel('Due and overdue', h`<a href="#/reminders">All reminders</a>`,
+            d.due.slice(0, 6).map(x => row('', x.kind, `${x.client_name}, ${x.address_line1}`, duePill(x)))) : ''}
+          ${d.toInvoice.length ? panel('Ready to invoice', '',
+            d.toInvoice.map(j => row(h`<a href="#/jobs/${j.id}" class="ref-chip">${j.ref}</a>`, j.title,
+              `${j.client_name}${j.totals.pendingExtras ? `, ${money(j.totals.pendingExtras)} of extras waiting for approval` : ''}`, h`<b>${money(j.totals.total)}</b>`))) : ''}
+          ${waiting ? panel('Estimates waiting', '',
+            d.awaitingAcceptance.map(j => row(h`<a href="#/jobs/${j.id}" class="ref-chip">${j.ref}</a>`, j.title,
+              `${j.client_name}, version ${j.latest_revision ? j.latest_revision.number : 1}, ${Labels.jobStatus[j.status].toLowerCase()}`))) : ''}
+          ${firstRun ? start : nothingWaiting ? h`<section class="panel"><div class="empty-quiet"><h2>Nothing waiting</h2><p>Estimates to chase, jobs to invoice and checks that fall due will show here.</p></div></section>` : ''}
+          ${canSample && !firstRun ? h`<section class="panel sample-only">${sampleStrip}</section>` : ''}
         </div>
-        <div>
-          <section class="section deadlines"><div class="section-head"><h2>Tax deadlines</h2></div>
-            ${d.vat ? h`<div class="deadline"><div><b>VAT return</b><div class="muted">${date(d.vat.period.start)} to ${date(d.vat.period.end)}, due ${date(d.vat.period.due)}</div></div><div class="num"><b>${money(d.vat.boxes.box5)}</b><div class="muted">${d.vat.direction === 'pay' ? 'to pay so far' : 'to reclaim so far'}</div></div></div>`
-              : h`<div class="deadline"><div><b>VAT</b><div class="muted">${b.vat_registered ? 'Add your VAT registration date in Settings.' : 'Not VAT registered.'}</div></div></div>`}
-            ${d.mtd ? h`<div class="deadline"><div><b>Income Tax quarterly update</b><div class="muted">${date(d.mtd.start)} to ${date(d.mtd.end)}, due ${date(d.mtd.due)}</div></div></div>`
-              : d.mtdInfo && d.mtdInfo.status !== 'not_applicable' ? h`<div class="deadline"><div><b>Income Tax</b><div class="muted">${d.mtdInfo.text}</div></div></div>` : ''}
-          </section>
-          ${d.notifications.length ? h`<section class="section"><div class="section-head"><h2>Gas Safe notifications</h2></div><ul class="list">
-            ${d.notifications.map(n => h`<li><span class="${n.days_left < 7 ? 'bad' : ''}">${date(n.deadline)}</span><span><a href="#/certificates/${n.id}">${n.number}</a><br><span class="muted">${n.client_name}, ${n.address_line1}</span></span></li>`)}</ul></section>` : ''}
-          ${d.unpaid.length ? h`<section class="section"><div class="section-head"><h2>Unpaid invoices</h2><a href="#/invoices">All invoices</a></div><ul class="list">
-            ${d.unpaid.slice(0, 6).map(i => h`<li><a href="#/invoices/${i.id}" class="ref">${i.number}</a><span><b>${money(i.balance)}</b> from ${i.client_name}<br><span class="muted ${i.overdue ? 'bad' : ''}">${i.overdue ? 'Overdue since' : 'Due'} ${date(i.due_date)}</span></span></li>`)}</ul></section>` : ''}
+        <div class="col">
+          ${panel('Tax deadlines', '', h`
+            ${d.vat ? deadline('percent', 'tone-ochre', 'VAT return', `${date(d.vat.period.start)} to ${date(d.vat.period.end)}, due ${date(d.vat.period.due)}`,
+                h`<div class="deadline-amount"><span class="deadline-n">${money(d.vat.boxes.box5)}</span><span class="muted">${d.vat.direction === 'pay' ? 'to pay so far' : 'to reclaim so far'}</span></div>`)
+              : deadline('percent', '', 'VAT', b.vat_registered ? 'Add your VAT registration date in Settings.' : 'Not VAT registered.')}
+            ${d.mtd ? deadline('calendar', 'tone-ochre', 'Income Tax quarterly update', `${date(d.mtd.start)} to ${date(d.mtd.end)}, due ${date(d.mtd.due)}`)
+              : d.mtdInfo && d.mtdInfo.status !== 'not_applicable' ? deadline('calendar', '', 'Income Tax', d.mtdInfo.text) : ''}`)}
+          ${d.notifications.length ? panel('Gas Safe notifications', '',
+            d.notifications.map(n => row('', h`<a href="#/certificates/${n.id}">${n.number}</a>`, `${n.client_name}, ${n.address_line1}`,
+              h`<span class="pill ${n.days_left < 7 ? 'pill-bad' : 'pill-neutral'}">By ${date(n.deadline)}</span>`))) : ''}
+          ${d.unpaid.length ? panel('Unpaid invoices', h`<a href="#/invoices">All invoices</a>`,
+            d.unpaid.slice(0, 6).map(i => row(h`<a href="#/invoices/${i.id}" class="ref-chip">${i.number}</a>`, h`${money(i.balance)} from ${i.client_name}`,
+              h`<span class="${i.overdue ? 'bad' : ''}">${i.overdue ? 'Overdue since' : 'Due'} ${date(i.due_date)}</span>`))) : ''}
         </div>
       </div></div>`);
-    main.querySelector('[data-new-client]').addEventListener('click', async () => { const c = await Views.editClient(); if (c) App.go(`#/clients/${c.id}`); });
-    main.querySelector('[data-new-job]').addEventListener('click', () => Views.newJob());
+    main.querySelectorAll('[data-new-client]').forEach(el => el.addEventListener('click', async () => { const c = await Views.editClient(); if (c) App.go(`#/clients/${c.id}`); }));
+    main.querySelectorAll('[data-new-job]').forEach(el => el.addEventListener('click', () => Views.newJob()));
+    // Web demo only: fill an empty account with made-up work to look around.
+    const sampleBtn = main.querySelector('[data-sample]');
+    if (sampleBtn) sampleBtn.addEventListener('click', async () => {
+      // With work of their own already in the account, ask first: the sample cannot be taken out again in one go.
+      if (!firstRun && !(await modal({ title: 'Load sample data', confirm: 'Load sample data',
+        body: h`<p>This adds seven made-up clients with their jobs, invoices, certificates and expenses alongside what is already here. It cannot be removed again in one go.</p>`, onConfirm: () => true }))) return;
+      sampleBtn.disabled = true; sampleBtn.textContent = 'Loading sample data…';
+      try { await window.TpmsSample.load(); toast('Sample data loaded'); App.reload(); }
+      catch (ex) { toast(ex.message, 'error'); sampleBtn.disabled = false; sampleBtn.textContent = 'Load sample data'; }
+    });
   };
 
   // ---------- invoices ----------

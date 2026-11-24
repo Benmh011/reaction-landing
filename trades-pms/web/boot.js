@@ -339,6 +339,8 @@ async function start() {
   for (const f of ['shared/labels.js', 'renderer/ui.js', 'renderer/views/setup.js', 'renderer/views/clients.js', 'renderer/views/jobs.js', 'renderer/views/certs.js', 'renderer/views/money.js', 'renderer/app.js']) {
     await loadScript(`${SRC}/${f}`);
   }
+  // Web only: made-up work a demo login can load into an empty account (Today screen).
+  await loadScript(`${ROOT}/web/sample-data.js`);
   hidePanel();
   // app.js starts on DOMContentLoaded, which has already happened by now.
   window.dispatchEvent(new Event('DOMContentLoaded'));

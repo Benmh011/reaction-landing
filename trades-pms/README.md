@@ -51,13 +51,14 @@ The same app runs in a browser at `reaction.org.uk/demos/trades-pms`, behind the
 - `web/index.html` the page (the same shell as `src/renderer/index.html`)
 - `web/boot.js` the bridge: loading and saving, PDFs, CSV downloads, postcode lookup
 - `web/sqlite-adapter.js` makes sql.js look like Node's `node:sqlite` so `src/db.js` runs unchanged
+- `web/sample-data.js` the made-up work behind the web-only "Load sample data" button on the Today screen (offered until it has been loaded once)
 - `web/vendor/` sql.js 1.17.0 (SQLite compiled to WebAssembly)
 
 Each sign-in has its own data: one row in the `TradesPmsStore` table of the Reaction database holding that login's whole SQLite file. Every save carries the version it was based on, so if the same login is open in two places the later one is told to reload instead of overwriting.
 
 The site side is in the parent repo: `app/demos/trades-pms/route.ts` (the page), `app/api/trades-pms/` (`asset` serves this folder to approved sign-ins, `store` loads and saves, `pdf` prints), `lib/tradesPms.ts` (who may open it, and the storage), `db/trades-pms.sql` (the table and the catalogue row).
 
-Where a screen has to behave differently on the web it checks `window.tpms.web`, which only the web bridge sets. So far that is two places: the PDF toast in `src/renderer/ui.js` and the certificate header buttons in `src/renderer/views/certs.js`.
+Where a screen has to behave differently on the web it checks `window.tpms.web`, which only the web bridge sets. So far that is three places: the PDF toast in `src/renderer/ui.js`, the certificate header buttons in `src/renderer/views/certs.js`, and the "Load sample data" button on the Today screen in `src/renderer/views/money.js`.
 
 When adding to the app:
 
@@ -65,3 +66,7 @@ When adding to the app:
 - a new script in `src/renderer/index.html` must also be added to the list at the bottom of `web/boot.js`
 - a new call on `window.tpms` must be added to both `src/preload.js` (with its handler in `src/main.js`) and `web/boot.js`
 - a new Node module required by `src/db.js`, `src/rules.js` or `src/docs.js` must be given a browser stand-in in `web/boot.js`
+
+## The mark
+
+The tick mark is one drawing. It is written into `src/renderer/styles.css` (`.brand-mark`, used at every size) and rendered to `src/assets/icon.png` and `src/assets/icon.ico` for the window and taskbar. Change all three together.
