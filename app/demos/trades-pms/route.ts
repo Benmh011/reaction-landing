@@ -71,5 +71,9 @@ export async function GET(req: Request) {
   }
 
   const html = await readFile(path.join(process.cwd(), "trades-pms", "web", "index.html"), "utf8");
-  return new NextResponse(html, { status: 200, headers: { ...HEADERS, "Content-Security-Policy": CSP } });
+  // The site's own counter is not on this page, so the time spent here is sent
+  // by a small script of this site's (public/demo-timer.js; allowed by the
+  // policy above as a script of our own). The app's files are not touched.
+  const timed = html.replace("</body>", `<script src="/demo-timer.js" data-slug="trades-pms" defer></script>\n</body>`);
+  return new NextResponse(timed, { status: 200, headers: { ...HEADERS, "Content-Security-Policy": CSP } });
 }

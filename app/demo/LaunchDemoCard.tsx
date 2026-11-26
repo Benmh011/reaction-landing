@@ -3,7 +3,10 @@
 // A launchable demo entry. The destination software carries its own login
 // wall — that's the access gate. On launch we record a lightweight
 // DemoSession row (durationMs 0 = a launch event) so the analytics
-// dashboard can count demo interest.
+// dashboard can count demo interest. Nothing is recorded from a browser that
+// has counting switched off (the Privacy page).
+
+import { sendCount } from "@/lib/visitCount";
 
 type DemoEntry = {
   slug: string;
@@ -12,38 +15,9 @@ type DemoEntry = {
   launchUrl: string;
 };
 
-function sessionId(): string {
-  try {
-    const KEY = "rx_sid";
-    let sid = localStorage.getItem(KEY);
-    if (!sid) {
-      sid = (crypto.randomUUID?.() ?? String(Math.random()).slice(2)) + Date.now().toString(36);
-      localStorage.setItem(KEY, sid);
-    }
-    return sid;
-  } catch {
-    return "anon-" + Date.now().toString(36);
-  }
-}
-
 export default function LaunchDemoCard({ demo }: { demo: DemoEntry }) {
-  const trackLaunch = () => {
-    try {
-      const payload = JSON.stringify({
-        type: "demo",
-        slug: demo.slug,
-        durationMs: 0,
-        sessionId: sessionId(),
-      });
-      if (navigator.sendBeacon) {
-        navigator.sendBeacon("/api/track", new Blob([payload], { type: "application/json" }));
-      } else {
-        fetch("/api/track", { method: "POST", body: payload, headers: { "Content-Type": "application/json" }, keepalive: true }).catch(() => {});
-      }
-    } catch {
-      /* tracking must never block the launch */
-    }
-  };
+  // Sent as the page is about to go, so it survives the launch. It can never block it.
+  const trackLaunch = () => sendCount({ type: "demo", slug: demo.slug, durationMs: 0 }, true);
 
   return (
     <div

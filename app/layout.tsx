@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
-import { Analytics } from "@vercel/analytics/next";
+import VercelCount from "@/components/VercelCount";
 import SiteAnalytics from "@/components/SiteAnalytics";
 
 export const metadata: Metadata = {
@@ -109,10 +109,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers>{children}</Providers>
         {/* Vercel Analytics — cookieless visitor + page view tracking.
             Data appears in the project's Analytics tab in the Vercel dashboard.
-            No personal data collected; no consent banner required. */}
-        <Analytics />
+            No personal data collected. Sends nothing from a browser that has
+            counting switched off on the Privacy page. */}
+        <VercelCount />
         {/* First-party analytics beacon — feeds the in-app /analytics dashboard
-            (page views + demo time-on-page). Cookieless; fail-soft. */}
+            and Reaction's own PMS (page views, mailing tags, button presses,
+            demo time). Cookieless; fail-soft; honours the same switch. */}
         <SiteAnalytics />
         <script
           type="application/ld+json"
