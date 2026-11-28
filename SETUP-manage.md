@@ -3,7 +3,8 @@
 Reaction's own PMS has a **Website** tab. Through it an administrator of the PMS can
 change four things here without opening `/admin`: the demos on `/demo`, the demo requests,
 the accounts that can sign in, and the list of addresses that have opted out of news and
-offers.
+offers. Articles are written in the PMS and published here, at `/articles` (see
+[Articles](#articles) below).
 
 The PMS never connects to this site's database. It asks this site, at addresses under
 `/api/manage`, and this site does the work with its own code and its own rules.
@@ -23,12 +24,24 @@ The PMS never connects to this site's database. It asks this site, at addresses 
 | `app/api/manage/users/route.ts` | `GET` the accounts, `POST` add one with a password, `PATCH` which demo an account sees, `DELETE` remove a client's account |
 | `app/api/manage/optouts/route.ts` | `GET` who has opted out, `POST` record opt-outs taken in the PMS |
 | `db/manage.sql` | only if the PMS says the opt-out list could not be read (see below) |
+| `app/api/manage/articles/route.ts` | `GET` what is published, `POST` publish or publish again, `DELETE ?sourceId=` take one off |
+| `app/api/manage/articles/images/route.ts` | `POST` keep a picture an article uses |
+| `app/api/articles/image/route.ts` | a picture, to anybody, while a published article uses it |
+| `app/articles/page.tsx` | `/articles`, the list |
+| `app/articles/read/page.tsx` | one article; `/articles/<address>` is sent here by `next.config.js` |
+| `components/ArticleBody.tsx` | an article's blocks drawn as the page |
+| `lib/articleBlocks.ts` | what an article may hold, checked (the PMS has the same file) |
+| `lib/articles.ts` | reading articles and pictures for the pages |
+| `db/articles.sql` | the two tables articles need: run once (see below) |
 
 Which demo, request or account a change is for is sent in the body (`id`), or as `?id=`
 for a removal, never in the path: none of these folders has square brackets in its name.
 
-Nothing that was already here was changed. `/admin` works as before, and either place can
-be used: both write to the same tables.
+For stage one nothing that was already here was changed. `/admin` works as before, and
+either place can be used: both write to the same tables. Articles changed four files that
+were here: `components/SiteNav.tsx` and `components/SiteFooter.tsx` (an Articles link,
+only while something is published), `next.config.js` (the address rewrite) and
+`app/api/manage/route.ts` (Articles among the parts it counts).
 
 ## The one setting
 
@@ -51,6 +64,9 @@ managed and says why.
 It can: add, edit, show, hide and reorder demos; approve or reject a waiting request;
 add a client account with a password, change which demo an account sees, and remove a
 client account; read the opt-out list and add addresses to it.
+
+It can also publish an article, publish it again with changes, and take it off, and keep
+the pictures those articles use.
 
 It cannot: delete a demo; remove an administrator or a pilot student; change anybody's
 role or password; take an address off the opt-out list; read a password or its hash; or
@@ -77,3 +93,39 @@ is safe to run when everything is already there.
 
 Which demo an account sees is read into the person's session when they sign in. Changing
 it, here or in the PMS, shows for them the next time they sign in.
+
+## Articles
+
+An article is written in the PMS and kept there. Publishing sends this site a copy, which
+it keeps in its own `Article` table and shows at `/articles/<address>`; the list is at
+`/articles`. **Articles** appears in the menu and the footer only while at least one is
+published. Taking an article off removes it here at once (its address is a 404); it stays
+in the PMS as a draft.
+
+**Run `db/articles.sql` once.** It makes the `Article` and `ArticleImage` tables. Open the
+Neon SQL editor for this project's database, paste in the whole file and run it. It is
+safe to run again. Until it is run, `/articles` says nothing is published and the PMS's
+**Check the connection** says the file has not been run; nothing else on the site is
+affected.
+
+**What is kept.** An article's body is a list of blocks (a paragraph, a heading, a
+subheading, a quote, a list, a rule, a picture), stored as JSON, never as HTML. Every
+article is checked on the way in by `lib/articleBlocks.ts`, and the page is built from
+the blocks by `components/ArticleBody.tsx`, so no markup anybody typed reaches a page.
+Links may lead to `http`/`https` addresses, `mailto:` or a path on this site; a link to
+another site opens in a new tab and is told nothing about where it came from. The site
+counts the words and the reading time itself.
+
+**Pictures** are kept in `ArticleImage` under the SHA-256 of their bytes, PNG, JPEG or
+WebP only (read from the bytes, not from what they say they are), two megabytes at most.
+`/api/articles/image?id=` serves one only while a published article uses it; a picture
+nothing published uses answers 404. Pictures are kept when an article is taken off, so
+publishing it again does not send them again.
+
+**Addresses.** `/articles/<address>` is rewritten to `/articles/read?slug=<address>` in
+`next.config.js`, so there is no folder with brackets in its name. The page names
+`/articles/<address>` as its one true address. `read` is not allowed as an address. Two
+articles cannot have the same address: the second is refused, in words, in the PMS.
+
+Who pressed Publish is written beside the article (`publishedBy`, `PMS: <name>`) and to
+the log as an `[AUDIT]` line. Who wrote it is not sent here.

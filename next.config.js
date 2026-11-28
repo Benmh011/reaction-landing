@@ -16,11 +16,18 @@ const nextConfig = {
     ],
   },
   // The app's files are served to approved sign-ins only, through one route.
+  // An article's address is /articles/<its address>; the page that shows it is
+  // app/articles/read, given the address as ?slug=. Real pages are matched
+  // before these, so /articles and /articles/read are never sent anywhere.
   async rewrites() {
     return [
       {
         source: "/demos/trades-pms/app/:path*",
         destination: "/api/trades-pms/asset?f=:path*",
+      },
+      {
+        source: "/articles/:slug",
+        destination: "/articles/read?slug=:slug",
       },
     ];
   },

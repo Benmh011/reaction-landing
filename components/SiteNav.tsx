@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { auth } from "@/auth";
+import { anyArticles } from "@/lib/articles";
 
 interface SiteNavProps {
   /** Right-side action shown to LOGGED-OUT visitors. Defaults to "Book a demo". */
@@ -19,6 +20,10 @@ interface SiteNavProps {
  * the vermilion action pill.
  *   · logged out → Sign in + the configured right action (default "Book a demo")
  *   · logged in  → Sign out + "Launch demo"
+ *
+ * Articles is in the menu while at least one article is published, and not
+ * otherwise, so the menu never leads to an empty page. Whether there is one is
+ * remembered between requests (lib/articles.ts) and can never fail the nav.
  */
 export default async function SiteNav({
   rightAction = { label: "Book a demo", href: "/demo" },
@@ -26,6 +31,7 @@ export default async function SiteNav({
 }: SiteNavProps) {
   const session = await auth();
   const loggedIn = Boolean(session?.user);
+  const articles = await anyArticles();
 
   return (
     <nav className="nav">
@@ -43,6 +49,11 @@ export default async function SiteNav({
           <Link href="/demo" className="nav-link nav-link-wide">
             Demos
           </Link>
+          {articles && (
+            <Link href="/articles" className="nav-link nav-link-wide">
+              Articles
+            </Link>
+          )}
           <a href="mailto:info@reaction.org.uk" className="nav-link nav-link-wide">
             Contact
           </a>

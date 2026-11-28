@@ -1,4 +1,8 @@
-export default function SiteFooter() {
+import { anyArticles } from "@/lib/articles";
+
+// Articles is in the footer while at least one article is published (lib/articles.ts).
+export default async function SiteFooter() {
+  const articles = await anyArticles();
   return (
     <footer className="foot">
       <div className="container foot-inner">
@@ -19,6 +23,7 @@ export default function SiteFooter() {
         </div>
         <div className="foot-links">
           <a href="/products">Products</a>
+          {articles && <a href="/articles">Articles</a>}
           <a href="mailto:info@reaction.org.uk">Contact</a>
           <a href="/privacy">Privacy</a>
           <a href="/">Home</a>
